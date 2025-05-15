@@ -86,22 +86,6 @@ function hasDealtCards() {
 async function dealNewCards() {
     updateStatus('Jaetaan kortteja...');
     
-    try {
-        // Yritetään hakea kortit GIB-palvelusta jos GIB-integraatio on valmis
-        if (typeof gibService !== 'undefined' && gibService.isAvailable()) {
-            const deal = await gibService.getDeal();
-            if (deal) {
-                importDealToGameState(deal);
-                updateStatus('Uudet kortit jaettu!');
-                announceToScreenReader('Uudet kortit on jaettu');
-                renderUI();
-                return;
-            }
-        }
-    } catch (error) {
-        console.error('Virhe haettaessa kortteja GIB-palvelusta:', error);
-    }
-    
     // Varakäytäntö: käytä satunnaista korttien jakoa jos GIB ei ole käytettävissä
     generateRandomDeal();
     updateStatus('Uudet kortit jaettu!');
