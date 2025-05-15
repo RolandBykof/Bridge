@@ -1,0 +1,333 @@
+/* Nollaus ja perustyyli */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+    padding: 20px;
+}
+
+/* Saavutettavuustyylit */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Fokustyylit */
+a:focus, button:focus, input:focus, select:focus, textarea:focus {
+    outline: 3px solid #4299e1;
+    outline-offset: 2px;
+}
+
+/* Kontti-elementti */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+/* Otsikot */
+h1 {
+    font-size: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+h2 {
+    font-size: 20px;
+    margin-bottom: 15px;
+}
+
+h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+/* Osiot */
+.section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Pelaajien hallinta */
+.player-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+@media (min-width: 768px) {
+    .player-controls {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+}
+
+.player-badge {
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    position: relative;
+}
+
+.player-badge.current {
+    background: #dbeafe;
+    border: 2px solid #3b82f6;
+}
+
+.player-type-toggle {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 6px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.player-type-toggle:hover {
+    background: #2563eb;
+}
+
+/* Tilaviestin näyttö */
+.status-bar {
+    padding: 12px;
+    background: #dbeafe;
+    color: #1e40af;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Pelipöytä */
+.game-table {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+@media (min-width: 768px) {
+    .game-table {
+        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-areas:
+            ". north ."
+            "west center east"
+            ". south .";
+    }
+    
+    .north-hand { grid-area: north; }
+    .west-hand { grid-area: west; }
+    .east-hand { grid-area: east; }
+    .south-hand { grid-area: south; }
+    .center-area { grid-area: center; }
+}
+
+.hand {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Korttien tyylit */
+.suit-row {
+    margin-bottom: 12px;
+}
+
+.suit-label {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.suit-spades, .suit-clubs {
+    color: black;
+}
+
+.suit-hearts, .suit-diamonds {
+    color: #e53e3e;
+}
+
+.cards-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.card-button {
+    width: 40px;
+    height: 48px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    background: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-button:hover:not(:disabled) {
+    background: #f7fafc;
+    transform: translateY(-2px);
+}
+
+.card-button:disabled {
+    background: #edf2f7;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.card-hearts, .card-diamonds {
+    color: #e53e3e;
+}
+
+.card-spades, .card-clubs {
+    color: black;
+}
+
+/* Pelatut kortit */
+.played-cards-list {
+    list-style-type: none;
+}
+
+.played-cards-list li {
+    margin-bottom: 6px;
+}
+
+/* Toimintopainikkeet */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.button {
+    padding: 10px 16px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s;
+}
+
+.button:hover {
+    background: #2563eb;
+}
+
+.button-secondary {
+    background: #64748b;
+}
+
+.button-secondary:hover {
+    background: #475569;
+}
+
+.button-success {
+    background: #10b981;
+}
+
+.button-success:hover {
+    background: #059669;
+}
+
+/* Ohje-osio */
+.help-section {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.help-list {
+    list-style-type: none;
+    margin-bottom: 15px;
+}
+
+.help-list li {
+    margin-bottom: 8px;
+}
+
+/* Tumma teema */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1a202c;
+        color: #e2e8f0;
+    }
+    
+    .container {
+        background: #2d3748;
+    }
+    
+    .section {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .player-badge {
+        background: #2d3748;
+    }
+    
+    .player-badge.current {
+        background: #2a4365;
+        border-color: #4299e1;
+    }
+    
+    .status-bar {
+        background: #2a4365;
+        color: #a3bffa;
+    }
+    
+    .hand {
+        background: #2d3748;
+    }
+    
+    .card-button {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .card-button:hover:not(:disabled) {
+        background: #2a3749;
+    }
+    
+    .card-button:disabled {
+        background: #4a5568;
+    }
+    
+    .help-section {
+        background: #2d3748;
+    }
+}
