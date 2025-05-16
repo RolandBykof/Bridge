@@ -1,37 +1,37 @@
 /**
- * BridgeCircle - GIB Integration Module - Päivitetty välityspalvelinta varten
- * Käsittelee yhteyden GIB-tekoälyyn välityspalvelimen kautta
+ * BridgeCircle - GIB Integration Module - Updated for proxy server
+ * Handles connection to GIB AI through a proxy server
  */
 
-// GIB-palvelun asetukset
+// GIB service settings
 const gibService = {
-    // Käytä omaa palvelinta välityspalvelimena GIB:lle
+    // Use own server as proxy for GIB
     apiBaseUrl: window.location.origin,
     
-    // Palvelun tila
+    // Service state
     _isAvailable: false,
     _isInitialized: false,
     
     /**
-     * Alustaa GIB-palvelun
+     * Initialize GIB service
      */
     async initialize() {
         try {
-            // Yritä tehdä testikutsu GIBin saatavuuden tarkistamiseksi
+            // Try to make a test call to check GIB availability
             const response = await fetch(`${this.apiBaseUrl}/api/gib/deal`);
             
-            // Testaa saatiinko onnistunut vastaus
+            // Test if we got a successful response
             this._isAvailable = response.ok;
             
-            // Jos saatavuuden tarkistus epäonnistui, loki virheestä
+            // If availability check failed, log error
             if (!this._isAvailable) {
-                console.warn('GIB-palvelua ei ole saatavilla. Käytetään simuloitua peliä.');
+                console.warn('GIB service is not available. Using simulated game.');
             }
             
             this._isInitialized = true;
             return this._isAvailable;
         } catch (error) {
-            console.error('Virhe GIB-palvelun alustuksessa:', error);
+            console.error('Error initializing GIB service:', error);
             this._isAvailable = false;
             this._isInitialized = true;
             return false;
@@ -39,84 +39,84 @@ const gibService = {
     },
     
     /**
-     * Tarkistaa onko GIB-palvelu käytettävissä
+     * Check if GIB service is available
      */
     isAvailable() {
         return this._isAvailable;
     },
     
     /**
-     * Hakee jaon GIB-palvelusta
+     * Get deal from GIB service
      */
     async getDeal() {
         try {
-            // Alusta palvelu jos sitä ei ole vielä tehty
+            // Initialize service if not done yet
             if (!this._isInitialized) {
                 await this.initialize();
             }
             
-            // Tarkista onko palvelu käytettävissä
+            // Check if service is available
             if (!this._isAvailable) {
                 return null;
             }
             
-            // Tee kutsu GIB-palveluun välityspalvelimen kautta
+            // Make call to GIB service through proxy server
             const response = await fetch(`${this.apiBaseUrl}/api/gib/deal`);
             
-            // Käsittele vastaus
+            // Handle response
             if (!response.ok) {
-                throw new Error(`HTTP-virhe: ${response.status}`);
+                throw new Error(`HTTP error: ${response.status}`);
             }
             
             const text = await response.text();
             const parser = new DOMParser();
             const xml = parser.parseFromString(text, "text/xml");
             
-            // Tarkista virheet
+            // Check for errors
             const errorAttr = xml.documentElement.getAttribute('err');
             if (errorAttr && errorAttr !== '0') {
-                throw new Error(`GIB API virhe: ${errorAttr}`);
+                throw new Error(`GIB API error: ${errorAttr}`);
             }
             
-            // Hae jaon tiedot
+            // Get deal information
             const dealElement = xml.getElementsByTagName('sc_deal')[0];
             if (!dealElement) {
-                throw new Error('Kortteja ei saatu');
+                throw new Error('No cards received');
             }
             
-            // Hae kädet
+            // Get hands
             const north = dealElement.getAttribute('north');
             const east = dealElement.getAttribute('east');
             const south = dealElement.getAttribute('south');
             const west = dealElement.getAttribute('west');
             
-            // Palauta kädet
+            // Return hands
             return { north, east, south, west };
         } catch (error) {
-            console.error('Virhe haettaessa jakoa GIB-palvelusta:', error);
+            console.error('Error fetching deal from GIB service:', error);
             return null;
         }
     },
     
     /**
-     * Hakee GIB:n ehdottaman siirron
+     * Get GIB's suggested move
      */
     async getGIBMove(params) {
         try {
-            // Alusta palvelu jos sitä ei ole vielä tehty
+            // Initialize service if not done yet
             if (!this._isInitialized) {
                 await this.initialize();
             }
             
-            // Tarkista onko palvelu käytettävissä
+            // Check if service is available
             if (!this._isAvailable) {
                 return null;
             }
             
-            // Muodosta URL ja parametrit
+            // Form URL and parameters
             const url = new URL(`${this.apiBaseUrl}/api/gib/robot`);
             
-            // Lisää parametrit
+            // Add parameters
             url.searchParams.append('sc', 'tp');
             url.searchParams.append('pov', params.pov);
             url.searchParams.append('d', params.d);
@@ -127,28 +127,28 @@ const gibService = {
             url.searchParams.append('e', params.e);
             url.searchParams.append('h', params.h);
             
-            // Tee kutsu GIB-palveluun välityspalvelimen kautta
+            // Make call to GIB service through proxy server
             const response = await fetch(url.toString());
             
-            // Käsittele vastaus
+            // Handle response
             if (!response.ok) {
-                throw new Error(`HTTP-virhe: ${response.status}`);
+                throw new Error(`HTTP error: ${response.status}`);
             }
             
             const text = await response.text();
             const parser = new DOMParser();
             const xml = parser.parseFromString(text, "text/xml");
             
-            // Tarkista virheet
+            // Check for errors
             const errorAttr = xml.documentElement.getAttribute('err');
             if (errorAttr && errorAttr !== '0') {
-                throw new Error(`GIB API virhe: ${errorAttr}`);
+                throw new Error(`GIB API error: ${errorAttr}`);
             }
             
-            // Hae siirron tiedot
+            // Get move information
             const rElement = xml.getElementsByTagName('r')[0];
             if (!rElement) {
-                throw new Error('Ehdotusta ei saatu');
+                throw new Error('No suggestion received');
             }
             
             const type = rElement.getAttribute('type');
@@ -168,52 +168,52 @@ const gibService = {
             
             return move;
         } catch (error) {
-            console.error('Virhe haettaessa GIB-siirtoa:', error);
+            console.error('Error fetching GIB move:', error);
             return null;
         }
     },
     
     /**
-     * Hakee tarjousten merkitykset
+     * Get bid meanings
      */
     async getBidMeanings(bidSequence) {
         try {
-            // Alusta palvelu jos sitä ei ole vielä tehty
+            // Initialize service if not done yet
             if (!this._isInitialized) {
                 await this.initialize();
             }
             
-            // Tarkista onko palvelu käytettävissä
+            // Check if service is available
             if (!this._isAvailable) {
                 return null;
             }
             
-            // Muodosta URL ja parametrit
+            // Form URL and parameters
             const url = new URL(`${this.apiBaseUrl}/api/gib/bid-meanings`);
             
-            // Lisää parametrit
+            // Add parameters
             url.searchParams.append('t', 'g');
             url.searchParams.append('s', bidSequence);
             
-            // Tee kutsu GIB-palveluun välityspalvelimen kautta
+            // Make call to GIB service through proxy server
             const response = await fetch(url.toString());
             
-            // Käsittele vastaus
+            // Handle response
             if (!response.ok) {
-                throw new Error(`HTTP-virhe: ${response.status}`);
+                throw new Error(`HTTP error: ${response.status}`);
             }
             
             const text = await response.text();
             const parser = new DOMParser();
             const xml = parser.parseFromString(text, "text/xml");
             
-            // Tarkista virheet
+            // Check for errors
             const errorAttr = xml.documentElement.getAttribute('err');
             if (errorAttr && errorAttr !== '0') {
-                throw new Error(`GIB API virhe: ${errorAttr}`);
+                throw new Error(`GIB API error: ${errorAttr}`);
             }
             
-            // Hae tarjousten merkitykset
+            // Get bid meanings
             const results = [];
             const rElements = xml.getElementsByTagName('r');
             
@@ -225,21 +225,21 @@ const gibService = {
             
             return results;
         } catch (error) {
-            console.error('Virhe haettaessa tarjousten merkityksiä:', error);
+            console.error('Error fetching bid meanings:', error);
             return [];
         }
     },
     
     /**
-     * Muuntaa käden GIB API -formaattiin
+     * Format hand for GIB API
      */
     formatHandForGIB(hand) {
-        // Muuta käsi muodosta { spades: ["A", "K"], hearts: [...] } muotoon "SAKHxxDxxCxx"
+        // Convert hand from { spades: ["A", "K"], hearts: [...] } format to "SAKHxxDxxCxx"
         return `S${hand.spades.join('')}H${hand.hearts.join('')}D${hand.diamonds.join('')}C${hand.clubs.join('')}`;
     },
     
     /**
-     * Jäsentää GIB-käden sovelluksen käyttämään formaattiin
+     * Parse GIB hand to application format
      */
     parseGIBHand(gibHand) {
         const result = {
@@ -250,19 +250,19 @@ const gibService = {
         };
         
         try {
-            // Etsi eri maiden kortit säännöllisillä lausekkeilla
+            // Find cards of different suits using regular expressions
             const spadesMatch = gibHand.match(/S([A-Za-z0-9]+)/);
             const heartsMatch = gibHand.match(/H([A-Za-z0-9]+)/);
             const diamondsMatch = gibHand.match(/D([A-Za-z0-9]+)/);
             const clubsMatch = gibHand.match(/C([A-Za-z0-9]+)/);
             
-            // Lisää kortit löydettyihin maihin
+            // Add cards to found suits
             if (spadesMatch) result.spades = Array.from(spadesMatch[1].toUpperCase());
             if (heartsMatch) result.hearts = Array.from(heartsMatch[1].toUpperCase());
             if (diamondsMatch) result.diamonds = Array.from(diamondsMatch[1].toUpperCase());
             if (clubsMatch) result.clubs = Array.from(clubsMatch[1].toUpperCase());
         } catch (error) {
-            console.error('Virhe GIB-käden jäsentämisessä:', error);
+            console.error('Error parsing GIB hand:', error);
         }
         
         return result;

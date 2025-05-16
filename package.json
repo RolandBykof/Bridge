@@ -1,7 +1,7 @@
 {
   "name": "bridgecircle",
   "version": "1.0.0",
-  "description": "Saavutettava Bridge-sovellus GIB-tekoälyn integraatiolla",
+  "description": "Accessible Bridge application with GIB AI integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

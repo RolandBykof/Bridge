@@ -1,85 +1,85 @@
 /**
  * BridgeCircle - Main Application
- * Sovelluksen päämoduuli ja alustus
+ * Main application module and initialization
  */
 
-// Kun DOM on valmis, alusta sovellus
+// When DOM is ready, initialize application
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 /**
- * Alustaa sovelluksen
+ * Initializes the application
  */
 async function initializeApp() {
-    console.log('BridgeCircle-sovellus käynnistetään...');
+    console.log('BridgeCircle application starting...');
     
-    // Yritä alustaa GIB-palvelu
+    // Try to initialize GIB service
     try {
         await gibService.initialize();
         if (gibService.isAvailable()) {
-            console.log('GIB-palvelu on käytettävissä.');
+            console.log('GIB service is available.');
         } else {
-            console.log('GIB-palvelua ei voitu alustaa, käytetään simuloitua peliä.');
+            console.log('GIB service could not be initialized, using simulated game.');
         }
     } catch (error) {
-        console.error('Virhe GIB-palvelun alustuksessa:', error);
+        console.error('Error initializing GIB service:', error);
     }
     
-    // Aseta tapahtumakuuntelijat käyttöliittymän elementeille
+    // Set event listeners for UI elements
     setupEventListeners();
     
-    // Renderöi käyttöliittymä
+    // Render UI
     renderUI();
     
-    // Käsittele mahdolliset CORS-ongelmat
+    // Handle potential CORS issues
     handleCORSIssues();
     
-    console.log('BridgeCircle-sovellus alustettu.');
+    console.log('BridgeCircle application initialized.');
 }
 
 /**
- * Käsittelee mahdolliset CORS-ongelmat
+ * Handles potential CORS issues
  */
 function handleCORSIssues() {
-    // Tämä on yksinkertainen tarkistus, joka voidaan laajentaa tarvittaessa
-    const warningMessage = 'GIB-palvelun käyttö suoraan selaimesta saattaa kohdata CORS-rajoituksia. ' +
-                          'Jos GIB-ominaisuudet eivät toimi, harkitse välityspalvelimen käyttöä.';
+    // This is a simple check that can be expanded if needed
+    const warningMessage = 'Using GIB service directly from browser may encounter CORS restrictions. ' +
+                          'If GIB features don\'t work, consider using a proxy server.';
     
     if (gibService.apiBaseUrl.startsWith('http:') && window.location.protocol === 'https:') {
         console.warn(warningMessage);
-        console.warn('Mixed content: GIB-palvelu käyttää HTTP:tä mutta sovellus on HTTPS:n päällä.');
+        console.warn('Mixed content: GIB service uses HTTP but application is on HTTPS.');
     }
 }
 
 /**
- * Käsittelee virheet käyttäjäystävällisellä tavalla
+ * Handles errors in a user-friendly way
  */
 function handleError(error, context) {
-    console.error(`Virhe (${context}):`, error);
+    console.error(`Error (${context}):`, error);
     
-    let message = 'Tapahtui virhe. Ole hyvä ja yritä uudelleen.';
+    let message = 'An error occurred. Please try again.';
     
-    // Määritä käyttäjäystävällisempi virheviesti kontekstin mukaan
+    // Define a more user-friendly error message based on context
     if (context === 'gib-deal') {
-        message = 'Korttien hakeminen GIB-palvelusta epäonnistui. Käytetään satunnaisia kortteja.';
+        message = 'Failed to fetch cards from GIB service. Using random cards instead.';
     } else if (context === 'gib-move') {
-        message = 'GIB-siirron hakeminen epäonnistui. Käytetään simuloitua siirtoa.';
+        message = 'Failed to fetch GIB move. Using simulated move instead.';
     }
     
-    // Näytä virheviesti käyttäjälle
+    // Show error message to user
     updateStatus(message);
     announceToScreenReader(message);
 }
 
 /**
- * Monitoroi sovelluksen suorituskykyä (voidaan laajentaa tarvittaessa)
+ * Monitors application performance (can be expanded as needed)
  */
 function monitorPerformance() {
-    // Tässä voidaan toteuttaa suorituskyvyn monitorointia
-    // Esimerkiksi ajanoton mittauksia API-kutsuille
+    // Performance monitoring can be implemented here
+    // For example, timing measurements for API calls
 }
 
 /**
- * Utility-funktio asynkronisiin toimintoihin
+ * Utility function for async operations
  */
 async function asyncTryCatch(asyncFn, errorContext) {
     try {

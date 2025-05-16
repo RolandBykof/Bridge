@@ -1,9 +1,9 @@
 /**
  * BridgeCircle - UI Module
- * Käsittelee käyttöliittymän renderöinnin ja käyttäjän syötteiden käsittelyn
+ * Handles UI rendering and user input processing
  */
 
-// DOM-viitteet
+// DOM references
 const elements = {
     statusBar: document.getElementById('status-bar'),
     statusAnnouncer: document.getElementById('status-announcer'),
@@ -21,13 +21,13 @@ const elements = {
     startGameButton: document.getElementById('start-game-button')
 };
 
-// UI-tila
+// UI state
 const uiState = {
     showHelp: false
 };
 
 /**
- * Renderöi käyttöliittymän
+ * Renders the UI
  */
 function renderUI() {
     renderPlayerControls();
@@ -38,7 +38,7 @@ function renderUI() {
 }
 
 /**
- * Renderöi pelaajien hallintaosa
+ * Renders player controls section
  */
 function renderPlayerControls() {
     elements.playerControls.innerHTML = '';
@@ -55,9 +55,9 @@ function renderPlayerControls() {
                     <button 
                         class="player-type-toggle"
                         data-position="${position}"
-                        aria-label="Vaihda ${getPositionName(position)} ${player.type === 'human' ? 'GIB-tekoälyksi' : 'ihmiseksi'}"
+                        aria-label="Change ${getPositionName(position)} to ${player.type === 'human' ? 'GIB AI' : 'human'}"
                     >
-                        ${player.type === 'human' ? 'Vaihda GIB' : 'Vaihda ihminen'}
+                        ${player.type === 'human' ? 'Switch to GIB' : 'Switch to human'}
                     </button>
                 ` : ''}
             </div>
@@ -66,7 +66,7 @@ function renderPlayerControls() {
         elements.playerControls.appendChild(playerDiv);
     });
     
-    // Lisää kuuntelijat
+    // Add listeners
     document.querySelectorAll('.player-type-toggle').forEach(button => {
         button.addEventListener('click', (e) => {
             const position = e.target.dataset.position;
@@ -76,41 +76,41 @@ function renderPlayerControls() {
 }
 
 /**
- * Renderöi kädet
+ * Renders hands
  */
 function renderHands() {
-    // Renderöi pohjoinen
+    // Render north
     renderHand('north', elements.northHand);
     
-    // Renderöi etelä
+    // Render south
     renderHand('south', elements.southHand, true);
     
-    // Päivitä itä ja länsi (vain korttien määrät)
+    // Update east and west (only card counts)
     elements.eastHand.innerHTML = `
-        <h3>Itä ${gameState.players.east.type === 'gib' ? '(GIB)' : ''}</h3>
-        <p>Kortteja: ${
+        <h3>East ${gameState.players.east.type === 'gib' ? '(GIB)' : ''}</h3>
+        <p>Cards: ${
             Object.values(gameState.hands.east).reduce((sum, cards) => sum + cards.length, 0) || '?'
         }</p>
     `;
     
     elements.westHand.innerHTML = `
-        <h3>Länsi ${gameState.players.west.type === 'gib' ? '(GIB)' : ''}</h3>
-        <p>Kortteja: ${
+        <h3>West ${gameState.players.west.type === 'gib' ? '(GIB)' : ''}</h3>
+        <p>Cards: ${
             Object.values(gameState.hands.west).reduce((sum, cards) => sum + cards.length, 0) || '?'
         }</p>
     `;
 }
 
 /**
- * Renderöi yksi käsi
+ * Renders one hand
  */
 function renderHand(position, element, isPlayable = false) {
     const hand = gameState.hands[position];
     const isCurrentPlayer = position === gameState.currentPlayer;
     
-    let html = `<h3>${position === 'south' ? 'Sinun kätesi (Etelä)' : getPositionName(position)} ${gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
+    let html = `<h3>${position === 'south' ? 'Your hand (South)' : getPositionName(position)} ${gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
     
-    // Lisää kortit maan mukaan
+    // Add cards by suit
     Object.entries(hand).forEach(([suit, cards]) => {
         const suitClass = `suit-${suit}`;
         
@@ -123,25 +123,25 @@ function renderHand(position, element, isPlayable = false) {
         `;
         
         if (cards.length > 0) {
-            // Lisää kortit
+            // Add cards
             cards.forEach(card => {
                 const cardClass = `card-${suit}`;
                 
                 if (isPlayable) {
-                    // Pelattavat kortit nappuloina
+                    // Playable cards as buttons
                     html += `
                         <button 
                             class="card-button ${cardClass}"
                             data-suit="${suit}"
                             data-card="${card}"
                             ${!isCurrentPlayer || gameState.gamePhase !== 'play' ? 'disabled' : ''}
-                            aria-label="Pelaa ${getSuitName(suit)} ${card}"
+                            aria-label="Play ${getSuitName(suit)} ${card}"
                         >
                             ${card}
                         </button>
                     `;
                 } else {
-                    // Muut kortit tekstinä
+                    // Other cards as text
                     html += `
                         <span class="card-display ${cardClass}" aria-label="${getSuitName(suit)} ${card}">
                             ${card}
@@ -150,7 +150,7 @@ function renderHand(position, element, isPlayable = false) {
                 }
             });
         } else {
-            html += `<span class="text-gray-400">(tyhjä)</span>`;
+            html += `<span class="text-gray-400">(empty)</span>`;
         }
         
         html += `
@@ -161,7 +161,7 @@ function renderHand(position, element, isPlayable = false) {
     
     element.innerHTML = html;
     
-    // Lisää kuuntelijat pelattaville korteille
+    // Add listeners for playable cards
     if (isPlayable) {
         element.querySelectorAll('.card-button').forEach(button => {
             button.addEventListener('click', (e) => {
@@ -174,14 +174,14 @@ function renderHand(position, element, isPlayable = false) {
 }
 
 /**
- * Päivitä tilaviesti
+ * Update status message
  */
 function renderStatusBar() {
     elements.statusBar.textContent = gameState.statusMessage;
 }
 
 /**
- * Renderöi pelatut kortit
+ * Render played cards
  */
 function renderPlayedCards() {
     if (gameState.playedCards.length > 0) {
@@ -204,21 +204,21 @@ function renderPlayedCards() {
         html += '</ul>';
         elements.playedCardsContainer.innerHTML = html;
     } else {
-        elements.playedCardsContainer.innerHTML = '<p class="text-gray-500">Ei vielä pelattuja kortteja.</p>';
+        elements.playedCardsContainer.innerHTML = '<p class="text-gray-500">No cards played yet.</p>';
     }
 }
 
 /**
- * Näytä/piilota ohjeosio
+ * Show/hide help section
  */
 function toggleHelp() {
     elements.helpSection.style.display = uiState.showHelp ? 'block' : 'none';
-    elements.toggleHelpButton.textContent = uiState.showHelp ? 'Piilota ohje' : 'Näytä ohje';
+    elements.toggleHelpButton.textContent = uiState.showHelp ? 'Hide Help' : 'Show Help';
     elements.toggleHelpButton.setAttribute('aria-expanded', uiState.showHelp);
 }
 
 /**
- * Ilmoittaa viestin ruudunlukijalle
+ * Announce message to screen reader
  */
 function announceToScreenReader(message) {
     elements.statusAnnouncer.textContent = '';
@@ -228,10 +228,10 @@ function announceToScreenReader(message) {
 }
 
 /**
- * Aseta kuuntelijat käyttöliittymän elementeille
+ * Set event listeners for UI elements
  */
 function setupEventListeners() {
-    // Ohjepainikkeet
+    // Help buttons
     elements.toggleHelpButton.addEventListener('click', () => {
         uiState.showHelp = !uiState.showHelp;
         toggleHelp();
@@ -242,20 +242,20 @@ function setupEventListeners() {
         toggleHelp();
     });
     
-    // Pelitoiminnot
+    // Game functions
     elements.dealButton.addEventListener('click', dealNewCards);
     elements.startGameButton.addEventListener('click', startGame);
     
-    // Näppäimistötoiminnot
+    // Keyboard functions
     document.addEventListener('keydown', (e) => {
-        // Alt + H näyttää ohjeet
+        // Alt + H shows help
         if (e.altKey && e.key === 'h') {
             uiState.showHelp = !uiState.showHelp;
             toggleHelp();
             e.preventDefault();
         }
         
-        // Alt + 1-4 vaihtaa pelaajatyypin
+        // Alt + 1-4 toggles player type
         if (e.altKey && ['1', '2', '4'].includes(e.key)) {
             const positions = ['north', 'east', 'west'];
             const positionMap = { '1': 0, '2': 1, '4': 2 };

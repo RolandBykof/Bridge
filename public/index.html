@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BridgeCircle - Saavutettava Bridge</title>
-    <meta name="description" content="Saavutettava Bridge-sovellus, joka tukee GIB-tekoälyä pelaajana">
+    <title>BridgeCircle - Accessible Bridge</title>
+    <meta name="description" content="Accessible Bridge application with GIB AI player support">
     <style>
-/* Perustyylit ja nollaus */
+/* Base styles and reset */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -23,7 +23,7 @@ body {
   background-color: #f9f9f9;
 }
 
-/* Saavutettavuustyylit */
+/* Accessibility styles */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -37,7 +37,7 @@ body {
   white-space: nowrap;
 }
 
-/* Fokustila kaikille interaktiivisille elementeille */
+/* Focus state for all interactive elements */
 input:focus, 
 button:focus, 
 a:focus, 
@@ -47,7 +47,7 @@ textarea:focus {
   outline-offset: 2px;
 }
 
-/* Typografia */
+/* Typography */
 h1 {
   font-size: 1.8rem;
   margin-bottom: 1rem;
@@ -88,7 +88,7 @@ a:visited {
   color: #4527a0;
 }
 
-/* Bridge-korttisovelluksen päälomake */
+/* Bridge card manager main form */
 .bridge-card-manager {
   max-width: 1000px;
   margin: 0 auto;
@@ -99,7 +99,7 @@ a:visited {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
-/* Tietolaatikot */
+/* Info boxes */
 .info-box, .help-text {
   background-color: #e8f4f8;
   border: 1px solid #b8d8e8;
@@ -111,7 +111,7 @@ a:visited {
   font-style: italic;
 }
 
-/* Painikkeet */
+/* Buttons */
 .button-container {
   display: flex;
   gap: 10px;
@@ -204,7 +204,7 @@ input[disabled] {
   cursor: not-allowed;
 }
 
-/* Lomakkeet ja syötteet */
+/* Forms and inputs */
 .card-inputs {
   display: none;
   flex-direction: column;
@@ -255,7 +255,7 @@ input[type="text"]:focus {
   border-color: #005fcc;
 }
 
-/* Korttinäkymä */
+/* Card view */
 .card-display {
   display: flex;
   flex-direction: column;
@@ -326,16 +326,16 @@ input[type="text"]:focus {
   color: #FFFFFF !important;
 }
 
-/* Uudet määrittelyt korttien maasymbolien ja arvojen erilliseen tyylittelyyn */
+/* New definitions for separate styling of suit symbols and card values */
 .card-suit {
-  color: inherit; /* Perii värin ylemmältä tasolta */
+  color: inherit; /* Inherits color from parent */
 }
 
 .card-value {
-  color: black; /* Kaikki numeroarvot mustia */
+  color: black; /* All number values are black */
 }
 
-/* Maasymbolien värit */
+/* Suit symbol colors */
 .hearts-button .card-suit, 
 .diamonds-button .card-suit {
   color: red;
@@ -346,7 +346,7 @@ input[type="text"]:focus {
   color: black;
 }
 
-/* Focus-tilassa kaikki tekstit valkoisia */
+/* In focus state, all text is white */
 .card-button:focus .card-suit,
 .card-button:focus .card-value {
   color: white !important;
@@ -358,7 +358,7 @@ input[type="text"]:focus {
   margin-left: 10px;
 }
 
-/* Status viesti */
+/* Status message */
 .status-bar {
   padding: 12px;
   background: #dbeafe;
@@ -369,7 +369,7 @@ input[type="text"]:focus {
   font-weight: 500;
 }
 
-/* Pelaajien kortit osio */
+/* Players info section */
 .players-info {
   display: flex;
   justify-content: space-between;
@@ -391,7 +391,7 @@ input[type="text"]:focus {
   border-color: #91d5ff;
 }
 
-/* Pelatut kortit */
+/* Played cards */
 .game-table {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -449,7 +449,7 @@ input[type="text"]:focus {
   color: black;
 }
 
-/* Animaatiot */
+/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -459,8 +459,8 @@ input[type="text"]:focus {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Media queryt eri näyttökoille */
-/* Pienet näytöt ja mobiililaitteet */
+/* Media queries for different screen sizes */
+/* Small screens and mobile devices */
 @media (max-width: 576px) {
   body {
     padding: 0.5rem;
@@ -508,7 +508,7 @@ input[type="text"]:focus {
   }
 }
 
-/* Keskikokoiset näytöt (tabletit) */
+/* Medium screens (tablets) */
 @media (min-width: 577px) and (max-width: 768px) {
   body {
     padding: 0.8rem;
@@ -533,7 +533,7 @@ input[type="text"]:focus {
   }
 }
 
-/* Tummien teemojen tuki */
+/* Dark theme support */
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #121212;
@@ -641,7 +641,7 @@ input[type="text"]:focus {
     border-color: #4a5568;
   }
 
-  /* Varmista, että korttilueiden otsikot ovat mustia tummassa teemassa */
+  /* Ensure card area headings are black in dark theme */
   .player-cards-display h2, .player-cards-display h3,
   .dummy-cards-display h2, .dummy-cards-display h3,
   .player-section h2, .player-section h3,
@@ -655,7 +655,7 @@ input[type="text"]:focus {
 
 .hearts-button .card-suit, 
 .diamonds-button .card-suit {
-  color: #ff6b6b; /* Tumman teeman punainen maasymboleille */
+  color: #ff6b6b; /* Dark theme red for suit symbols */
 }
 
 .spades-button .card-suit, 
@@ -669,7 +669,7 @@ input[type="text"]:focus {
 }
 }
 
-/* Tulostusasetukset */
+/* Print settings */
 @media print {
   body {
     background-color: #ffffff;
@@ -698,7 +698,7 @@ input[type="text"]:focus {
 </head>
 <body>
     <div id="app" class="bridge-card-manager">
-        <h1>BridgeCircle - Saavutettava Bridge</h1>
+        <h1>BridgeCircle - Accessible Bridge</h1>
         
         <!-- Screen reader status message -->
         <div class="sr-only" id="status-message" aria-live="polite" aria-atomic="true"></div>
@@ -706,54 +706,54 @@ input[type="text"]:focus {
         <!-- Button controls -->
         <div class="button-container">
             <button id="player-input-button" class="action-button">
-                Syötä omat korttisi
+                Enter Your Cards
                 <span class="keyboard-shortcut">(Alt+N)</span>
             </button>
             <button id="dummy-input-button" class="action-button">
-                Syötä lepääjän kortit
+                Enter Dummy Cards
                 <span class="keyboard-shortcut">(Alt+M)</span>
             </button>
             <button id="undo-button" class="action-button">
-                Peru viimeisin siirto
+                Undo Last Move
                 <span class="keyboard-shortcut">(Alt+Z)</span>
             </button>
             <button id="reset-all-button" class="action-button">
-                Poista kaikki kortit
+                Remove All Cards
             </button>
             <button id="deal-button" class="action-button">
-                Jaa uudet kortit
+                Deal New Cards
                 <span class="keyboard-shortcut">(Alt+D)</span>
             </button>
             <button id="start-game-button" class="action-button">
-                Aloita peli
+                Start Game
                 <span class="keyboard-shortcut">(Alt+S)</span>
             </button>
         </div>
 
         <!-- Status bar -->
         <div class="status-bar" id="status-bar" role="status">
-            Tervetuloa BridgeCircle-sovellukseen
+            Welcome to BridgeCircle Application
         </div>
         
         <!-- Players info -->
         <div class="players-info">
             <div id="north-info" class="player-info">
-                <h3>Pohjoinen (Lepääjä)</h3>
-                <p>Pelaaja: <span id="north-player-type">Ihminen</span></p>
+                <h3>North (Dummy)</h3>
+                <p>Player: <span id="north-player-type">Human</span></p>
             </div>
             <div id="east-info" class="player-info">
-                <h3>Itä</h3>
-                <p>Pelaaja: <span id="east-player-type">GIB-tekoäly</span></p>
-                <p>Kortteja: <span id="east-cards-count">13</span></p>
+                <h3>East</h3>
+                <p>Player: <span id="east-player-type">GIB AI</span></p>
+                <p>Cards: <span id="east-cards-count">13</span></p>
             </div>
             <div id="south-info" class="player-info current">
-                <h3>Etelä (Sinä)</h3>
-                <p>Pelaaja: <span id="south-player-type">Sinä</span></p>
+                <h3>South (You)</h3>
+                <p>Player: <span id="south-player-type">You</span></p>
             </div>
             <div id="west-info" class="player-info">
-                <h3>Länsi</h3>
-                <p>Pelaaja: <span id="west-player-type">GIB-tekoäly</span></p>
-                <p>Kortteja: <span id="west-cards-count">13</span></p>
+                <h3>West</h3>
+                <p>Player: <span id="west-player-type">GIB AI</span></p>
+                <p>Cards: <span id="west-cards-count">13</span></p>
             </div>
         </div>
 
@@ -767,7 +767,7 @@ input[type="text"]:focus {
             </div>
             <div class="center-area" id="center-area">
                 <!-- Current trick info -->
-                <h3 id="current-trick-info">Odottaa pelaamista</h3>
+                <h3 id="current-trick-info">Waiting for play</h3>
             </div>
             <div class="east-played" id="east-played">
                 <!-- East played card will appear here -->
@@ -780,58 +780,58 @@ input[type="text"]:focus {
         <!-- Player Cards Input Section (hidden by default) -->
         <div id="player-card-inputs" class="card-inputs">
             <section class="player-section">
-                <h2 id="player-input-focus" tabindex="-1">Omat korttisi</h2>
+                <h2 id="player-input-focus" tabindex="-1">Your Cards</h2>
                 <div class="input-group">
                     <label for="player-spades">
-                        <span class="suit-symbol spades">♠</span> Padat:
+                        <span class="suit-symbol spades">♠</span> Spades:
                     </label>
                     <input
                         id="player-spades"
                         type="text"
                         aria-describedby="format-help"
-                        placeholder="esim. AQJt9"
+                        placeholder="e.g. AQJt9"
                     />
                 </div>
                 <div class="input-group">
                     <label for="player-hearts">
-                        <span class="suit-symbol hearts">♥</span> Hertat:
+                        <span class="suit-symbol hearts">♥</span> Hearts:
                     </label>
                     <input
                         id="player-hearts"
                         type="text"
                         aria-describedby="format-help"
-                        placeholder="esim. KQJ"
+                        placeholder="e.g. KQJ"
                     />
                 </div>
                 <div class="input-group">
                     <label for="player-diamonds">
-                        <span class="suit-symbol diamonds">♦</span> Ruudut:
+                        <span class="suit-symbol diamonds">♦</span> Diamonds:
                     </label>
                     <input
                         id="player-diamonds"
                         type="text"
                         aria-describedby="format-help"
-                        placeholder="esim. At98"
+                        placeholder="e.g. At98"
                     />
                 </div>
                 <div class="input-group">
                     <label for="player-clubs">
-                        <span class="suit-symbol clubs">♣</span> Ristit:
+                        <span class="suit-symbol clubs">♣</span> Clubs:
                     </label>
                     <input
                         id="player-clubs"
                         type="text"
                         aria-describedby="format-help"
-                        placeholder="esim. 765"
+                        placeholder="e.g. 765"
                     />
                 </div>
 
                 <p id="format-help" class="help-text">
-                    Syötä kortit käyttäen A ässälle, K kuninkaalle, Q rouvalle, J jätkälle, T kympille ja numerot 2-9.
+                    Enter cards using A for ace, K for king, Q for queen, J for jack, T for ten, and numbers 2-9.
                 </p>
 
                 <button id="close-player-inputs" class="close-button">
-                    Valmis
+                    Done
                 </button>
             </section>
         </div>
@@ -839,145 +839,145 @@ input[type="text"]:focus {
         <!-- Dummy Cards Input Section (hidden by default) -->
         <div id="dummy-card-inputs" class="card-inputs">
             <section class="dummy-section">
-                <h2 id="dummy-input-focus" tabindex="-1">Lepääjän kortit</h2>
+                <h2 id="dummy-input-focus" tabindex="-1">Dummy Cards</h2>
                 <div class="input-group">
                     <label for="dummy-spades">
-                        <span class="suit-symbol spades">♠</span> Padat:
+                        <span class="suit-symbol spades">♠</span> Spades:
                     </label>
                     <input
                         id="dummy-spades"
                         type="text"
                         aria-describedby="dummy-format-help"
-                        placeholder="esim. K876"
+                        placeholder="e.g. K876"
                     />
                 </div>
                 <div class="input-group">
                     <label for="dummy-hearts">
-                        <span class="suit-symbol hearts">♥</span> Hertat:
+                        <span class="suit-symbol hearts">♥</span> Hearts:
                     </label>
                     <input
                         id="dummy-hearts"
                         type="text"
                         aria-describedby="dummy-format-help"
-                        placeholder="esim. At92"
+                        placeholder="e.g. At92"
                     />
                 </div>
                 <div class="input-group">
                     <label for="dummy-diamonds">
-                        <span class="suit-symbol diamonds">♦</span> Ruudut:
+                        <span class="suit-symbol diamonds">♦</span> Diamonds:
                     </label>
                     <input
                         id="dummy-diamonds"
                         type="text"
                         aria-describedby="dummy-format-help"
-                        placeholder="esim. QJ7"
+                        placeholder="e.g. QJ7"
                     />
                 </div>
                 <div class="input-group">
                     <label for="dummy-clubs">
-                        <span class="suit-symbol clubs">♣</span> Ristit:
+                        <span class="suit-symbol clubs">♣</span> Clubs:
                     </label>
                     <input
                         id="dummy-clubs"
                         type="text"
                         aria-describedby="dummy-format-help"
-                        placeholder="esim. AKQ2"
+                        placeholder="e.g. AKQ2"
                     />
                 </div>
 
                 <p id="dummy-format-help" class="help-text">
-                    Syötä kortit käyttäen A ässälle, K kuninkaalle, Q rouvalle, J jätkälle, T kympille ja numerot 2-9.
+                    Enter cards using A for ace, K for king, Q for queen, J for jack, T for ten, and numbers 2-9.
                 </p>
 
                 <button id="close-dummy-inputs" class="close-button">
-                    Valmis
+                    Done
                 </button>
             </section>
         </div>
 
         <div class="card-display">
             <section class="player-cards-display">
-                <h2>Omat korttisi (Etelä)</h2>
+                <h2>Your Cards (South)</h2>
                 <div class="suit-row">
-                    <h3>Padat</h3>
+                    <h3>Spades</h3>
                     <div id="player-spades-buttons" class="card-buttons">
-                        <!-- Kortit lisätään JavaScriptillä -->
+                        <!-- Cards will be inserted here via JavaScript -->
                     </div>
                 </div>
                 <div class="suit-row">
-                    <h3>Hertat</h3>
+                    <h3>Hearts</h3>
                     <div id="player-hearts-buttons" class="card-buttons">
-                        <!-- Kortit lisätään JavaScriptillä -->
+                        <!-- Cards will be inserted here via JavaScript -->
                     </div>
                 </div>
                 <div class="suit-row">
-                    <h3>Ruudut</h3>
+                    <h3>Diamonds</h3>
                     <div id="player-diamonds-buttons" class="card-buttons">
-                        <!-- Kortit lisätään JavaScriptillä -->
+                        <!-- Cards will be inserted here via JavaScript -->
                     </div>
                 </div>
                 <div class="suit-row">
-                    <h3>Ristit</h3>
+                    <h3>Clubs</h3>
                     <div id="player-clubs-buttons" class="card-buttons">
-                        <!-- Kortit lisätään JavaScriptillä -->
+                        <!-- Cards will be inserted here via JavaScript -->
                     </div>
                 </div>
             </section>
 
             <section class="dummy-cards-display">
-                <h2>Lepääjän kortit (Pohjoinen)</h2>
+                <h2>Dummy Cards (North)</h2>
                 <div class="suit-row">
-                    <h3>Padat</h3>
+                    <h3>Spades</h3>
                     <div id="dummy-spades-buttons" class="card-buttons">
-                        <!-- Kortit lisätään JavaScriptillä -->
+                        <!-- Cards will be inserted here via JavaScript -->
                     </div>
                 </div>
                 <div class="suit-row">
-                    <h3>Hertat</h3>
+                    <h3>Hearts</h3>
                     <div id="dummy-hearts-buttons" class="card-buttons">
-                        <!-- Kortit lisätään JavaScriptillä -->
+                        <!-- Cards will be inserted here via JavaScript -->
                     </div>
                 </div>
                 <div class="suit-row">
-                    <h3>Ruudut</h3>
+                    <h3>Diamonds</h3>
                     <div id="dummy-diamonds-buttons" class="card-buttons">
-                        <!-- Kortit lisätään JavaScriptillä -->
+                        <!-- Cards will be inserted here via JavaScript -->
                     </div>
                 </div>
                 <div class="suit-row">
-                    <h3>Ristit</h3>
+                    <h3>Clubs</h3>
                     <div id="dummy-clubs-buttons" class="card-buttons">
-                        <!-- Kortit lisätään JavaScriptillä -->
+                        <!-- Cards will be inserted here via JavaScript -->
                     </div>
                 </div>
             </section>
         </div>
 
-        <!-- Pelatut kortit -->
+        <!-- Played cards -->
         <section class="played-cards-section" id="played-cards-section">
-            <h2>Pelatut kortit</h2>
+            <h2>Played Cards</h2>
             <div id="played-cards-container">
-                <p class="text-gray-500">Ei vielä pelattuja kortteja.</p>
+                <p class="text-gray-500">No cards played yet.</p>
             </div>
         </section>
     </div>
 
     <script>
-        // Määrittele korttimaat ja -arvot
-        const maat = ["♠", "♥", "♦", "♣"];
-        const arvot = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+        // Define card suits and values
+        const suits = ["♠", "♥", "♦", "♣"];
+        const values = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
         
-        // Pelitilamuuttujat
+        // Game state variables
         let gameState = {
             players: {
-                north: { type: 'human', name: 'Lepääjä' },
-                east: { type: 'gib', name: 'GIB-Itä' },
-                south: { type: 'human', name: 'Sinä' },
-                west: { type: 'gib', name: 'GIB-Länsi' }
+                north: { type: 'human', name: 'Dummy' },
+                east: { type: 'gib', name: 'GIB-East' },
+                south: { type: 'human', name: 'You' },
+                west: { type: 'gib', name: 'GIB-West' }
             },
             currentPlayer: 'south',
             gamePhase: 'setup', // 'setup', 'bidding', 'play', 'end'
-            statusMessage: 'Aloita jakamalla kortit.',
+            statusMessage: 'Start by dealing cards.',
             hands: {
                 north: { 
                     spades: [], 
@@ -1004,12 +1004,12 @@ input[type="text"]:focus {
                     clubs: []
                 }
             },
-            currentTrick: [], // Nykyisen tikin kortit
-            trickHistory: [], // Historia kaikista tikeistä
-            tricks: { ns: 0, ew: 0 } // Tehdyt tikit
+            currentTrick: [], // Current trick cards
+            trickHistory: [], // History of all tricks
+            tricks: { ns: 0, ew: 0 } // Tricks won
         };
         
-        // Pelaajan ja lepääjän kortit
+        // Player and dummy cards
         let playerCards = {
             spades: '',
             hearts: '',
@@ -1024,11 +1024,11 @@ input[type="text"]:focus {
             clubs: ''
         };
 
-        // Pelatut kortit ja siirtohistoria
+        // Played cards and move history
         let playedCards = [];
         let moveHistory = [];
 
-        // DOM-elementtien viitteet
+        // DOM element references
         const statusMessageElement = document.getElementById('status-message');
         const statusBarElement = document.getElementById('status-bar');
         const resetAllButton = document.getElementById('reset-all-button');
@@ -1044,7 +1044,7 @@ input[type="text"]:focus {
         const playedCardsContainer = document.getElementById('played-cards-container');
         const currentTrickInfo = document.getElementById('current-trick-info');
 
-        // Pelaajien info-elementit
+        // Player info elements
         const northInfo = document.getElementById('north-info');
         const eastInfo = document.getElementById('east-info');
         const southInfo = document.getElementById('south-info');
@@ -1056,25 +1056,25 @@ input[type="text"]:focus {
         const eastCardsCount = document.getElementById('east-cards-count');
         const westCardsCount = document.getElementById('west-cards-count');
 
-        // Pelattujen korttien alue
+        // Played cards area
         const northPlayed = document.getElementById('north-played');
         const eastPlayed = document.getElementById('east-played');
         const southPlayed = document.getElementById('south-played');
         const westPlayed = document.getElementById('west-played');
 
-        // Pelaajan korttien syöttökentät
+        // Player card input fields
         const playerSpadesInput = document.getElementById('player-spades');
         const playerHeartsInput = document.getElementById('player-hearts');
         const playerDiamondsInput = document.getElementById('player-diamonds');
         const playerClubsInput = document.getElementById('player-clubs');
 
-        // Lepääjän korttien syöttökentät
+        // Dummy card input fields
         const dummySpadesInput = document.getElementById('dummy-spades');
         const dummyHeartsInput = document.getElementById('dummy-hearts');
         const dummyDiamondsInput = document.getElementById('dummy-diamonds');
         const dummyClubsInput = document.getElementById('dummy-clubs');
 
-        // Korttipainikkeiden containerit
+        // Card button containers
         const playerSpadesButtons = document.getElementById('player-spades-buttons');
         const playerHeartsButtons = document.getElementById('player-hearts-buttons');
         const playerDiamondsButtons = document.getElementById('player-diamonds-buttons');
@@ -1084,13 +1084,13 @@ input[type="text"]:focus {
         const dummyDiamondsButtons = document.getElementById('dummy-diamonds-buttons');
         const dummyClubsButtons = document.getElementById('dummy-clubs-buttons');
 
-        // Kartoita korttiarvot indekseiksi
+        // Map card values to indices
         const cardValueMap = {
             '2': 0, '3': 1, '4': 2, '5': 3, '6': 4, '7': 5, '8': 6, '9': 7, 
             't': 8, 'j': 9, 'q': 10, 'k': 11, 'a': 12
         };
 
-        // Kartoita maat indekseiksi
+        // Map suit names to indices
         const suitIndexMap = {
             'spades': 0,
             'hearts': 1,
@@ -1098,39 +1098,39 @@ input[type="text"]:focus {
             'clubs': 3
         };
 
-        // Näytä pelaajan korttien syöttönäkymä
+        // Show player card input
         function showPlayerInputs() {
             dummyCardInputs.classList.remove('show');
             playerCardInputs.classList.add('show');
             setTimeout(() => {
                 playerSpadesInput.focus();
             }, 100);
-            announceToScreenReader('Syötä omat korttisi');
+            announceToScreenReader('Enter your cards');
         }
 
-        // Näytä lepääjän korttien syöttönäkymä
+        // Show dummy card input
         function showDummyInputs() {
             playerCardInputs.classList.remove('show');
             dummyCardInputs.classList.add('show');
             setTimeout(() => {
                 dummySpadesInput.focus();
             }, 100);
-            announceToScreenReader('Syötä lepääjän kortit');
+            announceToScreenReader('Enter dummy cards');
         }
 
-        // Piilota pelaajan korttien syöttö
+        // Hide player card input
         function hidePlayerInputs() {
             playerCardInputs.classList.remove('show');
-            announceToScreenReader('Korttisi on tallennettu');
+            announceToScreenReader('Your cards have been saved');
         }
 
-        // Piilota lepääjän korttien syöttö
+        // Hide dummy card input
         function hideDummyInputs() {
             dummyCardInputs.classList.remove('show');
-            announceToScreenReader('Lepääjän kortit on tallennettu');
+            announceToScreenReader('Dummy cards have been saved');
         }
 
-        // Jäsennä korttitekstikenttä yksittäisiksi korteiksi
+        // Parse card string into individual cards
         function parseCards(cardString) {
             const cards = [];
             for (let i = 0; i < cardString.length; i++) {
@@ -1140,35 +1140,35 @@ input[type="text"]:focus {
             return cards;
         }
 
-        // Muunna korttikoodi luettavaksi merkkijonoksi
+        // Convert card code to readable string
         function cardToReadable(card) {
             const lowerCard = card.toLowerCase();
             if (lowerCard in cardValueMap) {
-                return arvot[cardValueMap[lowerCard]];
+                return values[cardValueMap[lowerCard]];
             }
             return card.toUpperCase();
         }
 
-        // Hae maasymboli näyttöä varten
+        // Get suit symbol for display
         function suitToReadable(suit) {
             if (suit in suitIndexMap) {
-                return maat[suitIndexMap[suit]];
+                return suits[suitIndexMap[suit]];
             }
             return suit;
         }
 
-        // Muunna maakoodi luettavaksi tekstiksi
-        function suitToText(suit) {
+        // Convert suit code to readable text
+        function getSuitName(suit) {
             switch(suit) {
-                case 'spades': return 'padat';
-                case 'hearts': return 'hertat';
-                case 'diamonds': return 'ruudut';
-                case 'clubs': return 'ristit';
+                case 'spades': return 'spades';
+                case 'hearts': return 'hearts';
+                case 'diamonds': return 'diamonds';
+                case 'clubs': return 'clubs';
                 default: return suit;
             }
         }
 
-        // Ilmoita tekstiä ruudunlukijalle
+        // Announce text to screen reader
         function announceToScreenReader(text) {
             statusMessageElement.textContent = '';
             setTimeout(() => {
@@ -1176,47 +1176,46 @@ input[type="text"]:focus {
             }, 50);
         }
 
-        // Lue maan kortit ääneen
+        // Read cards for a given suit
         function readCards(hand, suit) {
             const cardsString = hand === 'player' ? playerCards[suit] : dummyCards[suit];
             const parsedCards = parseCards(cardsString);
             
             if (parsedCards.length === 0) {
-                announceToScreenReader(`Ei kortteja`);
+                announceToScreenReader(`No cards`);
                 return;
             }
             
-            // Suodata pelatut kortit pois
+            // Filter out played cards
             const availableCards = parsedCards.filter(card => {
-                const cardKey = `${hand === 'player' ? 'south' : 'north'}-${suit}-${card}`;
-                return !isCardPlayed(cardKey);
+                return !isCardPlayed(`${hand === 'player' ? 'south' : 'north'}-${suit}-${card}`);
             });
             
             if (availableCards.length === 0) {
-                announceToScreenReader(`Ei kortteja`);
+                announceToScreenReader(`No cards`);
                 return;
             }
             
-            // Ota vain korttiarvot (ilman maan symboleja tai muuta tekstiä)
+            // Get only card values (without suit symbols or other text)
             const cardValues = availableCards.map(card => cardToReadable(card)).join(', ');
             
-            // Ilmoita vain korttiarvot
+            // Announce only card values
             announceToScreenReader(cardValues);
             
-            // Fokusoi vastaavaan maaosioon ruudunlukijan luennan jälkeen
-            // Laske viive tekstin pituuden perusteella (noin 50ms per merkki)
-            const readingDelay = Math.max(1000, cardValues.length * 50); // Vähintään 1 sekunti tai 50ms per merkki
+            // Focus on the corresponding suit section after screen reader finishes reading
+            // Calculate delay based on text length (approximately 50ms per character)
+            const readingDelay = Math.max(1000, cardValues.length * 50); // At least 1 second or 50ms per character
             
             setTimeout(() => {
-                // Hae ensimmäinen saatavilla oleva korttipainike tässä maaosiossa
+                // Get the first available card button in that suit section
                 const buttonContainer = document.getElementById(`${hand}-${suit}-buttons`);
                 const firstButton = buttonContainer.querySelector('button');
                 
                 if (firstButton) {
-                    // Fokusoi ensimmäiseen korttipainikkeeseen
+                    // Focus on the first card button
                     firstButton.focus();
                 } else {
-                    // Jos kortteja ei ole saatavilla, fokusoi maan otsikkoon
+                    // If no cards available, focus on the suit heading
                     const suitHeading = buttonContainer.previousElementSibling;
                     if (suitHeading) {
                         suitHeading.setAttribute('tabindex', '-1');
@@ -1226,16 +1225,16 @@ input[type="text"]:focus {
             }, readingDelay);
         }
 
-        // Tarkista onko kortti jo pelattu
+        // Check if card is already played
         function isCardPlayed(cardKey) {
-            // Tarkista nykyisestä tikistä
+            // Check in current trick
             for (const play of gameState.currentTrick) {
                 if (`${play.player}-${play.suit}-${play.card}` === cardKey) {
                     return true;
                 }
             }
             
-            // Tarkista tikki historiasta
+            // Check in trick history
             for (const trick of gameState.trickHistory) {
                 for (const play of trick) {
                     if (`${play.player}-${play.suit}-${play.card}` === cardKey) {
@@ -1247,105 +1246,105 @@ input[type="text"]:focus {
             return false;
         }
 
-        // Käsittele kortin pelaaminen
+        // Handle card play
         function playCard(suit, card, position) {
-            // Tarkista, onko peli käynnissä
+            // Check if game is in progress
             if (gameState.gamePhase !== 'play') {
-                updateStatus('Peli ei ole vielä käynnissä.');
+                updateStatus('Game is not started yet.');
                 return;
             }
             
-            // Tarkista, onko nyt tämän pelaajan vuoro
+            // Check if it's this player's turn
             if (gameState.currentPlayer !== position) {
-                // Erityistapaus: jos on pohjoisen (lepääjän) vuoro, etelä pelaa sen kortit
+                // Special case: if it's North's (dummy's) turn, South plays its cards
                 if (gameState.currentPlayer === 'north' && position === 'north') {
-                    // Tämä on ok, lepääjän kortit pelataan etelän toimesta
+                    // This is OK, dummy's cards are played by South
                 } else {
-                    updateStatus(`Ei ole nyt ${getPositionName(position)} vuoro.`);
+                    updateStatus(`It's not ${getPositionName(position)}'s turn.`);
                     return;
                 }
             }
             
-            // Tarkista, tarvitseeko seurata maata
+            // Check if player needs to follow suit
             if (gameState.currentTrick.length > 0) {
                 const leadSuit = gameState.currentTrick[0].suit;
                 const hasLeadSuit = gameState.hands[position][leadSuit].length > 0;
                 
-                // Jos täytyy seurata maata, mutta kortti ei ole samaa maata
+                // If player must follow suit but card is not the same suit
                 if (hasLeadSuit && suit !== leadSuit) {
-                    updateStatus(`Sinun täytyy pelata ${getSuitName(leadSuit)} jos sinulla on niitä.`);
+                    updateStatus(`You must play a ${getSuitName(leadSuit)} if you have one.`);
                     return;
                 }
             }
             
-            // Pelataan kortti
+            // Play the card
             const play = { player: position, suit, card };
             gameState.currentTrick.push(play);
             
-            // Näytä pelattu kortti
+            // Display played card
             displayPlayedCard(position, suit, card);
             
-            // Ilmoita pelattu kortti
+            // Announce played card
             const suitSymbol = suitToReadable(suit);
             const cardValue = cardToReadable(card);
-            announceToScreenReader(`${getPositionName(position)} pelasi ${suitSymbol}${cardValue}`);
+            announceToScreenReader(`${getPositionName(position)} played ${suitSymbol}${cardValue}`);
             
-            // Päivitä kädet
+            // Update hands
             if (position === 'south') {
-                // Poista kortti pelaajan kädestä
+                // Remove card from player's hand
                 gameState.hands.south[suit] = gameState.hands.south[suit].filter(c => c !== card);
-                // Päivitä myös Bridge-apuri-muuttujat
+                // Update Bridge Assistant variables
                 playerCards[suit] = playerCards[suit].replace(card.toLowerCase(), '');
             } else if (position === 'north') {
-                // Poista kortti lepääjän kädestä
+                // Remove card from dummy's hand
                 gameState.hands.north[suit] = gameState.hands.north[suit].filter(c => c !== card);
-                // Päivitä myös Bridge-apuri-muuttujat
+                // Update Bridge Assistant variables
                 dummyCards[suit] = dummyCards[suit].replace(card.toLowerCase(), '');
             } else if (position === 'east') {
-                // Poista kortti idän kädestä
+                // Remove card from east's hand
                 gameState.hands.east[suit] = gameState.hands.east[suit].filter(c => c !== card);
-                // Päivitä korttien määrä näkymässä
+                // Update card count in view
                 eastCardsCount.textContent = countCards(gameState.hands.east);
             } else if (position === 'west') {
-                // Poista kortti lännen kädestä
+                // Remove card from west's hand
                 gameState.hands.west[suit] = gameState.hands.west[suit].filter(c => c !== card);
-                // Päivitä korttien määrä näkymässä
+                // Update card count in view
                 westCardsCount.textContent = countCards(gameState.hands.west);
             }
             
-            // Siirry seuraavaan pelaajaan
+            // Move to next player
             const nextPosition = getNextPosition(position);
             gameState.currentPlayer = nextPosition;
             
-            // Päivitä pelaajien tila (kuka on vuorossa)
+            // Update player status (who's turn it is)
             updatePlayerStatus();
             
-            // Tarkista onko tikki valmis (4 korttia pelattu)
+            // Check if trick is complete (4 cards played)
             if (gameState.currentTrick.length === 4) {
                 setTimeout(() => {
                     completeTrick();
-                }, 1500); // Näytä tikki hetken ennen tikin päättämistä
+                }, 1500); // Show trick for a moment before completing
             } else {
-                // Jos seuraava on GIB-pelaaja, simuloi siirto
+                // If next player is GIB, simulate a move
                 if (gameState.players[nextPosition].type === 'gib') {
-                    updateStatus(`${gameState.players[nextPosition].name} miettii siirtoaan...`);
+                    updateStatus(`${gameState.players[nextPosition].name} is thinking...`);
                     setTimeout(() => {
                         simulateGIBPlay(nextPosition);
                     }, 1000);
                 } else {
-                    updateStatus(`${gameState.players[nextPosition].name} vuoro.`);
+                    updateStatus(`${gameState.players[nextPosition].name}'s turn.`);
                 }
             }
             
-            // Päivitä kortit näkymässä
+            // Update card display
             renderAllCards();
             renderPlayedCards();
             
-            // Tallenna pelin tila
+            // Save game state
             saveToLocalStorage();
         }
         
-        // Näytä pelattu kortti pelipöydällä
+        // Display played card on game board
         function displayPlayedCard(position, suit, card) {
             const element = document.getElementById(`${position}-played`);
             if (!element) return;
@@ -1361,7 +1360,7 @@ input[type="text"]:focus {
             `;
         }
         
-        // Tyhjennä pelatut kortit pelipöydältä
+        // Clear played cards from game board
         function clearPlayedCards() {
             northPlayed.innerHTML = '';
             eastPlayed.innerHTML = '';
@@ -1369,64 +1368,64 @@ input[type="text"]:focus {
             westPlayed.innerHTML = '';
         }
         
-        // Päätä tikki
+        // Complete a trick
         function completeTrick() {
-            // Määritä tikin voittaja
+            // Determine trick winner
             const winningPlay = determineWinner(gameState.currentTrick);
             
-            // Lisää tikki historiaan
+            // Add trick to history
             gameState.trickHistory.push([...gameState.currentTrick]);
             
-            // Lisää piste oikealle parille
+            // Add point to the correct pair
             if (winningPlay.player === 'north' || winningPlay.player === 'south') {
                 gameState.tricks.ns += 1;
             } else {
                 gameState.tricks.ew += 1;
             }
             
-            // Ilmoita tikin voittaja
-            updateStatus(`${getPositionName(winningPlay.player)} voitti tikin.`);
-            announceToScreenReader(`${getPositionName(winningPlay.player)} voitti tikin.`);
+            // Announce trick winner
+            updateStatus(`${getPositionName(winningPlay.player)} won the trick.`);
+            announceToScreenReader(`${getPositionName(winningPlay.player)} won the trick.`);
             
-            // Tyhjennä nykyinen tikki
+            // Clear current trick
             gameState.currentTrick = [];
             
-            // Tyhjennä pelatut kortit näkymästä
+            // Clear played cards from view
             setTimeout(() => {
                 clearPlayedCards();
                 
-                // Tarkista onko peli päättynyt
+                // Check if game is over
                 if (isGameOver()) {
                     endGame();
                 } else {
-                    // Seuraava pelaaja on tikin voittaja
+                    // Next player is trick winner
                     gameState.currentPlayer = winningPlay.player;
                     updatePlayerStatus();
                     
-                    // Päivitä tikin tiedot
-                    currentTrickInfo.textContent = `Etelä-Pohjoinen: ${gameState.tricks.ns} | Itä-Länsi: ${gameState.tricks.ew}`;
+                    // Update trick info
+                    currentTrickInfo.textContent = `North-South: ${gameState.tricks.ns} | East-West: ${gameState.tricks.ew}`;
                     
-                    // Jos seuraava on GIB-pelaaja, simuloi siirto
+                    // If next player is GIB, simulate move
                     if (gameState.players[winningPlay.player].type === 'gib') {
-                        updateStatus(`${gameState.players[winningPlay.player].name} miettii siirtoaan...`);
+                        updateStatus(`${gameState.players[winningPlay.player].name} is thinking...`);
                         setTimeout(() => {
                             simulateGIBPlay(winningPlay.player);
                         }, 1000);
                     } else {
-                        updateStatus(`${gameState.players[winningPlay.player].name} vuoro.`);
+                        updateStatus(`${gameState.players[winningPlay.player].name}'s turn.`);
                     }
                 }
             }, 1000);
             
-            // Tallenna pelin tila
+            // Save game state
             saveToLocalStorage();
         }
         
-        // Määritä tikin voittaja
+        // Determine trick winner
         function determineWinner(trick) {
             if (trick.length === 0) return null;
             
-            // Ensimmäinen kortti määrittää maan
+            // First card determines the suit
             const leadSuit = trick[0].suit;
             let winningPlay = trick[0];
             let highestValue = cardValueMap[trick[0].card.toLowerCase()] || 0;
@@ -1435,7 +1434,7 @@ input[type="text"]:focus {
                 const play = trick[i];
                 const value = cardValueMap[play.card.toLowerCase()] || 0;
                 
-                // Jos sama maa ja korkeampi arvo
+                // If same suit and higher value
                 if (play.suit === leadSuit && value > highestValue) {
                     winningPlay = play;
                     highestValue = value;
@@ -1445,73 +1444,73 @@ input[type="text"]:focus {
             return winningPlay;
         }
         
-        // Tarkista onko peli päättynyt
+        // Check if game is over
         function isGameOver() {
-            // Peli päättyy kun kaikki 13 tikkiä on pelattu
+            // Game ends when all 13 tricks have been played
             return gameState.trickHistory.length >= 13;
         }
         
-        // Päätä peli
+        // End the game
         function endGame() {
             gameState.gamePhase = 'end';
             
-            // Näytä lopputulos
+            // Show final result
             const nsScore = gameState.tricks.ns;
             const ewScore = gameState.tricks.ew;
             
-            let message = `Peli päättyi! Lopputulos: Etelä-Pohjoinen ${nsScore} - Itä-Länsi ${ewScore}.`;
+            let message = `Game over! Final score: North-South ${nsScore} - East-West ${ewScore}.`;
             
             if (nsScore > ewScore) {
-                message += ' Etelä-Pohjoinen voitti!';
+                message += ' North-South wins!';
             } else if (ewScore > nsScore) {
-                message += ' Itä-Länsi voitti!';
+                message += ' East-West wins!';
             } else {
-                message += ' Tasapeli!';
+                message += ' It\'s a tie!';
             }
             
             updateStatus(message);
             announceToScreenReader(message);
             
-            // Päivitä näkymä
+            // Update view
             currentTrickInfo.textContent = message;
         }
         
-        // Laske korttien määrä kädessä
+        // Count cards in hand
         function countCards(hand) {
             return Object.values(hand).reduce((sum, cards) => sum + cards.length, 0);
         }
         
-        // Päivitä pelaajien tila
+        // Update player status
         function updatePlayerStatus() {
-            // Poista 'current' luokka kaikilta pelaajilta
+            // Remove 'current' class from all players
             northInfo.classList.remove('current');
             eastInfo.classList.remove('current');
             southInfo.classList.remove('current');
             westInfo.classList.remove('current');
             
-            // Lisää 'current' luokka nykyiselle pelaajalle
+            // Add 'current' class to current player
             document.getElementById(`${gameState.currentPlayer}-info`).classList.add('current');
         }
         
-        // Hae seuraava pelaaja
+        // Get next player
         function getNextPosition(position) {
             const positions = ['north', 'east', 'south', 'west'];
             const currentIndex = positions.indexOf(position);
             return positions[(currentIndex + 1) % 4];
         }
 
-        // Peru viimeisin siirto (täytyy toteuttaa uudelleen GIB-pelaajien takia)
+        // Undo last move
         function undoLastMove() {
             if (gameState.currentTrick.length === 0 && gameState.trickHistory.length === 0) {
-                announceToScreenReader("Ei peruttavia siirtoja");
+                announceToScreenReader("No moves to undo");
                 return;
             }
             
-            // Jos nykyisessä tikissä on kortteja, peru viimeisin
+            // If there are cards in current trick, undo last one
             if (gameState.currentTrick.length > 0) {
                 const lastPlay = gameState.currentTrick.pop();
                 
-                // Palauta kortti pelaajan käteen
+                // Return card to player's hand
                 if (lastPlay.player === 'south') {
                     gameState.hands.south[lastPlay.suit].push(lastPlay.card);
                     playerCards[lastPlay.suit] += lastPlay.card.toLowerCase();
@@ -1524,30 +1523,30 @@ input[type="text"]:focus {
                     gameState.hands.west[lastPlay.suit].push(lastPlay.card);
                 }
                 
-                // Päivitä korttien näkymät
+                // Update card counts
                 eastCardsCount.textContent = countCards(gameState.hands.east);
                 westCardsCount.textContent = countCards(gameState.hands.west);
                 
-                // Päivitä nykyinen pelaaja
+                // Update current player
                 gameState.currentPlayer = lastPlay.player;
                 
-                // Poista kortti pelipöydältä
+                // Remove card from game board
                 document.getElementById(`${lastPlay.player}-played`).innerHTML = '';
                 
-                // Ilmoita perumisesta
+                // Announce undo
                 const suitSymbol = suitToReadable(lastPlay.suit);
                 const cardValue = cardToReadable(lastPlay.card);
-                announceToScreenReader(`Peruttu ${getPositionName(lastPlay.player)} kortti ${suitSymbol}${cardValue}`);
+                announceToScreenReader(`Undid ${getPositionName(lastPlay.player)}'s card ${suitSymbol}${cardValue}`);
             } 
-            // Jos tikki on tyhjä mutta on tikkihistoriaa, palauta viimeisin tikki
+            // If trick is empty but there's trick history, restore last trick
             else if (gameState.trickHistory.length > 0) {
-                // Hae viimeisin tikki historiasta
+                // Get last trick from history
                 const lastTrick = gameState.trickHistory.pop();
                 
-                // Palauta tikki nykyiseksi tikiksi
+                // Restore trick as current trick
                 gameState.currentTrick = lastTrick;
                 
-                // Päivitä tikit
+                // Update tricks
                 if (gameState.currentTrick[gameState.currentTrick.length - 1].player === 'north' || 
                     gameState.currentTrick[gameState.currentTrick.length - 1].player === 'south') {
                     gameState.tricks.ns -= 1;
@@ -1555,121 +1554,121 @@ input[type="text"]:focus {
                     gameState.tricks.ew -= 1;
                 }
                 
-                // Näytä tikin kortit pelipöydällä
+                // Show trick cards on game board
                 clearPlayedCards();
                 for (const play of lastTrick) {
                     displayPlayedCard(play.player, play.suit, play.card);
                 }
                 
-                // Päivitä tikin tiedot
-                currentTrickInfo.textContent = `Etelä-Pohjoinen: ${gameState.tricks.ns} | Itä-Länsi: ${gameState.tricks.ew}`;
+                // Update trick info
+                currentTrickInfo.textContent = `North-South: ${gameState.tricks.ns} | East-West: ${gameState.tricks.ew}`;
                 
-                // Ilmoita perumisesta
-                announceToScreenReader('Peruttu viimeisin tikki');
+                // Announce undo
+                announceToScreenReader('Undid last trick');
             }
             
-            // Päivitä pelaajien tila
+            // Update player status
             updatePlayerStatus();
             
-            // Päivitä kortit näkymässä
+            // Update cards in view
             renderAllCards();
             renderPlayedCards();
             
-            // Tallenna pelin tila
+            // Save game state
             saveToLocalStorage();
         }
         
-        // Simuloi GIB-pelaajan siirto
+        // Simulate GIB player move
         function simulateGIBPlay(gibPosition) {
-            // Tarkista onko kyseessä GIB-pelaaja
+            // Check if position is a GIB player
             if (gameState.players[gibPosition].type !== 'gib') {
                 return;
             }
             
-            // Hae pelaajan käsi
+            // Get player's hand
             const hand = gameState.hands[gibPosition];
             
-            // Tarkista että on GIB pelaajan vuoro
+            // Check if it's GIB player's turn
             if (gameState.currentPlayer !== gibPosition) {
                 return;
             }
             
-            // Määritä aloitusmaa jos sellainen on
+            // Determine lead suit if any
             let leadSuit = null;
             if (gameState.currentTrick.length > 0) {
                 leadSuit = gameState.currentTrick[0].suit;
             }
             
-            // Etsi maa, jossa on kortteja
+            // Find suit with cards
             let selectedSuit = null;
             let selectedCard = null;
             
-            // Jos aiempi kortti on pelattu, seuraa maata jos mahdollista
+            // If previous card played, follow suit if possible
             if (leadSuit && hand[leadSuit].length > 0) {
                 selectedSuit = leadSuit;
-                selectedCard = hand[leadSuit][0]; // Valitse ensimmäinen kortti tässä maassa
+                selectedCard = hand[leadSuit][0]; // Choose first card in this suit
             } else {
-                // Muuten pelaa mistä tahansa maasta
+                // Otherwise play from any suit
                 const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
                 for (const suit of suits) {
                     if (hand[suit].length > 0) {
                         selectedSuit = suit;
-                        selectedCard = hand[suit][0]; // Valitse ensimmäinen kortti tässä maassa
+                        selectedCard = hand[suit][0]; // Choose first card in this suit
                         break;
                     }
                 }
             }
             
             if (!selectedSuit || !selectedCard) {
-                console.error(`GIB-pelaajalla ${gibPosition} ei ole kortteja!`);
+                console.error(`GIB player ${gibPosition} has no cards!`);
                 return;
             }
             
-            // Pelaa kortti
+            // Play card
             setTimeout(() => {
                 playCard(selectedSuit, selectedCard, gibPosition);
             }, 500);
         }
 
-        // Renderöi kortit painikkeina
+        // Render card buttons
         function renderCardButtons(position, suit) {
             const hand = position === 'south' ? 'player' : 'dummy';
             const containerElement = document.getElementById(`${hand}-${suit}-buttons`);
-            containerElement.innerHTML = ''; // Tyhjennä olemassa olevat painikkeet
+            containerElement.innerHTML = ''; // Clear existing buttons
             
             const cardsString = hand === 'player' ? playerCards[suit] : dummyCards[suit];
             const parsedCards = parseCards(cardsString);
             
-            // Suodata pelatut kortit pois
+            // Filter out played cards
             const availableCards = parsedCards.filter(card => {
                 return !isCardPlayed(`${position}-${suit}-${card}`);
             });
             
-            // Määritä onko tämän kädenmaan kortit pelattavissa
+            // Determine if this hand's suit is active
             let isActive = false;
             
-            // Jos on etelän vuoro
+            // If it's South's turn
             if (gameState.currentPlayer === 'south' && position === 'south') {
                 isActive = true;
             }
-            // Jos on pohjoisen vuoro (lepääjä), niin etelä (pelaaja) pelaa ne
+            // If it's North's turn (dummy), then South (player) plays those cards
             else if (gameState.currentPlayer === 'north' && position === 'north') {
                 isActive = true;
             }
             
-            // Tarkista tarvitseeko seurata maata
+            // Check if player needs to follow suit
             let mustFollowSuit = null;
             if (gameState.currentTrick.length > 0 && isActive) {
                 mustFollowSuit = gameState.currentTrick[0].suit;
             }
             
-            // Onko pelaajalla kortteja aloitusmaassa
+            // Check if player has cards of lead suit
             const hasLeadSuit = mustFollowSuit ? gameState.hands[position][mustFollowSuit].length > 0 : false;
             
             availableCards.forEach(card => {
                 const button = document.createElement('button');
                 
-                // Aseta luokka maan perusteella väritystä varten
+                // Set class based on suit for coloring
                 let buttonClass = 'card-button';
                 if (suit === 'hearts' || suit === 'diamonds') {
                     buttonClass += ' hearts-button';
@@ -1678,52 +1677,52 @@ input[type="text"]:focus {
                 }
                 button.className = buttonClass;
                 
-                // Hae maasymboli
+                // Get suit symbol
                 const suitSymbol = suitToReadable(suit);
                 
-                // Hae korttiarvo
+                // Get card value
                 const cardValue = cardToReadable(card);
                 
-                // Luo erilliset span-elementit maasymbolille ja kortin arvolle
+                // Create separate span elements for suit symbol and card value
                 const suitSpan = document.createElement('span');
-                suitSpan.className = 'card-suit'; // Luokka maasymbolille
+                suitSpan.className = 'card-suit'; // Class for suit symbol
                 suitSpan.textContent = suitSymbol;
                 
                 const valueSpan = document.createElement('span');
-                valueSpan.className = 'card-value'; // Luokka kortin arvolle
+                valueSpan.className = 'card-value'; // Class for card value
                 valueSpan.textContent = cardValue;
                 
-                // Tyhjennä button ja lisää siihen span-elementit
+                // Clear button and add span elements
                 button.textContent = '';
                 button.appendChild(suitSpan);
                 button.appendChild(valueSpan);
                 
-                // Tallenna alkuperäinen korttiarvo data-attribuuttina
+                // Store original card value as data attribute
                 button.setAttribute('data-card', card);
                 button.setAttribute('data-suit', suit);
                 
-                // Aseta aria-label ruudunlukijoita varten
+                // Set aria-label for screen readers
                 button.setAttribute('aria-label', `${suitSymbol}${cardValue}`);
                 
-                // Tarkista onko tämä kortti käytössä (pelattavissa)
+                // Check if this card is playable
                 let isDisabled = true;
                 
-                // Jos peli on käynnissä ja tämä käsi on aktiivinen
+                // If game is in progress and this hand is active
                 if (gameState.gamePhase === 'play' && isActive) {
-                    // Jos ei tarvitse seurata maata tai tämä on aloitusmaa
+                    // If no need to follow suit or this is the lead suit
                     if (!mustFollowSuit || suit === mustFollowSuit) {
                         isDisabled = false;
                     }
-                    // Jos täytyy seurata maata mutta pelaajalla ei ole sitä
+                    // If must follow suit but player has none of that suit
                     else if (mustFollowSuit && !hasLeadSuit) {
                         isDisabled = false;
                     }
                 }
                 
-                // Aseta painikkeen tila
+                // Set button state
                 button.disabled = isDisabled;
                 
-                // Lisää klikkauskäsittelijä
+                // Add click handler
                 button.addEventListener('click', () => {
                     playCard(suit, card, position);
                 });
@@ -1732,7 +1731,7 @@ input[type="text"]:focus {
             });
         }
 
-        // Renderöi kaikki korttipainikkeet
+        // Render all card buttons
         function renderAllCards() {
             renderCardButtons('south', 'spades');
             renderCardButtons('south', 'hearts');
@@ -1744,22 +1743,22 @@ input[type="text"]:focus {
             renderCardButtons('north', 'clubs');
         }
 
-        // Renderöi pelatut kortit
+        // Render played cards
         function renderPlayedCards() {
-            // Tyhjennä pelattujen korttien säiliö
+            // Clear played cards container
             playedCardsContainer.innerHTML = '';
             
             if (gameState.trickHistory.length === 0 && gameState.currentTrick.length === 0) {
-                playedCardsContainer.innerHTML = '<p>Ei vielä pelattuja kortteja.</p>';
+                playedCardsContainer.innerHTML = '<p>No cards played yet.</p>';
                 return;
             }
             
             let html = '<ul class="played-cards-list">';
             
-            // Näytä ensin tikki historia
+            // Show trick history first
             gameState.trickHistory.forEach((trick, trickIndex) => {
                 const winner = determineWinner(trick);
-                html += `<li><strong>Tikki ${trickIndex + 1}:</strong> ${getPositionName(winner.player)} voitti</li>`;
+                html += `<li><strong>Trick ${trickIndex + 1}:</strong> ${getPositionName(winner.player)} won</li>`;
                 
                 trick.forEach((play, playIndex) => {
                     const suitSymbol = suitToReadable(play.suit);
@@ -1777,9 +1776,9 @@ input[type="text"]:focus {
                 });
             });
             
-            // Näytä sitten nykyinen tikki
+            // Then show current trick
             if (gameState.currentTrick.length > 0) {
-                html += `<li><strong>Nykyinen tikki:</strong></li>`;
+                html += `<li><strong>Current trick:</strong></li>`;
                 
                 gameState.currentTrick.forEach((play, playIndex) => {
                     const suitSymbol = suitToReadable(play.suit);
@@ -1801,14 +1800,14 @@ input[type="text"]:focus {
             playedCardsContainer.innerHTML = html;
         }
 
-        // Tallenna paikalliseen tallennustilaan
+        // Save to local storage
         function saveToLocalStorage() {
             localStorage.setItem('gameState', JSON.stringify(gameState));
             localStorage.setItem('playerCards', JSON.stringify(playerCards));
             localStorage.setItem('dummyCards', JSON.stringify(dummyCards));
         }
 
-        // Lataa paikallisesta tallennustilasta
+        // Load from local storage
         function loadFromLocalStorage() {
             const savedGameState = localStorage.getItem('gameState');
             const savedPlayerCards = localStorage.getItem('playerCards');
@@ -1834,35 +1833,35 @@ input[type="text"]:focus {
                 dummyClubsInput.value = dummyCards.clubs;
             }
             
-            // Päivitä pelaajien tila ja näytä pelatut kortit
+            // Update player status and show played cards
             updatePlayerStatus();
             
-            // Päivitä korttien määrät
+            // Update card counts
             eastCardsCount.textContent = countCards(gameState.hands.east);
             westCardsCount.textContent = countCards(gameState.hands.west);
             
-            // Näytä nykyisen tikin kortit
+            // Show current trick cards
             clearPlayedCards();
             for (const play of gameState.currentTrick) {
                 displayPlayedCard(play.player, play.suit, play.card);
             }
             
-            // Päivitä tikin tiedot
+            // Update trick info
             currentTrickInfo.textContent = gameState.currentTrick.length === 0 ? 
-                `Etelä-Pohjoinen: ${gameState.tricks.ns} | Itä-Länsi: ${gameState.tricks.ew}` : 
-                'Tikki kesken';
+                `North-South: ${gameState.tricks.ns} | East-West: ${gameState.tricks.ew}` : 
+                'Trick in progress';
             
-            // Päivitä näkymät
+            // Update views
             renderAllCards();
             renderPlayedCards();
             
-            // Päivitä tilaviesti
+            // Update status message
             updateStatus(gameState.statusMessage);
         }
 
-        // Nollaa kaikki kortit
+        // Reset all cards
         function resetCards() {
-            // Tyhjennä kädet
+            // Clear hands
             for (const position of ['north', 'east', 'south', 'west']) {
                 gameState.hands[position] = {
                     spades: [],
@@ -1872,15 +1871,15 @@ input[type="text"]:focus {
                 };
             }
             
-            // Nollaa muut pelitilamuuttujat
+            // Reset other game state variables
             gameState.currentTrick = [];
             gameState.trickHistory = [];
             gameState.tricks = { ns: 0, ew: 0 };
             gameState.gamePhase = 'setup';
             gameState.currentPlayer = 'south';
-            gameState.statusMessage = 'Kortit poistettu. Aloita jakamalla tai syöttämällä kortit.';
+            gameState.statusMessage = 'Cards removed. Start by dealing or entering cards.';
             
-            // Tyhjennä apuri kortti muuttujat
+            // Clear Bridge Assistant card variables
             playerCards = {
                 spades: '',
                 hearts: '',
@@ -1895,7 +1894,7 @@ input[type="text"]:focus {
                 clubs: ''
             };
             
-            // Tyhjennä syöttökentät
+            // Clear input fields
             playerSpadesInput.value = '';
             playerHeartsInput.value = '';
             playerDiamondsInput.value = '';
@@ -1905,50 +1904,50 @@ input[type="text"]:focus {
             dummyDiamondsInput.value = '';
             dummyClubsInput.value = '';
             
-            // Päivitä näkymät
+            // Update views
             updateStatus(gameState.statusMessage);
             updatePlayerStatus();
             clearPlayedCards();
-            currentTrickInfo.textContent = 'Odottaa pelaamista';
+            currentTrickInfo.textContent = 'Waiting for play';
             eastCardsCount.textContent = '0';
             westCardsCount.textContent = '0';
             
-            // Päivitä kortit ja pelatut kortit
+            // Update cards and played cards
             renderAllCards();
             renderPlayedCards();
             
-            // Tallenna pelin tila
+            // Save game state
             saveToLocalStorage();
             
-            // Ilmoita ruudunlukijalle
-            announceToScreenReader('Kortit poistettu');
+            // Announce to screen reader
+            announceToScreenReader('Cards removed');
         }
 
-        // Jaa uudet kortit
+        // Deal new cards
         function dealNewCards() {
-            updateStatus('Jaetaan kortteja...');
+            updateStatus('Dealing cards...');
             
-            // Nollaa ensin peli
+            // Reset game first
             resetCards();
             
-            // Luo satunnainen jako
+            // Create random deal
             generateRandomDeal();
             
-            // Päivitä korttimuuttujat Bridge-apuri-formaattiin
+            // Update card variables to Bridge Assistant format
             convertDealtCardsToBridgeAssistant();
             
-            // Päivitä tilaviesti
-            updateStatus('Uudet kortit jaettu! Aloita peli.');
-            announceToScreenReader('Uudet kortit on jaettu');
+            // Update status message
+            updateStatus('New cards dealt! Start the game.');
+            announceToScreenReader('New cards have been dealt');
             
-            // Päivitä pelattujen korttien määrät
+            // Update played card counts
             eastCardsCount.textContent = '13';
             westCardsCount.textContent = '13';
         }
 
-        // Muunna jaetut kortit Bridge-apuri-muotoon
+        // Convert dealt cards to Bridge Assistant format
         function convertDealtCardsToBridgeAssistant() {
-            // Tyhjennä aiemmat kortit
+            // Clear previous cards
             playerCards = {
                 spades: '',
                 hearts: '',
@@ -1963,38 +1962,38 @@ input[type="text"]:focus {
                 clubs: ''
             };
             
-            // Muunna south (pelaaja) ja north (lepääjä) kortit
+            // Convert south (player) and north (dummy) cards
             for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-                // Pelaajan kortit (south)
+                // Player cards (south)
                 playerCards[suit] = gameState.hands.south[suit].join('').toLowerCase();
                 
-                // Päivitä syöttökentät
+                // Update input fields
                 const playerInput = document.getElementById(`player-${suit}`);
                 if (playerInput) {
                     playerInput.value = playerCards[suit];
                 }
                 
-                // Lepääjän kortit (north)
+                // Dummy cards (north)
                 dummyCards[suit] = gameState.hands.north[suit].join('').toLowerCase();
                 
-                // Päivitä syöttökentät
+                // Update input fields
                 const dummyInput = document.getElementById(`dummy-${suit}`);
                 if (dummyInput) {
                     dummyInput.value = dummyCards[suit];
                 }
             }
             
-            // Päivitä näkymät
+            // Update views
             renderAllCards();
             renderPlayedCards();
             
-            // Tallenna pelin tila
+            // Save game state
             saveToLocalStorage();
         }
 
-        // Luo satunnainen jako
+        // Generate random deal
         function generateRandomDeal() {
-            // Luo pakka (52 korttia)
+            // Create deck (52 cards)
             const deck = [];
             const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
             const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
@@ -2005,13 +2004,13 @@ input[type="text"]:focus {
                 }
             }
             
-            // Sekoita pakka
+            // Shuffle deck
             for (let i = deck.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [deck[i], deck[j]] = [deck[j], deck[i]]; // Vaihda paikkaa
+                [deck[i], deck[j]] = [deck[j], deck[i]]; // Swap positions
             }
             
-            // Alusta tyhjät kädet
+            // Initialize empty hands
             for (const position of ['north', 'east', 'south', 'west']) {
                 gameState.hands[position] = {
                     spades: [],
@@ -2021,7 +2020,7 @@ input[type="text"]:focus {
                 };
             }
             
-            // Jaa 13 korttia kullekin pelaajalle
+            // Deal 13 cards to each player
             const positions = ['north', 'east', 'south', 'west'];
             for (let i = 0; i < deck.length; i++) {
                 const position = positions[Math.floor(i / 13)];
@@ -2029,7 +2028,7 @@ input[type="text"]:focus {
                 gameState.hands[position][card.suit].push(card.value);
             }
             
-            // Järjestä kortit maittain (A, K, Q, J, T, 9, ..., 2)
+            // Sort cards by suit (A, K, Q, J, T, 9, ..., 2)
             for (const position of positions) {
                 for (const suit of suits) {
                     gameState.hands[position][suit].sort((a, b) => {
@@ -2038,7 +2037,7 @@ input[type="text"]:focus {
                 }
             }
             
-            // Päivitä pelitila
+            // Update game state
             gameState.gamePhase = 'setup';
             gameState.currentTrick = [];
             gameState.trickHistory = [];
@@ -2046,43 +2045,43 @@ input[type="text"]:focus {
             gameState.currentPlayer = 'south';
         }
 
-        // Aloita peli
+        // Start game
         function startGame() {
-            // Tarkista onko kortteja
+            // Check if there are cards
             if (!hasCards()) {
-                updateStatus('Jaa ensin kortit ennen pelin aloittamista.');
+                updateStatus('Deal cards before starting the game.');
                 return;
             }
             
-            // Alusta peli
+            // Initialize game
             gameState.gamePhase = 'play';
             gameState.currentPlayer = 'south';
             gameState.currentTrick = [];
             gameState.trickHistory = [];
             gameState.tricks = { ns: 0, ew: 0 };
             
-            // Päivitä pelaajien tila
+            // Update player status
             updatePlayerStatus();
             
-            // Tyhjennä pelipöytä
+            // Clear game board
             clearPlayedCards();
             
-            // Päivitä tikin tiedot
-            currentTrickInfo.textContent = 'Etelä-Pohjoinen: 0 | Itä-Länsi: 0';
+            // Update trick info
+            currentTrickInfo.textContent = 'North-South: 0 | East-West: 0';
             
-            // Päivitä tila- ja ruudunlukijaviestit
-            updateStatus('Peli alkaa! Sinun vuorosi.');
-            announceToScreenReader('Peli on alkanut. Sinun vuorosi.');
+            // Update status and screen reader messages
+            updateStatus('Game started! Your turn.');
+            announceToScreenReader('Game has started. Your turn.');
             
-            // Tallenna pelin tila
+            // Save game state
             saveToLocalStorage();
             
-            // Päivitä näkymät
+            // Update views
             renderAllCards();
             renderPlayedCards();
         }
 
-        // Tarkista onko kortteja
+        // Check if there are cards
         function hasCards() {
             return countCards(gameState.hands.south) > 0 && 
                    countCards(gameState.hands.north) > 0 && 
@@ -2090,19 +2089,19 @@ input[type="text"]:focus {
                    countCards(gameState.hands.west) > 0;
         }
 
-        // Päivitä tilaviesti
+        // Update status message
         function updateStatus(message) {
             gameState.statusMessage = message;
             statusBarElement.textContent = message;
         }
 
-        // Apufunktiot
+        // Helper functions
         function getPositionName(position) {
-            const names = { north: 'Pohjoinen', east: 'Itä', south: 'Etelä', west: 'Länsi' };
+            const names = { north: 'North', east: 'East', south: 'South', west: 'West' };
             return names[position] || position;
         }
 
-        // Lisää kuuntelijat syöttökentille
+        // Add event listeners for input fields
         playerSpadesInput.addEventListener('input', (e) => {
             playerCards.spades = e.target.value.toLowerCase();
             gameState.hands.south.spades = parseCards(playerCards.spades);
@@ -2159,7 +2158,7 @@ input[type="text"]:focus {
             renderAllCards();
         });
 
-        // Lisää napsautustapahtumat painikkeille
+        // Add click events for buttons
         playerInputButton.addEventListener('click', showPlayerInputs);
         dummyInputButton.addEventListener('click', showDummyInputs);
         closePlayerInputsButton.addEventListener('click', hidePlayerInputs);
@@ -2169,60 +2168,60 @@ input[type="text"]:focus {
         dealButton.addEventListener('click', dealNewCards);
         startGameButton.addEventListener('click', startGame);
 
-        // Määritä näppäimistön pikavalinnat
+        // Set up keyboard shortcuts
         document.addEventListener('keydown', (event) => {
-            // Tarkista painetaanko Alt-näppäintä
+            // Check if Alt key is pressed
             if (event.altKey) {
                 switch (event.key) {
-                    case 'n': // Alt+N - Syötä omat kortit
+                    case 'n': // Alt+N - Enter your cards
                         showPlayerInputs();
                         event.preventDefault();
                         break;
-                    case 'm': // Alt+M - Syötä lepääjän kortit
+                    case 'm': // Alt+M - Enter dummy cards
                         showDummyInputs();
                         event.preventDefault();
                         break;
-                    case 'z': // Alt+Z - Peru viimeisin siirto
+                    case 'z': // Alt+Z - Undo last move
                         undoLastMove();
                         event.preventDefault();
                         break;
-                    case 'd': // Alt+D - Jaa uudet kortit
+                    case 'd': // Alt+D - Deal new cards
                         dealNewCards();
                         event.preventDefault();
                         break;
-                    case 's': // Alt+S - Aloita peli
+                    case 's': // Alt+S - Start game
                         startGame();
                         event.preventDefault();
                         break;
-                    case 'a': // Alt+A - Lue pelaajan padat
+                    case 'a': // Alt+A - Read player's spades
                         readCards('player', 'spades');
                         event.preventDefault();
                         break;
-                    case 'h': // Alt+H - Lue pelaajan hertat
+                    case 'h': // Alt+H - Read player's hearts
                         readCards('player', 'hearts');
                         event.preventDefault();
                         break;
-                    case 'x': // Alt+X - Lue pelaajan ruudut
+                    case 'x': // Alt+X - Read player's diamonds
                         readCards('player', 'diamonds');
                         event.preventDefault();
                         break;
-                    case 'c': // Alt+C - Lue pelaajan ristit
+                    case 'c': // Alt+C - Read player's clubs
                         readCards('player', 'clubs');
                         event.preventDefault();
                         break;
-                    case 'q': // Alt+Q - Lue lepääjän padat
+                    case 'q': // Alt+Q - Read dummy's spades
                         readCards('dummy', 'spades');
                         event.preventDefault();
                         break;
-                    case 'w': // Alt+W - Lue lepääjän hertat
+                    case 'w': // Alt+W - Read dummy's hearts
                         readCards('dummy', 'hearts');
                         event.preventDefault();
                         break;
-                    case 'e': // Alt+E - Lue lepääjän ruudut
+                    case 'e': // Alt+E - Read dummy's diamonds
                         readCards('dummy', 'diamonds');
                         event.preventDefault();
                         break;
-                    case 'r': // Alt+R - Lue lepääjän ristit
+                    case 'r': // Alt+R - Read dummy's clubs
                         readCards('dummy', 'clubs');
                         event.preventDefault();
                         break;
@@ -2232,7 +2231,7 @@ input[type="text"]:focus {
             }
         });
 
-        // Alusta sovellus
+        // Initialize application
         loadFromLocalStorage();
     </script>
 </body>

@@ -1,19 +1,19 @@
 /**
  * BridgeCircle - Game Module
- * Käsittelee pelin logiikan ja pelitilan
+ * Handles game logic and game state
  */
 
-// Pelin tila
+// Game state
 const gameState = {
     players: {
-        north: { type: 'human', name: 'Pelaaja 1' },
-        east: { type: 'gib', name: 'GIB-Itä' },
-        south: { type: 'human', name: 'Sinä' },
-        west: { type: 'gib', name: 'GIB-Länsi' }
+        north: { type: 'human', name: 'Player 1' },
+        east: { type: 'gib', name: 'GIB-East' },
+        south: { type: 'human', name: 'You' },
+        west: { type: 'gib', name: 'GIB-West' }
     },
     currentPlayer: 'south',
     gamePhase: 'setup', // 'setup', 'bidding', 'play', 'end'
-    statusMessage: 'Aloita jakamalla kortit.',
+    statusMessage: 'Start by dealing cards.',
     hands: {
         north: { 
             spades: [], 
@@ -49,30 +49,30 @@ const gameState = {
 };
 
 /**
- * Aloittaa pelin
+ * Starts the game
  */
 function startGame() {
     if (gameState.gamePhase !== 'setup' || !hasDealtCards()) {
-        updateStatus('Jaa ensin kortit ennen pelin aloittamista.');
+        updateStatus('Deal cards before starting the game.');
         return;
     }
     
-    // Alustaa pelin aloitettavaksi
-    gameState.gamePhase = 'play'; // Jatkokehityksessä tämä olisi 'bidding', mutta nyt aloitamme suoraan pelaamisen
+    // Initialize game to be started
+    gameState.gamePhase = 'play'; // In future development this would be 'bidding', but now we start directly with play
     gameState.currentPlayer = 'south';
     gameState.playedCards = [];
     gameState.bidHistory = [];
     gameState.tricks = { ns: 0, ew: 0 };
     
-    updateStatus('Peli alkaa! Sinun vuorosi.');
-    announceToScreenReader('Peli on alkanut. Sinun vuorosi.');
+    updateStatus('Game starts! Your turn.');
+    announceToScreenReader('Game has started. Your turn.');
     
-    // Päivitä näkymä
+    // Update view
     renderUI();
 }
 
 /**
- * Tarkistaa onko kortteja jaettu
+ * Checks if cards have been dealt
  */
 function hasDealtCards() {
     return Object.values(gameState.hands).some(hand => 
@@ -81,42 +81,42 @@ function hasDealtCards() {
 }
 
 /**
- * Jaa uudet kortit
+ * Deal new cards
  */
 async function dealNewCards() {
-    updateStatus('Jaetaan kortteja...');
+    updateStatus('Dealing cards...');
     
     try {
-        // Yritetään hakea kortit GIB-palvelusta jos GIB-integraatio on valmis
+        // Try to get cards from GIB service if GIB integration is ready
         if (typeof gibService !== 'undefined' && gibService.isAvailable()) {
             const deal = await gibService.getDeal();
             if (deal) {
                 importDealToGameState(deal);
-                updateStatus('Uudet kortit jaettu!');
-                announceToScreenReader('Uudet kortit on jaettu');
+                updateStatus('New cards dealt!');
+                announceToScreenReader('New cards have been dealt');
                 renderUI();
                 return;
             }
         }
     } catch (error) {
-        console.error('Virhe haettaessa kortteja GIB-palvelusta:', error);
+        console.error('Error fetching cards from GIB service:', error);
     }
     
-    // Varakäytäntö: käytä satunnaista korttien jakoa jos GIB ei ole käytettävissä
+    // Fallback: use random card deal if GIB is not available
     generateRandomDeal();
-    updateStatus('Uudet kortit jaettu!');
-    announceToScreenReader('Uudet kortit on jaettu');
+    updateStatus('New cards dealt!');
+    announceToScreenReader('New cards have been dealt');
     renderUI();
 }
 
 /**
- * Tuo GIB-palvelusta saatu jako pelitilaan
+ * Imports deal from GIB service to game state
  */
 function importDealToGameState(deal) {
-    // Tässä oletetaan, että deal on jossain formaatissa, joka täytyy muuntaa pelitilaan sopivaksi
-    // Tämä funktio täytyy sovittaa GIB-palvelun käyttämään formaattiin
+    // Here we assume that deal is in some format that needs to be converted to match game state
+    // This function needs to be adapted to the format used by GIB service
     
-    // Esimerkki:
+    // Example:
     gameState.hands.north = parseBridgeHand(deal.north);
     gameState.hands.east = parseBridgeHand(deal.east);
     gameState.hands.south = parseBridgeHand(deal.south);
@@ -127,10 +127,10 @@ function importDealToGameState(deal) {
 }
 
 /**
- * Luo satunnaisen jaon kun GIB ei ole käytettävissä
+ * Creates a random deal when GIB is not available
  */
 function generateRandomDeal() {
-    // Alustaa tyhjät kädet
+    // Initialize empty hands
     for (const position of ['north', 'east', 'south', 'west']) {
         gameState.hands[position] = {
             spades: [],
@@ -140,7 +140,7 @@ function generateRandomDeal() {
         };
     }
     
-    // Luo pakka (52 korttia)
+    // Create deck (52 cards)
     const deck = [];
     const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
     const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
@@ -151,13 +151,13 @@ function generateRandomDeal() {
         }
     }
     
-    // Sekoita pakka
+    // Shuffle deck
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]]; // Vaihda paikkaa
+        [deck[i], deck[j]] = [deck[j], deck[i]]; // Swap positions
     }
     
-    // Jaa 13 korttia kullekin pelaajalle
+    // Deal 13 cards to each player
     const positions = ['north', 'east', 'south', 'west'];
     for (let i = 0; i < deck.length; i++) {
         const position = positions[Math.floor(i / 13)];
@@ -165,7 +165,7 @@ function generateRandomDeal() {
         gameState.hands[position][card.suit].push(card.value);
     }
     
-    // Järjestä kortit maittain (A, K, Q, J, T, 9, ..., 2)
+    // Sort cards by suit (A, K, Q, J, T, 9, ..., 2)
     for (const position of positions) {
         for (const suit of suits) {
             gameState.hands[position][suit].sort((a, b) => {
@@ -179,56 +179,56 @@ function generateRandomDeal() {
 }
 
 /**
- * Käsittelee kortin pelaamisen
+ * Handles playing a card
  */
 function playCard(suit, card) {
-    // Tarkista, onko nyt tämän pelaajan vuoro
+    // Check if it's this player's turn
     if (gameState.currentPlayer !== 'south') {
-        updateStatus('Ei ole sinun vuorosi.');
+        updateStatus('It\'s not your turn.');
         return;
     }
     
-    // Tarkista, onko peli käynnissä
+    // Check if game is in progress
     if (gameState.gamePhase !== 'play') {
-        updateStatus('Peli ei ole vielä käynnissä.');
+        updateStatus('Game is not in progress yet.');
         return;
     }
     
-    // Pelataan kortti
+    // Play the card
     gameState.playedCards.push({ player: 'south', suit, card });
     
-    // Poista kortti pelaajan kädestä
+    // Remove card from player's hand
     gameState.hands.south[suit] = gameState.hands.south[suit].filter(c => c !== card);
     
-    // Siirry seuraavaan pelaajaan
+    // Move to next player
     gameState.currentPlayer = 'west';
-    updateStatus('GIB-Länsi miettii siirtoaan...');
+    updateStatus('GIB-West is thinking...');
     
-    // Päivitä näkymä
+    // Update view
     renderUI();
     
-    // Ilmoita ruudunlukijalle
-    announceToScreenReader(`Pelasit kortin ${getSuitName(suit)} ${card}`);
+    // Announce to screen reader
+    announceToScreenReader(`You played ${getSuitName(suit)} ${card}`);
     
-    // Simuloi GIB:n siirto 1 sekunnin kuluttua
+    // Simulate GIB's move after 1 second
     setTimeout(() => {
         simulateGIBPlay('west');
     }, 1000);
 }
 
 /**
- * Simuloi GIB-pelaajan siirto (placeholder-toteutus kunnes varsinainen GIB-integraatio on valmis)
+ * Simulates GIB player's move (placeholder implementation until actual GIB integration is ready)
  */
 function simulateGIBPlay(gibPosition) {
-    // Tarkista onko kyseessä GIB-pelaaja
+    // Check if this is a GIB player
     if (gameState.players[gibPosition].type !== 'gib') {
         return;
     }
     
-    // Hae pelaajan käsi
+    // Get player's hand
     const hand = gameState.hands[gibPosition];
     
-    // Etsi maa, jossa on kortteja
+    // Find suit with cards
     const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
     let selectedSuit = null;
     let selectedCard = null;
@@ -236,27 +236,27 @@ function simulateGIBPlay(gibPosition) {
     for (const suit of suits) {
         if (hand[suit].length > 0) {
             selectedSuit = suit;
-            selectedCard = hand[suit][0]; // Valitse ensimmäinen kortti tässä maassa
+            selectedCard = hand[suit][0]; // Choose first card in this suit
             break;
         }
     }
     
     if (!selectedSuit || !selectedCard) {
-        console.error(`GIB-pelaajalla ${gibPosition} ei ole kortteja!`);
+        console.error(`GIB player ${gibPosition} has no cards!`);
         return;
     }
     
-    // Pelataan kortti
+    // Play the card
     gameState.playedCards.push({ 
         player: gibPosition, 
         suit: selectedSuit, 
         card: selectedCard 
     });
     
-    // Poista kortti pelaajan kädestä
+    // Remove card from player's hand
     gameState.hands[gibPosition][selectedSuit] = hand[selectedSuit].filter(c => c !== selectedCard);
     
-    // Määritä seuraava pelaaja
+    // Determine next player
     const positions = ['north', 'east', 'south', 'west'];
     const currentIndex = positions.indexOf(gibPosition);
     const nextPosition = positions[(currentIndex + 1) % 4];
@@ -264,11 +264,11 @@ function simulateGIBPlay(gibPosition) {
     gameState.currentPlayer = nextPosition;
     
     if (nextPosition === 'south') {
-        updateStatus('Sinun vuorosi. Valitse kortti pelattavaksi.');
+        updateStatus('Your turn. Choose a card to play.');
     } else {
-        updateStatus(`${gameState.players[nextPosition].name} miettii siirtoaan...`);
+        updateStatus(`${gameState.players[nextPosition].name} is thinking...`);
         
-        // Jos seuraava on myös GIB, simuloi siirto
+        // If next player is also GIB, simulate move
         if (gameState.players[nextPosition].type === 'gib') {
             setTimeout(() => {
                 simulateGIBPlay(nextPosition);
@@ -276,35 +276,35 @@ function simulateGIBPlay(gibPosition) {
         }
     }
     
-    // Päivitä näkymä
+    // Update view
     renderUI();
     
-    // Ilmoita ruudunlukijalle
+    // Announce to screen reader
     announceToScreenReader(
-        `${getPositionName(gibPosition)} pelasi kortin ${getSuitName(selectedSuit)} ${selectedCard}`
+        `${getPositionName(gibPosition)} played ${getSuitName(selectedSuit)} ${selectedCard}`
     );
 }
 
 /**
- * Vaihtaa pelaajan tyyppiä (ihminen/GIB)
+ * Toggles player type (human/GIB)
  */
 function togglePlayerType(position) {
-    if (position === 'south') return; // Älä vaihda omaa pelaajaa
+    if (position === 'south') return; // Don't change your own player
     
     const currentType = gameState.players[position].type;
     gameState.players[position] = {
         type: currentType === 'human' ? 'gib' : 'human',
         name: currentType === 'human' 
             ? `GIB-${getPositionName(position)}` 
-            : `Pelaaja ${position === 'north' ? '1' : position === 'east' ? '2' : '4'}`
+            : `Player ${position === 'north' ? '1' : position === 'east' ? '2' : '4'}`
     };
     
-    // Päivitä näkymä
+    // Update view
     renderUI();
     
-    // Ilmoitus ruudunlukijalle
-    const message = `${getPositionName(position)} on nyt ${
-        gameState.players[position].type === 'human' ? 'ihmispelaaja' : 'GIB-tekoäly'
+    // Announcement for screen reader
+    const message = `${getPositionName(position)} is now ${
+        gameState.players[position].type === 'human' ? 'human player' : 'GIB AI'
     }`;
     
     updateStatus(message);
@@ -312,25 +312,25 @@ function togglePlayerType(position) {
 }
 
 /**
- * Päivittää tilaviestin
+ * Updates status message
  */
 function updateStatus(message) {
     gameState.statusMessage = message;
     renderStatusBar();
 }
 
-// Apufunktiot
+// Helper functions
 function getPositionName(position) {
-    const names = { north: 'Pohjoinen', east: 'Itä', south: 'Etelä', west: 'Länsi' };
+    const names = { north: 'North', east: 'East', south: 'South', west: 'West' };
     return names[position] || position;
 }
 
 function getSuitName(suit) {
     const names = { 
-        spades: 'pata', 
-        hearts: 'hertta', 
-        diamonds: 'ruutu', 
-        clubs: 'risti' 
+        spades: 'spade', 
+        hearts: 'heart', 
+        diamonds: 'diamond', 
+        clubs: 'club' 
     };
     return names[suit] || suit;
 }
@@ -346,11 +346,11 @@ function getSuitSymbol(suit) {
 }
 
 /**
- * Jäsentää bridge-käden merkkijonosta (tuleva GIB-integraatiota varten)
+ * Parses bridge hand from string (for future GIB integration)
  */
 function parseBridgeHand(handString) {
-    // Placeholder GIB-integraatiota varten
-    // Tämä tulee muuttumaan GIB-palvelun käyttämän formaatin mukaan
+    // Placeholder for GIB integration
+    // This will change based on the format used by GIB service
     return {
         spades: [],
         hearts: [],
