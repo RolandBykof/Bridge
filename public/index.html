@@ -172,14 +172,6 @@ a:visited {
   background-color: #006400;
 }
 
-#start-game-button {
-  background-color: #4B0082;
-}
-
-#start-game-button:hover:not([disabled]) {
-  background-color: #3A006F;
-}
-
 .close-button {
   padding: 0.8rem 1.2rem;
   background-color: #005A9C;
@@ -722,11 +714,6 @@ input[type="text"]:focus {
             </button>
             <button id="deal-button" class="action-button">
                 Deal New Cards
-                <span class="keyboard-shortcut">(Alt+D)</span>
-            </button>
-            <button id="start-game-button" class="action-button">
-                Start Game
-                <span class="keyboard-shortcut">(Alt+S)</span>
             </button>
         </div>
 
@@ -1036,7 +1023,6 @@ input[type="text"]:focus {
         const dummyInputButton = document.getElementById('dummy-input-button');
         const undoButton = document.getElementById('undo-button');
         const dealButton = document.getElementById('deal-button');
-        const startGameButton = document.getElementById('start-game-button');
         const playerCardInputs = document.getElementById('player-card-inputs');
         const dummyCardInputs = document.getElementById('dummy-card-inputs');
         const closePlayerInputsButton = document.getElementById('close-player-inputs');
@@ -1936,13 +1922,33 @@ input[type="text"]:focus {
             // Update card variables to Bridge Assistant format
             convertDealtCardsToBridgeAssistant();
             
+            // Start the game automatically
+            gameState.gamePhase = 'play';
+            gameState.currentPlayer = 'south';
+            
+            // Update views
+            updatePlayerStatus();
+            
+            // Clear game board
+            clearPlayedCards();
+            
+            // Update trick info
+            currentTrickInfo.textContent = 'North-South: 0 | East-West: 0';
+            
             // Update status message
-            updateStatus('New cards dealt! Start the game.');
-            announceToScreenReader('New cards have been dealt');
+            updateStatus('New cards dealt! Your turn.');
+            announceToScreenReader('New cards have been dealt. Game started. Your turn.');
             
             // Update played card counts
             eastCardsCount.textContent = '13';
             westCardsCount.textContent = '13';
+            
+            // Update cards display
+            renderAllCards();
+            renderPlayedCards();
+            
+            // Save game state
+            saveToLocalStorage();
         }
 
         // Convert dealt cards to Bridge Assistant format
@@ -2045,60 +2051,16 @@ input[type="text"]:focus {
             gameState.currentPlayer = 'south';
         }
 
-        // Start game
-        function startGame() {
-            // Check if there are cards
-            if (!hasCards()) {
-                updateStatus('Deal cards before starting the game.');
-                return;
-            }
-            
-            // Initialize game
-            gameState.gamePhase = 'play';
-            gameState.currentPlayer = 'south';
-            gameState.currentTrick = [];
-            gameState.trickHistory = [];
-            gameState.tricks = { ns: 0, ew: 0 };
-            
-            // Update player status
-            updatePlayerStatus();
-            
-            // Clear game board
-            clearPlayedCards();
-            
-            // Update trick info
-            currentTrickInfo.textContent = 'North-South: 0 | East-West: 0';
-            
-            // Update status and screen reader messages
-            updateStatus('Game started! Your turn.');
-            announceToScreenReader('Game has started. Your turn.');
-            
-            // Save game state
-            saveToLocalStorage();
-            
-            // Update views
-            renderAllCards();
-            renderPlayedCards();
-        }
-
-        // Check if there are cards
-        function hasCards() {
-            return countCards(gameState.hands.south) > 0 && 
-                   countCards(gameState.hands.north) > 0 && 
-                   countCards(gameState.hands.east) > 0 && 
-                   countCards(gameState.hands.west) > 0;
+        // Helper functions
+        function getPositionName(position) {
+            const names = { north: 'North', east: 'East', south: 'South', west: 'West' };
+            return names[position] || position;
         }
 
         // Update status message
         function updateStatus(message) {
             gameState.statusMessage = message;
             statusBarElement.textContent = message;
-        }
-
-        // Helper functions
-        function getPositionName(position) {
-            const names = { north: 'North', east: 'East', south: 'South', west: 'West' };
-            return names[position] || position;
         }
 
         // Add event listeners for input fields
@@ -2166,7 +2128,6 @@ input[type="text"]:focus {
         resetAllButton.addEventListener('click', resetCards);
         undoButton.addEventListener('click', undoLastMove);
         dealButton.addEventListener('click', dealNewCards);
-        startGameButton.addEventListener('click', startGame);
 
         // Set up keyboard shortcuts
         document.addEventListener('keydown', (event) => {
@@ -2185,27 +2146,19 @@ input[type="text"]:focus {
                         undoLastMove();
                         event.preventDefault();
                         break;
-                    case 'd': // Alt+D - Deal new cards
-                        dealNewCards();
-                        event.preventDefault();
-                        break;
-                    case 's': // Alt+S - Start game
-                        startGame();
-                        event.preventDefault();
-                        break;
                     case 'a': // Alt+A - Read player's spades
                         readCards('player', 'spades');
                         event.preventDefault();
                         break;
-                    case 'h': // Alt+H - Read player's hearts
+                    case 's': // Alt+S - Read player's hearts
                         readCards('player', 'hearts');
                         event.preventDefault();
                         break;
-                    case 'x': // Alt+X - Read player's diamonds
+                    case 'd': // Alt+D - Read player's diamonds
                         readCards('player', 'diamonds');
                         event.preventDefault();
                         break;
-                    case 'c': // Alt+C - Read player's clubs
+                    case 'f': // Alt+F - Read player's clubs
                         readCards('player', 'clubs');
                         event.preventDefault();
                         break;
