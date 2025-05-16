@@ -1249,16 +1249,33 @@ input[type="text"]:focus {
 
         // Käsittele kortin pelaaminen
         function playCard(suit, card, position) {
-            // Tarkista, onko nyt tämän pelaajan vuoro
-            if (gameState.currentPlayer !== position) {
-                updateStatus(`Ei ole nyt ${getPositionName(position)} vuoro.`);
-                return;
-            }
-            
             // Tarkista, onko peli käynnissä
             if (gameState.gamePhase !== 'play') {
                 updateStatus('Peli ei ole vielä käynnissä.');
                 return;
+            }
+            
+            // Tarkista, onko nyt tämän pelaajan vuoro
+            if (gameState.currentPlayer !== position) {
+                // Erityistapaus: jos on pohjoisen (lepääjän) vuoro, etelä pelaa sen kortit
+                if (gameState.currentPlayer === 'north' && position === 'north') {
+                    // Tämä on ok, lepääjän kortit pelataan etelän toimesta
+                } else {
+                    updateStatus(`Ei ole nyt ${getPositionName(position)} vuoro.`);
+                    return;
+                }
+            }
+            
+            // Tarkista, tarvitseeko seurata maata
+            if (gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                const hasLeadSuit = gameState.hands[position][leadSuit].length > 0;
+                
+                // Jos täytyy seurata maata, mutta kortti ei ole samaa maata
+                if (hasLeadSuit && suit !== leadSuit) {
+                    updateStatus(`Sinun täytyy pelata ${getSuitName(leadSuit)} jos sinulla on niitä.`);
+                    return;
+                }
             }
             
             // Pelataan kortti
@@ -1628,12 +1645,21 @@ input[type="text"]:focus {
                 return !isCardPlayed(`${position}-${suit}-${card}`);
             });
             
-            // Tarkista onko vuorossa tutkittavana oleva pelaaja
-            const isPlayersTurn = gameState.currentPlayer === position;
+            // Määritä onko tämän kädenmaan kortit pelattavissa
+            let isActive = false;
+            
+            // Jos on etelän vuoro
+            if (gameState.currentPlayer === 'south' && position === 'south') {
+                isActive = true;
+            }
+            // Jos on pohjoisen vuoro (lepääjä), niin etelä (pelaaja) pelaa ne
+            else if (gameState.currentPlayer === 'north' && position === 'north') {
+                isActive = true;
+            }
             
             // Tarkista tarvitseeko seurata maata
             let mustFollowSuit = null;
-            if (gameState.currentTrick.length > 0 && isPlayersTurn) {
+            if (gameState.currentTrick.length > 0 && isActive) {
                 mustFollowSuit = gameState.currentTrick[0].suit;
             }
             
@@ -1679,14 +1705,23 @@ input[type="text"]:focus {
                 // Aseta aria-label ruudunlukijoita varten
                 button.setAttribute('aria-label', `${suitSymbol}${cardValue}`);
                 
-                // Määritä onko painike käytössä
-                const isDisabled = !isPlayersTurn || 
-                                  gameState.gamePhase !== 'play' || 
-                                  (mustFollowSuit && hasLeadSuit && suit !== mustFollowSuit);
+                // Tarkista onko tämä kortti käytössä (pelattavissa)
+                let isDisabled = true;
                 
-                if (isDisabled) {
-                    button.disabled = true;
+                // Jos peli on käynnissä ja tämä käsi on aktiivinen
+                if (gameState.gamePhase === 'play' && isActive) {
+                    // Jos ei tarvitse seurata maata tai tämä on aloitusmaa
+                    if (!mustFollowSuit || suit === mustFollowSuit) {
+                        isDisabled = false;
+                    }
+                    // Jos täytyy seurata maata mutta pelaajalla ei ole sitä
+                    else if (mustFollowSuit && !hasLeadSuit) {
+                        isDisabled = false;
+                    }
                 }
+                
+                // Aseta painikkeen tila
+                button.disabled = isDisabled;
                 
                 // Lisää klikkauskäsittelijä
                 button.addEventListener('click', () => {
