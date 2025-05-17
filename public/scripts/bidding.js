@@ -377,6 +377,13 @@ function switchToPlayPhase() {
         announceToScreenReader(contractMessage);
         announceToScreenReader(`${getPositionName(gameState.currentPlayer)} leads.`);
         
+        // Lisätty ilmoitus pohjoisen korttien näkymisestä
+        if (biddingState.declarer === 'south' || biddingState.declarer === 'north') {
+            setTimeout(() => {
+                announceToScreenReader("North's cards are now visible as dummy.");
+            }, 1500);
+        }
+        
         // If first player is GIB, get GIB move
         if (gameState.players[gameState.currentPlayer].type === 'gib') {
             setTimeout(() => {
@@ -670,7 +677,7 @@ function calculateHCP(hand) {
 
 /**
  * Render the bidding UI
- * This function will be called from the UI module
+ * This function will be implemented in ui.js
  */
 function renderBiddingUI() {
     // This will be implemented in ui.js

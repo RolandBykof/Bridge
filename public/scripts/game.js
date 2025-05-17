@@ -6,7 +6,7 @@
 // Game state
 const gameState = {
     players: {
-        north: { type: 'human', name: 'Player 1' },
+        north: { type: 'gib', name: 'GIB-North' },  // Muutettu 'human' -> 'gib'
         east: { type: 'gib', name: 'GIB-East' },
         south: { type: 'human', name: 'You' },
         west: { type: 'gib', name: 'GIB-West' }

@@ -63,27 +63,11 @@ function renderPlayerControls() {
             <h3>${getPositionName(position)}</h3>
             <div class="player-badge ${isCurrentPlayer ? 'current' : ''}">
                 <span>${player.name}</span>
-                ${position !== 'south' ? `
-                    <button 
-                        class="player-type-toggle"
-                        data-position="${position}"
-                        aria-label="Change ${getPositionName(position)} to ${player.type === 'human' ? 'GIB AI' : 'human'}"
-                    >
-                        ${player.type === 'human' ? 'Switch to GIB' : 'Switch to human'}
-                    </button>
-                ` : ''}
+                <!-- Pelaajatyypin vaihtopainikkeet poistettu -->
             </div>
         `;
         
         elements.playerControls.appendChild(playerDiv);
-    });
-    
-    // Add listeners
-    document.querySelectorAll('.player-type-toggle').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const position = e.target.dataset.position;
-            togglePlayerType(position);
-        });
     });
 }
 
@@ -121,6 +105,19 @@ function renderHand(position, element, isPlayable = false) {
     const isCurrentPlayer = position === gameState.currentPlayer;
     
     let html = `<h3>${position === 'south' ? 'Your hand (South)' : getPositionName(position)} ${gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
+    
+    // Lisätty ehto pohjoisen korttien näyttämiseen
+    const showCards = position === 'south' || 
+                     (position === 'north' && 
+                      gameState.gamePhase === 'play' && 
+                      (gameState.declarer === 'south' || gameState.declarer === 'north'));
+    
+    if (!showCards && position === 'north') {
+        // Pohjoisen kortit piilotetaan, kunnes ehtoja täyttyy
+        html += `<p>Cards will be visible when play begins, if South or North is declarer.</p>`;
+        element.innerHTML = html;
+        return;
+    }
     
     // Add cards by suit
     Object.entries(hand).forEach(([suit, cards]) => {
@@ -600,21 +597,7 @@ function setupEventListeners() {
             e.preventDefault();
         }
         
-        // Alt + 1-4 toggles player type
-        if (e.altKey && ['1', '2', '4'].includes(e.key)) {
-            const positions = ['north', 'east', 'west'];
-            const positionMap = { '1': 0, '2': 1, '4': 2 };
-            const index = positionMap[e.key];
-            
-            if (index !== undefined) {
-                togglePlayerType(positions[index]);
-                e.preventDefault();
-            }
-        }
+        // Alt + 1-4 toggles player type - ei tarvita enää
+        // Tämä osa poistettu koska emme halua pelaajatyypin vaihtoa
     });
 }
-
-/**
- * No need for manual style injection as styles are now in main.css
- */
-// Function and event listener removed since styles are now in main.css
