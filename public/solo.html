@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BridgeCircle - Accessible Bridge</title>
+    <link rel="stylesheet" href="css/main.css">
+    <meta name="description" content="Accessible Bridge application with GIB AI integration">
+</head>
+<body>
+    <div class="container" id="app">
+        <h1>BridgeCircle - Accessible Bridge</h1>
+        
+        <!-- ARIA Live area for announcements -->
+        <div id="status-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        
+        <!-- ARIA Live area specifically for card plays -->
+        <div id="card-announcer" class="sr-only" aria-live="assertive" aria-atomic="false"></div>
+        
+        <!-- Invisible focus target to help with screen reader issues -->
+        <span id="card-focus-target" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px"></span>
+        
+        <!-- Player management -->
+        <section class="section">
+            <h2>Players</h2>
+            <div class="player-controls" id="player-controls">
+                <!-- Player information will be added here by JavaScript -->
+            </div>
+        </section>
+        
+        <!-- Status message display -->
+        <div class="status-bar" id="status-bar" role="status">
+            Welcome to BridgeCircle application
+        </div>
+        
+        <!-- Action buttons -->
+        <div class="action-buttons">
+            <button id="toggle-help-button" class="button button-secondary">
+                Show Help
+            </button>
+            
+            <button id="deal-button" class="button">
+                Deal new cards
+            </button>
+            
+            <button id="back-to-lobby-button" class="button button-secondary">
+                Back to Lobby
+            </button>
+            
+            <button id="fullscreen-button" class="button button-secondary">
+                Full Screen
+            </button>
+        </div>
+        
+        <!-- Help section (initially hidden) -->
+        <section class="help-section" id="help-section" style="display: none;" role="dialog" aria-labelledby="help-heading">
+            <h2 id="help-heading">Keyboard Shortcuts</h2>
+            <ul class="help-list" id="help-list">
+                <!-- Help text will be populated by JavaScript -->
+            </ul>
+            <button id="close-help-button" class="button">
+                Close Help
+            </button>
+        </section>
+        
+        <!-- Bidding area -->
+        <section class="section" id="bidding-area" style="display: none;">
+            <h2>Bidding Phase</h2>
+            <div id="bidding-history" class="bidding-history">
+                <h3>Bidding History</h3>
+                <p>No bids yet.</p>
+            </div>
+            <div id="bidding-controls" class="bidding-controls">
+                <h3>Your Bid</h3>
+                <p>Waiting for bidding to start...</p>
+            </div>
+        </section>
+        
+        <!-- Game table -->
+        <div class="game-table">
+            <!-- North (top) -->
+            <div class="hand north-hand" id="north-hand">
+                <h3>North</h3>
+                <!-- Card information will be added here by JavaScript -->
+            </div>
+            
+            <!-- East (right) -->
+            <div class="hand east-hand" id="east-hand">
+                <h3>East</h3>
+                <p>Cards: ?</p>
+            </div>
+            
+            <!-- Center area -->
+            <div class="center-area" id="center-area">
+                <!-- Played cards and center information will be added here -->
+            </div>
+            
+            <!-- West (left) -->
+            <div class="hand west-hand" id="west-hand">
+                <h3>West</h3>
+                <p>Cards: ?</p>
+            </div>
+            
+            <!-- South (bottom - player's hand) -->
+            <div class="hand south-hand" id="south-hand">
+                <h3>Your Hand (South)</h3>
+                <!-- Card information will be added here by JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Played cards -->
+        <section class="section" id="played-cards-section">
+            <h2>Played Cards</h2>
+            <div id="played-cards-container">
+                <p class="text-gray-500">No cards played yet.</p>
+            </div>
+        </section>
+    </div>
+    
+    <!-- JavaScript files -->
+    <script src="scripts/bidding.js"></script>
+    <script src="scripts/ui.js"></script>
+    <script src="scripts/game.js"></script>
+    <script src="scripts/gib-integration.js"></script>
+    <script src="scripts/app.js"></script>
+    
+    <script>
+        // Add back to lobby button functionality
+        document.getElementById('back-to-lobby-button').addEventListener('click', function() {
+            window.location.href = '/';
+        });
+    </script>
+</body>
+</html>

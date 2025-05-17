@@ -5,16 +5,229 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BridgeCircle - Accessible Bridge</title>
     <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/multiplayer.css">
     <meta name="description" content="Accessible Bridge application with GIB AI integration">
 </head>
 <body>
-    <div class="container" id="app">
+    <!-- Multiplayer Lobby View -->
+    <div class="container" id="lobby-view">
         <h1>BridgeCircle - Accessible Bridge</h1>
         
-        <!-- ARIA Live area for general announcements -->
+        <!-- ARIA Live area for announcements -->
+        <div id="lobby-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        
+        <div class="section">
+            <h2>Welcome to BridgeCircle</h2>
+            <p>You can create a new table or join an existing one.</p>
+            
+            <div class="action-buttons">
+                <button id="create-table-button" class="button">
+                    Create Table
+                </button>
+                
+                <button id="join-table-button" class="button button-secondary">
+                    Join Table
+                </button>
+                
+                <button id="play-solo-button" class="button">
+                    Play Solo (with GIB)
+                </button>
+            </div>
+            
+            <div class="stats-section">
+                <p>Players online: <span id="players-count">-</span></p>
+                <p>Active tables: <span id="tables-count">-</span></p>
+            </div>
+        </div>
+        
+        <!-- Create Table Form (initially hidden) -->
+        <div class="section" id="create-table-form" style="display: none;">
+            <h2>Create New Table</h2>
+            
+            <div class="form-group">
+                <label for="create-name-input">Your Name:</label>
+                <input type="text" id="create-name-input" class="form-input" placeholder="Enter your name">
+            </div>
+            
+            <div class="form-group">
+                <h3>Select Your Position:</h3>
+                <div class="position-selector">
+                    <div class="position-row">
+                        <div></div>
+                        <div>
+                            <button class="position-button" data-position="north">
+                                North
+                            </button>
+                        </div>
+                        <div></div>
+                    </div>
+                    <div class="position-row">
+                        <div>
+                            <button class="position-button" data-position="west">
+                                West
+                            </button>
+                        </div>
+                        <div class="position-center">
+                            <div class="position-table"></div>
+                        </div>
+                        <div>
+                            <button class="position-button" data-position="east">
+                                East
+                            </button>
+                        </div>
+                    </div>
+                    <div class="position-row">
+                        <div></div>
+                        <div>
+                            <button class="position-button" data-position="south">
+                                South
+                            </button>
+                        </div>
+                        <div></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="create-submit-button" class="button">
+                    Create Table
+                </button>
+                
+                <button id="create-cancel-button" class="button button-secondary">
+                    Cancel
+                </button>
+            </div>
+        </div>
+        
+        <!-- Join Table Form (initially hidden) -->
+        <div class="section" id="join-table-form" style="display: none;">
+            <h2>Join Existing Table</h2>
+            
+            <div class="form-group">
+                <label for="join-name-input">Your Name:</label>
+                <input type="text" id="join-name-input" class="form-input" placeholder="Enter your name">
+            </div>
+            
+            <div class="form-group">
+                <label for="table-code-input">Table Code:</label>
+                <input type="text" id="table-code-input" class="form-input" placeholder="Enter 4-digit code">
+            </div>
+            
+            <div class="action-buttons">
+                <button id="join-submit-button" class="button">
+                    Join Table
+                </button>
+                
+                <button id="join-cancel-button" class="button button-secondary">
+                    Cancel
+                </button>
+            </div>
+        </div>
+        
+        <!-- Position Selection Form (initially hidden) -->
+        <div class="section" id="position-selection-form" style="display: none;">
+            <h2>Select Position</h2>
+            <p>Table Code: <span id="position-table-code"></span></p>
+            
+            <div class="player-positions">
+                <div class="position-info" id="position-north">
+                    <h3>North</h3>
+                    <p class="player-name">Empty</p>
+                    <button class="select-position-button" data-position="north">Select</button>
+                </div>
+                
+                <div class="position-info" id="position-east">
+                    <h3>East</h3>
+                    <p class="player-name">Empty</p>
+                    <button class="select-position-button" data-position="east">Select</button>
+                </div>
+                
+                <div class="position-info" id="position-south">
+                    <h3>South</h3>
+                    <p class="player-name">Empty</p>
+                    <button class="select-position-button" data-position="south">Select</button>
+                </div>
+                
+                <div class="position-info" id="position-west">
+                    <h3>West</h3>
+                    <p class="player-name">Empty</p>
+                    <button class="select-position-button" data-position="west">Select</button>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="position-cancel-button" class="button button-secondary">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Waiting Room View (initially hidden) -->
+    <div class="container" id="waiting-room-view" style="display: none;">
+        <h1>BridgeCircle - Table <span id="waiting-table-code"></span></h1>
+        
+        <!-- ARIA Live area for waiting room announcements -->
+        <div id="waiting-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        
+        <div class="section">
+            <h2>Waiting for Players</h2>
+            <p>Share this table code with your friends: <strong id="share-table-code"></strong></p>
+            
+            <div class="player-status">
+                <div class="player-positions">
+                    <div class="position-card" id="waiting-north">
+                        <h3>North</h3>
+                        <p class="player-name">Waiting...</p>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-east">
+                        <h3>East</h3>
+                        <p class="player-name">Waiting...</p>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-south">
+                        <h3>South</h3>
+                        <p class="player-name">Waiting...</p>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-west">
+                        <h3>West</h3>
+                        <p class="player-name">Waiting...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="start-game-button" class="button">
+                    Start Game (with GIB for missing players)
+                </button>
+                
+                <button id="leave-table-button" class="button button-secondary">
+                    Leave Table
+                </button>
+            </div>
+        </div>
+        
+        <!-- Chat Section -->
+        <div class="section">
+            <h2>Table Chat</h2>
+            <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+            <div class="chat-input-container">
+                <input type="text" id="chat-input" class="chat-input" placeholder="Type a message...">
+                <button id="send-chat-button" class="button">Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game View (initially hidden) - This is the original game view with multiplayer chat added -->
+    <div class="container" id="game-view" style="display: none;">
+        <h1>BridgeCircle - Table <span id="game-table-code"></span></h1>
+        
+        <!-- ARIA Live area for announcements -->
         <div id="status-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
         
-        <!-- ARIA Live area specifically for card plays, with atomic=false to prevent window title repetition -->
+        <!-- ARIA Live area specifically for card plays -->
         <div id="card-announcer" class="sr-only" aria-live="assertive" aria-atomic="false"></div>
         
         <!-- Invisible focus target to help with screen reader issues -->
@@ -39,13 +252,23 @@
                 Show Help
             </button>
             
-            <button id="deal-button" class="button">
-                Deal new cards
+            <button id="leave-game-button" class="button button-secondary">
+                Leave Game
             </button>
             
             <button id="fullscreen-button" class="button button-secondary">
                 Full Screen
             </button>
+        </div>
+        
+        <!-- Chat Section for in-game chat -->
+        <div class="section">
+            <h2>Game Chat</h2>
+            <div id="game-chat-messages" class="chat-messages" aria-live="polite"></div>
+            <div class="chat-input-container">
+                <input type="text" id="game-chat-input" class="chat-input" placeholder="Type a message...">
+                <button id="game-send-chat-button" class="button">Send</button>
+            </div>
         </div>
         
         <!-- Help section (initially hidden) -->
@@ -114,6 +337,8 @@
     </div>
     
     <!-- JavaScript files -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/lobby.js"></script>
     <script src="scripts/bidding.js"></script>
     <script src="scripts/ui.js"></script>
     <script src="scripts/game.js"></script>

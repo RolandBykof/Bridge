@@ -1,0 +1,262 @@
+/* Multiplayer Styles */
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.form-input:focus {
+    outline: 3px solid #4299e1;
+    outline-offset: 2px;
+    border-color: #4299e1;
+}
+
+/* Position Selection */
+.position-selector {
+    display: grid;
+    grid-template-rows: 1fr 1fr 1fr;
+    margin: 20px 0;
+}
+
+.position-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.position-button {
+    padding: 15px;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.position-button:hover {
+    background: #e2e8f0;
+    border-color: #4299e1;
+}
+
+.position-button.selected {
+    background: #dbeafe;
+    border-color: #3b82f6;
+    color: #1e40af;
+}
+
+.position-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.position-table {
+    width: 70px;
+    height: 70px;
+    background: #dbeafe;
+    border: 3px solid #3b82f6;
+    border-radius: 8px;
+}
+
+/* Position Display */
+.player-positions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.position-info {
+    padding: 15px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.position-info h3 {
+    margin-top: 0;
+    color: #1e40af;
+}
+
+.player-name {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.select-position-button {
+    padding: 8px 16px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.select-position-button:hover {
+    background: #2563eb;
+}
+
+.select-position-button[disabled] {
+    background: #cbd5e0;
+    cursor: not-allowed;
+}
+
+/* Waiting Room */
+.position-card {
+    padding: 15px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.position-card h3 {
+    margin-top: 0;
+    color: #1e40af;
+}
+
+.position-card.occupied {
+    background: #dbeafe;
+    border-color: #3b82f6;
+}
+
+.position-card.you {
+    background: #bfdbfe;
+    border: 2px solid #2563eb;
+}
+
+.stats-section {
+    margin-top: 20px;
+    padding: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+/* Chat Styles */
+.chat-messages {
+    height: 200px;
+    padding: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
+.chat-message {
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.chat-sender {
+    font-weight: bold;
+    color: #1e40af;
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+/* Error and Notifications */
+.error-message {
+    padding: 10px;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #f87171;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.success-message {
+    padding: 10px;
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #4ade80;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+    .form-input,
+    .chat-input {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .position-button,
+    .position-info,
+    .position-card,
+    .chat-messages,
+    .stats-section {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .position-button.selected,
+    .position-card.occupied {
+        background: #2a4365;
+        border-color: #4299e1;
+    }
+    
+    .position-card.you {
+        background: #1e3a8a;
+        border-color: #60a5fa;
+    }
+    
+    .position-table {
+        background: #2a4365;
+        border-color: #4299e1;
+    }
+    
+    .chat-message {
+        border-color: #4a5568;
+    }
+    
+    .chat-sender {
+        color: #90cdf4;
+    }
+    
+    .error-message {
+        background: #7f1d1d;
+        color: #fecaca;
+        border-color: #ef4444;
+    }
+    
+    .success-message {
+        background: #14532d;
+        color: #bbf7d0;
+        border-color: #22c55e;
+    }
+}
