@@ -646,7 +646,7 @@ function simulateGIBPlay(gibPosition) {
         return;
     }
     
-    console.warn('Using GIB simulation as fallback');
+    console.warn('Using enhanced GIB simulation as fallback');
     
     // Get player's hand
     const hand = gameState.hands[gibPosition];
@@ -654,33 +654,19 @@ function simulateGIBPlay(gibPosition) {
     // Find legal cards to play
     let playableCards = [];
     
-    // If this is the first card in the trick, any card is legal
+    // If this is the first card in the trick, use lead strategy
     if (gameState.currentTrick.length === 0) {
-        for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-            if (hand[suit].length > 0) {
-                hand[suit].forEach(card => {
-                    playableCards.push({ suit, card });
-                });
-            }
-        }
+        playableCards = findBestLeadCards(gibPosition, hand);
     } else {
         // If not first card, must follow suit if possible
         const leadSuit = gameState.currentTrick[0].suit;
         
         if (hand[leadSuit].length > 0) {
-            // Must follow suit
-            hand[leadSuit].forEach(card => {
-                playableCards.push({ suit: leadSuit, card });
-            });
+            // Must follow suit - find best card
+            playableCards = findBestFollowCards(gibPosition, hand, leadSuit);
         } else {
-            // Can play any card
-            for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-                if (hand[suit].length > 0) {
-                    hand[suit].forEach(card => {
-                        playableCards.push({ suit, card });
-                    });
-                }
-            }
+            // Can play any card - find best discard
+            playableCards = findBestDiscardCards(gibPosition, hand);
         }
     }
     
@@ -689,7 +675,7 @@ function simulateGIBPlay(gibPosition) {
         return;
     }
     
-    // Select a card (simple AI - just pick first legal card)
+    // Select a card
     const selectedCard = playableCards[0];
     
     // Play the card
@@ -738,6 +724,421 @@ function simulateGIBPlay(gibPosition) {
             // Update view
             renderUI();
         }
+    }
+}
+
+/**
+ * Find the best cards to lead when starting a trick
+ */
+function findBestLeadCards(player, hand) {
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const partner = player === 'north' ? 'south' : player === 'south' ? 'north' : player === 'east' ? 'west' : 'east';
+    const playableCards = [];
+    
+    // Check for trump contract
+    const hasTrumpSuit = gameState.trumpSuit !== null;
+    const trumpSuit = hasTrumpSuit ? convertSuitName(gameState.trumpSuit) : null;
+    
+    // Calculate the best lead based on different criteria
+    
+    // 1. Lead from sequences (A-K, K-Q, Q-J)
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+        const cards = hand[suit];
+        if (cards.length < 2) continue;
+        
+        // Sort by rank
+        const sortedCards = [...cards].sort((a, b) => values.indexOf(b) - values.indexOf(a));
+        
+        // Check for sequences
+        for (let i = 0; i < sortedCards.length - 1; i++) {
+            const currentIndex = values.indexOf(sortedCards[i]);
+            const nextIndex = values.indexOf(sortedCards[i + 1]);
+            
+            if (currentIndex === nextIndex + 1) {
+                // Found a sequence - lead the higher card
+                playableCards.push({ 
+                    suit, 
+                    card: sortedCards[i],
+                    priority: currentIndex + 5 // Higher cards get higher priority
+                });
+                break; // One sequence per suit is enough
+            }
+        }
+    }
+    
+    // 2. Lead partner's bid suit if we have support
+    if (gameState.declarer !== partner && gameState.declarer !== player) {
+        // We're defending - try to lead partner's suit if they bid one
+        const partnerSuit = getBidSuitForPlayer(partner);
+        if (partnerSuit && hand[partnerSuit].length >= 3) {
+            // Lead partner's suit - use low card for odd number, high card for even number of cards
+            const cards = hand[partnerSuit];
+            const sortedCards = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b));
+            
+            const cardToLead = cards.length % 2 === 1 ? sortedCards[0] : sortedCards[sortedCards.length - 1];
+            playableCards.push({ 
+                suit: partnerSuit, 
+                card: cardToLead,
+                priority: 10 // High priority
+            });
+        }
+    }
+    
+    // 3. Lead unbid suits (avoids leading declarer's suits)
+    const declarerSuit = getBidSuitForPlayer(gameState.declarer);
+    const dummySuit = getBidSuitForPlayer(gameState.dummy);
+    
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+        // Skip if this is declarer's or dummy's suit, or if we already added this suit
+        if ((suit === declarerSuit || suit === dummySuit) && 
+            !playableCards.some(card => card.suit === suit)) {
+            continue;
+        }
+        
+        const cards = hand[suit];
+        if (cards.length === 0) continue;
+        
+        // For long suits, lead top of nothing
+        if (cards.length >= 4) {
+            const sortedCards = [...cards].sort((a, b) => values.indexOf(b) - values.indexOf(a));
+            playableCards.push({ 
+                suit, 
+                card: sortedCards[0],
+                priority: 8
+            });
+        }
+        // For short suits, lead low (except for trump)
+        else if (cards.length <= 3 && suit !== trumpSuit) {
+            const sortedCards = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b));
+            playableCards.push({ 
+                suit, 
+                card: sortedCards[0],
+                priority: 6
+            });
+        }
+    }
+    
+    // 4. General case - add all cards with low priority
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+        const cards = hand[suit];
+        if (cards.length === 0) continue;
+        
+        // Add all cards with low priority
+        cards.forEach(card => {
+            // Check if already added
+            if (!playableCards.some(pc => pc.suit === suit && pc.card === card)) {
+                playableCards.push({ 
+                    suit, 
+                    card,
+                    priority: 1
+                });
+            }
+        });
+    }
+    
+    // Sort by priority (highest first)
+    playableCards.sort((a, b) => b.priority - a.priority);
+    
+    return playableCards;
+}
+
+/**
+ * Find the best cards to follow when following suit
+ */
+function findBestFollowCards(player, hand, leadSuit) {
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const partner = player === 'north' ? 'south' : player === 'south' ? 'north' : player === 'east' ? 'west' : 'east';
+    const playableCards = [];
+    const cards = hand[leadSuit];
+    
+    // Need to follow suit
+    if (cards.length === 0) return [];
+    
+    // Create a copy of the current trick to analyze
+    const currentTrick = [...gameState.currentTrick];
+    const playersInTrick = currentTrick.map(card => card.player);
+    
+    // Check if partner has played in this trick
+    const partnerHasPlayed = playersInTrick.includes(partner);
+    const partnerCardIndex = playersInTrick.indexOf(partner);
+    
+    // Check if partner is winning the trick currently
+    let currentWinner = determineCurrentTrickWinner(currentTrick);
+    const partnerWinning = currentWinner === partner;
+    
+    // 1. If partner is winning and is the highest played card, play low
+    if (partnerWinning) {
+        const lowestCard = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b))[0];
+        playableCards.push({
+            suit: leadSuit,
+            card: lowestCard,
+            priority: 10 // High priority
+        });
+    }
+    
+    // 2. If we can win the trick, try to win it
+    if (!partnerWinning) {
+        const currentWinningCard = currentTrick.find(card => card.player === currentWinner);
+        const winningCardValue = currentWinningCard.card;
+        const winningCardIndex = values.indexOf(winningCardValue);
+        
+        // Find cards higher than current winning card
+        const higherCards = cards.filter(card => values.indexOf(card) > winningCardIndex);
+        
+        if (higherCards.length > 0) {
+            // Use the lowest card that can win
+            const lowestWinningCard = [...higherCards].sort((a, b) => values.indexOf(a) - values.indexOf(b))[0];
+            playableCards.push({
+                suit: leadSuit,
+                card: lowestWinningCard,
+                priority: 9 // High priority
+            });
+        }
+    }
+    
+    // 3. If we're last to play and partner isn't winning, try to win with highest card
+    if (currentTrick.length === 3 && !partnerWinning) {
+        const highestCard = [...cards].sort((a, b) => values.indexOf(b) - values.indexOf(a))[0];
+        // Check if not already added
+        if (!playableCards.some(pc => pc.suit === leadSuit && pc.card === highestCard)) {
+            playableCards.push({
+                suit: leadSuit,
+                card: highestCard,
+                priority: 8
+            });
+        }
+    }
+    
+    // 4. Play second highest from a sequence
+    if (cards.length >= 2) {
+        const sortedCards = [...cards].sort((a, b) => values.indexOf(b) - values.indexOf(a));
+        
+        for (let i = 0; i < sortedCards.length - 1; i++) {
+            const currentIndex = values.indexOf(sortedCards[i]);
+            const nextIndex = values.indexOf(sortedCards[i + 1]);
+            
+            if (currentIndex === nextIndex + 1) {
+                // Found a sequence - play the second card
+                playableCards.push({
+                    suit: leadSuit,
+                    card: sortedCards[i + 1],
+                    priority: 7
+                });
+                break;
+            }
+        }
+    }
+    
+    // 5. General case - add all cards with low priority
+    cards.forEach(card => {
+        // Check if already added
+        if (!playableCards.some(pc => pc.suit === leadSuit && pc.card === card)) {
+            playableCards.push({ 
+                suit: leadSuit, 
+                card,
+                priority: 1
+            });
+        }
+    });
+    
+    // Sort by priority (highest first)
+    playableCards.sort((a, b) => b.priority - a.priority);
+    
+    return playableCards;
+}
+
+/**
+ * Find the best cards to discard when cannot follow suit
+ */
+function findBestDiscardCards(player, hand) {
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const playableCards = [];
+    
+    // Check for trump suit
+    const hasTrumpSuit = gameState.trumpSuit !== null;
+    const trumpSuit = hasTrumpSuit ? convertSuitName(gameState.trumpSuit) : null;
+    
+    // 1. Try to play a trump if we have one
+    if (hasTrumpSuit && hand[trumpSuit].length > 0) {
+        // Check if trump has already been played in this trick
+        const trumpAlreadyPlayed = gameState.currentTrick.some(card => card.suit === trumpSuit);
+        
+        if (!trumpAlreadyPlayed) {
+            // Play lowest trump
+            const lowestTrump = [...hand[trumpSuit]].sort((a, b) => values.indexOf(a) - values.indexOf(b))[0];
+            playableCards.push({
+                suit: trumpSuit,
+                card: lowestTrump,
+                priority: 10 // High priority
+            });
+        } else {
+            // Trump already played - try to overtake if possible
+            const trumpInTrick = gameState.currentTrick.filter(card => card.suit === trumpSuit);
+            const highestTrumpInTrick = trumpInTrick.sort((a, b) => values.indexOf(b.card) - values.indexOf(a.card))[0];
+            
+            const higherTrumps = hand[trumpSuit].filter(card => 
+                values.indexOf(card) > values.indexOf(highestTrumpInTrick.card)
+            );
+            
+            if (higherTrumps.length > 0) {
+                // Play lowest trump that can win
+                const lowestWinningTrump = [...higherTrumps].sort((a, b) => values.indexOf(a) - values.indexOf(b))[0];
+                playableCards.push({
+                    suit: trumpSuit,
+                    card: lowestWinningTrump,
+                    priority: 9
+                });
+            } else {
+                // Can't win with trump - play lowest
+                const lowestTrump = [...hand[trumpSuit]].sort((a, b) => values.indexOf(a) - values.indexOf(b))[0];
+                playableCards.push({
+                    suit: trumpSuit,
+                    card: lowestTrump,
+                    priority: 8
+                });
+            }
+        }
+    }
+    
+    // 2. Discard from shortest suit first (preserving length in other suits)
+    const suitLengths = [];
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+        if (suit === trumpSuit) continue; // Skip trump suit
+        
+        const cards = hand[suit];
+        if (cards.length === 0) continue;
+        
+        suitLengths.push({
+            suit,
+            length: cards.length
+        });
+    }
+    
+    // Sort by length (shortest first)
+    suitLengths.sort((a, b) => a.length - b.length);
+    
+    // Add cards from shortest suits
+    for (const suitInfo of suitLengths) {
+        const suit = suitInfo.suit;
+        const cards = hand[suit];
+        
+        // Discard lowest card from shortest suit
+        const lowestCard = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b))[0];
+        playableCards.push({
+            suit,
+            card: lowestCard,
+            priority: 7 - suitInfo.length // Higher priority for shorter suits
+        });
+    }
+    
+    // 3. General case - add all cards with low priority
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+        const cards = hand[suit];
+        if (cards.length === 0) continue;
+        
+        // Add all cards with low priority
+        cards.forEach(card => {
+            // Check if already added
+            if (!playableCards.some(pc => pc.suit === suit && pc.card === card)) {
+                playableCards.push({ 
+                    suit, 
+                    card,
+                    priority: 1
+                });
+            }
+        });
+    }
+    
+    // Sort by priority (highest first)
+    playableCards.sort((a, b) => b.priority - a.priority);
+    
+    return playableCards;
+}
+
+/**
+ * Determine the current winner of a partial trick
+ */
+function determineCurrentTrickWinner(trick) {
+    if (trick.length === 0) return null;
+    
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const leadSuit = trick[0].suit;
+    const trumpSuit = gameState.trumpSuit ? convertSuitName(gameState.trumpSuit) : null;
+    
+    let highestCard = trick[0];
+    let winningPlayer = trick[0].player;
+    
+    for (let i = 1; i < trick.length; i++) {
+        const currentCard = trick[i];
+        
+        // Check if this card is a trump while highest is not
+        if (trumpSuit && currentCard.suit === trumpSuit && highestCard.suit !== trumpSuit) {
+            highestCard = currentCard;
+            winningPlayer = currentCard.player;
+        }
+        // Check if both cards are trumps
+        else if (trumpSuit && currentCard.suit === trumpSuit && highestCard.suit === trumpSuit) {
+            if (values.indexOf(currentCard.card) > values.indexOf(highestCard.card)) {
+                highestCard = currentCard;
+                winningPlayer = currentCard.player;
+            }
+        }
+        // Check if current card is lead suit and highest is also lead suit
+        else if (currentCard.suit === leadSuit && highestCard.suit === leadSuit) {
+            if (values.indexOf(currentCard.card) > values.indexOf(highestCard.card)) {
+                highestCard = currentCard;
+                winningPlayer = currentCard.player;
+            }
+        }
+        // If current card is lead suit but highest is not (and not trump)
+        else if (currentCard.suit === leadSuit && highestCard.suit !== leadSuit && 
+                 (!trumpSuit || highestCard.suit !== trumpSuit)) {
+            highestCard = currentCard;
+            winningPlayer = currentCard.player;
+        }
+    }
+    
+    return winningPlayer;
+}
+
+/**
+ * Gets a suit that a player has bid
+ */
+function getBidSuitForPlayer(player) {
+    // Get the suit that a player has bid
+    for (let i = biddingState.bidHistory.length - 1; i >= 0; i--) {
+        const bid = biddingState.bidHistory[i];
+        if (bid.player === player && !['P', 'X', 'XX'].includes(bid.bid)) {
+            const suit = bid.bid.charAt(1);
+            return convertBidSuitToSuit(suit);
+        }
+    }
+    return null;
+}
+
+/**
+ * Convert bid suit letter to suit name
+ */
+function convertBidSuitToSuit(bidSuit) {
+    switch(bidSuit) {
+        case 'C': return 'clubs';
+        case 'D': return 'diamonds';
+        case 'H': return 'hearts';
+        case 'S': return 'spades';
+        default: return null;
+    }
+}
+
+/**
+ * Convert suit name to suit
+ */
+function convertSuitName(suitName) {
+    switch(suitName) {
+        case 'clubs': return 'clubs';
+        case 'diamonds': return 'diamonds';
+        case 'hearts': return 'hearts';
+        case 'spades': return 'spades';
+        default: return null;
     }
 }
 

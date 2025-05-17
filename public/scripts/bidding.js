@@ -619,48 +619,191 @@ function getPossibleBids(currentHighestBid) {
  * Get GIB bid
  */
 async function getGIBBid(gibPosition) {
-    // Placeholder for GIB bidding integration
-    // In a full implementation, this would query the GIB API
-    
-    // For now, use a simple bidding strategy
-    let selectedBid = 'P'; // Default to pass
-    
+    // Try to use GIB service if available
     try {
-        // Check if GIB service is available
         if (typeof gibService !== 'undefined' && gibService.isAvailable()) {
-            // In future: integrate with GIB bidding API
-            // const bidResponse = await gibService.getGIBBid(parameters);
-            // if (bidResponse && bidResponse.bid) {
-            //    selectedBid = bidResponse.bid;
-            // }
+            // In future: integrate with GIB API
+            // Would use real GIB AI decisions if available
         }
         
-        // Until GIB bidding is implemented, use a simple strategy
+        // Use enhanced bidding strategy
         const possibleBids = getPossibleBids(biddingState.highestBid);
-        
-        // Very basic bidding strategy
         const hand = gameState.hands[gibPosition];
-        const hcp = calculateHCP(hand);
+        let selectedBid = 'P'; // Default to pass
         
-        if (hcp >= 12) {
-            // Opening strength, bid lowest available suit or NT
-            if (possibleBids.includes('1S') && hand.spades.length >= 5) {
-                selectedBid = '1S';
-            } else if (possibleBids.includes('1H') && hand.hearts.length >= 5) {
-                selectedBid = '1H';
-            } else if (possibleBids.includes('1D') && hand.diamonds.length >= 3) {
-                selectedBid = '1D';
-            } else if (possibleBids.includes('1C') && hand.clubs.length >= 3) {
-                selectedBid = '1C';
-            } else if (possibleBids.includes('1N') && hcp >= 15 && hcp <= 17) {
-                selectedBid = '1N';
+        // Calculate hand strength
+        const hcp = calculateHCP(hand);
+        const distribution = calculateDistribution(hand);
+        const suitLengths = {
+            spades: hand.spades.length,
+            hearts: hand.hearts.length,
+            diamonds: hand.diamonds.length,
+            clubs: hand.clubs.length
+        };
+        
+        // Get partnership information
+        const partner = gibPosition === 'north' ? 'south' : 
+                       gibPosition === 'south' ? 'north' :
+                       gibPosition === 'east' ? 'west' : 'east';
+        
+        // Get partner's last bid if any
+        let partnerBid = null;
+        for (let i = biddingState.bidHistory.length - 1; i >= 0; i--) {
+            if (biddingState.bidHistory[i].player === partner) {
+                partnerBid = biddingState.bidHistory[i].bid;
+                break;
             }
         }
         
-        // Make the bid
+        // OPENING BIDS
+        if (biddingState.bidHistory.length === 0 || 
+            biddingState.bidHistory.every(bid => bid.bid === 'P')) {
+            
+            // Strong hand (17+ points)
+            if (hcp >= 17 && hcp <= 19 && distribution === 'balanced') {
+                // 1NT with balanced 17-19 HCP
+                selectedBid = possibleBids.includes('1N') ? '1N' : 'P';
+            } 
+            else if (hcp >= 20 && hcp <= 21 && distribution === 'balanced') {
+                // 2NT with balanced 20-21 HCP
+                selectedBid = possibleBids.includes('2N') ? '2N' : 'P';
+            }
+            else if (hcp >= 22) {
+                // Strong hand - open 2C
+                selectedBid = possibleBids.includes('2C') ? '2C' : 'P';
+            }
+            // Medium hand (12-16 points)
+            else if (hcp >= 12 && hcp <= 16) {
+                // Open with longest suit
+                if (suitLengths.spades >= 5) {
+                    selectedBid = possibleBids.includes('1S') ? '1S' : 'P';
+                } else if (suitLengths.hearts >= 5) {
+                    selectedBid = possibleBids.includes('1H') ? '1H' : 'P';
+                } else if (suitLengths.diamonds >= 3 && suitLengths.diamonds >= suitLengths.clubs) {
+                    selectedBid = possibleBids.includes('1D') ? '1D' : 'P';
+                } else if (suitLengths.clubs >= 3) {
+                    selectedBid = possibleBids.includes('1C') ? '1C' : 'P';
+                }
+                
+                // Balanced 15-16 HCP
+                if (hcp >= 15 && hcp <= 16 && distribution === 'balanced' && selectedBid === 'P') {
+                    selectedBid = possibleBids.includes('1N') ? '1N' : 'P';
+                }
+            }
+            // Weak hand with long suit (6-11 points, 6+ cards)
+            else if (hcp >= 6 && hcp <= 11) {
+                if (suitLengths.spades >= 6) {
+                    selectedBid = possibleBids.includes('2S') ? '2S' : 'P';
+                } else if (suitLengths.hearts >= 6) {
+                    selectedBid = possibleBids.includes('2H') ? '2H' : 'P';
+                } else if (suitLengths.diamonds >= 6) {
+                    selectedBid = possibleBids.includes('2D') ? '2D' : 'P';
+                }
+            }
+        }
+        // RESPONSES TO PARTNER
+        else if (partnerBid && partnerBid !== 'P' && partnerBid !== 'X' && partnerBid !== 'XX') {
+            const partnerSuit = partnerBid.charAt(1);
+            const partnerLevel = parseInt(partnerBid.charAt(0));
+            
+            // Response to 1NT opening
+            if (partnerBid === '1N') {
+                if (hcp >= 8 && hcp <= 9 && distribution === 'balanced') {
+                    selectedBid = possibleBids.includes('2N') ? '2N' : 'P';
+                } else if (hcp >= 10 && distribution === 'balanced') {
+                    selectedBid = possibleBids.includes('3N') ? '3N' : 'P';
+                } else if (hcp >= 6 && suitLengths.spades >= 5 && suitLengths.hearts >= 4) {
+                    // Stayman with 4+ hearts and 5+ spades
+                    selectedBid = possibleBids.includes('2C') ? '2C' : 'P';
+                }
+            }
+            // Response to 1 of a suit
+            else if (partnerLevel === 1) {
+                // Support partner's suit with 3+ cards
+                if ((partnerSuit === 'S' && suitLengths.spades >= 3) ||
+                    (partnerSuit === 'H' && suitLengths.hearts >= 3) ||
+                    (partnerSuit === 'D' && suitLengths.diamonds >= 3) ||
+                    (partnerSuit === 'C' && suitLengths.clubs >= 3)) {
+                    
+                    // Strong support and points
+                    if (hcp >= 13) {
+                        const level = partnerSuit === 'S' || partnerSuit === 'H' ? 4 : 5;
+                        const bidString = `${level}${partnerSuit}`;
+                        selectedBid = possibleBids.includes(bidString) ? bidString : 'P';
+                    }
+                    // Moderate support and points
+                    else if (hcp >= 10) {
+                        const level = partnerSuit === 'S' || partnerSuit === 'H' ? 3 : 4;
+                        const bidString = `${level}${partnerSuit}`;
+                        selectedBid = possibleBids.includes(bidString) ? bidString : 'P';
+                    }
+                    // Minimum support
+                    else if (hcp >= 6) {
+                        const level = partnerSuit === 'S' || partnerSuit === 'H' ? 2 : 3;
+                        const bidString = `${level}${partnerSuit}`;
+                        selectedBid = possibleBids.includes(bidString) ? bidString : 'P';
+                    }
+                }
+                // New suit with 5+ cards
+                else if (hcp >= 6) {
+                    if (suitLengths.spades >= 5 && partnerSuit !== 'S' && possibleBids.includes('1S')) {
+                        selectedBid = '1S';
+                    } else if (suitLengths.hearts >= 5 && partnerSuit !== 'H' && possibleBids.includes('1H')) {
+                        selectedBid = '1H';
+                    } else if (suitLengths.diamonds >= 5 && partnerSuit !== 'D') {
+                        const level = partnerSuit === 'S' || partnerSuit === 'H' ? 2 : 1;
+                        const bidString = `${level}D`;
+                        selectedBid = possibleBids.includes(bidString) ? bidString : 'P';
+                    } else if (suitLengths.clubs >= 5 && partnerSuit !== 'C') {
+                        const level = partnerSuit === 'S' || partnerSuit === 'H' || partnerSuit === 'D' ? 2 : 1;
+                        const bidString = `${level}C`;
+                        selectedBid = possibleBids.includes(bidString) ? bidString : 'P';
+                    }
+                    // NT response with stopper in all unbid suits
+                    else if (distribution === 'balanced') {
+                        if (hcp >= 12 && hcp <= 14) {
+                            selectedBid = possibleBids.includes('2N') ? '2N' : 'P';
+                        } else if (hcp >= 6 && hcp <= 11) {
+                            selectedBid = possibleBids.includes('1N') ? '1N' : 'P';
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If opponents have bid, consider double with 13+ points and short in their suit
+        const lastOpponentBid = getLastOpponentBid(gibPosition);
+        if (lastOpponentBid && hcp >= 13) {
+            const opponentSuit = lastOpponentBid.charAt(1);
+            
+            if ((opponentSuit === 'S' && suitLengths.spades <= 1) ||
+                (opponentSuit === 'H' && suitLengths.hearts <= 1) ||
+                (opponentSuit === 'D' && suitLengths.diamonds <= 1) ||
+                (opponentSuit === 'C' && suitLengths.clubs <= 1)) {
+                
+                if (possibleBids.includes('X')) {
+                    selectedBid = 'X';
+                }
+            }
+        }
+        
+        // Occasional preemptive bids with weak hands but long suits
+        if (hcp <= 10 && selectedBid === 'P') {
+            if (suitLengths.spades >= 7 && possibleBids.includes('3S')) {
+                selectedBid = '3S';
+            } else if (suitLengths.hearts >= 7 && possibleBids.includes('3H')) {
+                selectedBid = '3H';
+            } else if (suitLengths.diamonds >= 7 && possibleBids.includes('3D')) {
+                selectedBid = '3D';
+            } else if (suitLengths.clubs >= 7 && possibleBids.includes('3C')) {
+                selectedBid = '3C';
+            }
+        }
+        
+        // Make the bid with a delay to seem more human
         setTimeout(() => {
             makeBid(gibPosition, selectedBid);
-        }, 500);
+        }, 1000);
     } catch (error) {
         console.error('Error getting GIB bid:', error);
         // Fallback to simple pass
@@ -668,6 +811,59 @@ async function getGIBBid(gibPosition) {
             makeBid(gibPosition, 'P');
         }, 500);
     }
+}
+
+/**
+ * Get the last opponent's bid
+ */
+function getLastOpponentBid(currentPlayer) {
+    // Determine opponents
+    const opponents = currentPlayer === 'north' || currentPlayer === 'south' 
+                    ? ['east', 'west'] 
+                    : ['north', 'south'];
+    
+    // Find last opponent's bid
+    for (let i = biddingState.bidHistory.length - 1; i >= 0; i--) {
+        if (opponents.includes(biddingState.bidHistory[i].player) && 
+            !['P', 'X', 'XX'].includes(biddingState.bidHistory[i].bid)) {
+            return biddingState.bidHistory[i].bid;
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Calculate hand distribution type
+ */
+function calculateDistribution(hand) {
+    const suitLengths = [
+        hand.spades.length,
+        hand.hearts.length,
+        hand.diamonds.length,
+        hand.clubs.length
+    ].sort((a, b) => a - b);
+    
+    // Check for balanced distribution (4-3-3-3, 4-4-3-2, or 5-3-3-2)
+    if ((suitLengths[0] >= 2 && suitLengths[0] <= 3) && 
+        (suitLengths[1] === 3) && 
+        (suitLengths[2] === 3 || suitLengths[2] === 4) && 
+        (suitLengths[3] <= 5)) {
+        return 'balanced';
+    }
+    
+    // Check for semi-balanced (5-4-2-2, 6-3-2-2, etc.)
+    if (suitLengths[0] === 2 && suitLengths[1] === 2) {
+        return 'semi-balanced';
+    }
+    
+    // Check for unbalanced
+    if (suitLengths[0] <= 1 || suitLengths[3] >= 6) {
+        return 'unbalanced';
+    }
+    
+    // Default
+    return 'moderate';
 }
 
 /**
