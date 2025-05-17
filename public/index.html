@@ -1,56 +1,51 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BridgeCircle - Saavutettava Bridge</title>
+    <title>BridgeCircle - Accessible Bridge</title>
     <link rel="stylesheet" href="css/main.css">
-    <meta name="description" content="Saavutettava Bridge-sovellus, joka tukee GIB-tekoälyä pelaajana">
+    <meta name="description" content="Accessible Bridge application with GIB AI integration">
 </head>
 <body>
     <div class="container" id="app">
-        <h1>BridgeCircle - Saavutettava Bridge</h1>
+        <h1>BridgeCircle - Accessible Bridge</h1>
         
-        <!-- ARIA Live alue ilmoituksille -->
+        <!-- ARIA Live area for announcements -->
         <div id="status-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
         
-        <!-- Pelaajien hallinta -->
+        <!-- Player management -->
         <section class="section">
-            <h2>Pelaajat</h2>
+            <h2>Players</h2>
             <div class="player-controls" id="player-controls">
-                <!-- Pelaajatiedot tulevat tähän JavaScript avulla -->
+                <!-- Player information will be added here by JavaScript -->
             </div>
         </section>
         
-        <!-- Tilaviestin näyttö -->
+        <!-- Status message display -->
         <div class="status-bar" id="status-bar" role="status">
-            Tervetuloa BridgeCircle-sovellukseen
+            Welcome to BridgeCircle application
         </div>
         
-        <!-- Toimintopainikkeet -->
+        <!-- Action buttons -->
         <div class="action-buttons">
             <button id="toggle-help-button" class="button button-secondary">
-                Näytä ohje
+                Show Help
             </button>
             
             <button id="deal-button" class="button">
-                Jaa uudet kortit
+                Deal new cards
             </button>
         </div>
         
-        <!-- Ohje-osio (piilotettu aluksi) -->
+        <!-- Help section (initially hidden) -->
         <section class="help-section" id="help-section" style="display: none;" role="dialog" aria-labelledby="help-heading">
-            <h2 id="help-heading">Näppäinkomennot</h2>
-            <ul class="help-list">
-                <li><strong>Alt + H</strong>: Näytä/piilota ohje</li>
-                <li><strong>Alt + 1</strong>: Vaihda pohjoisen pelaaja (ihminen/GIB)</li>
-                <li><strong>Alt + 2</strong>: Vaihda idän pelaaja (ihminen/GIB)</li>
-                <li><strong>Alt + 4</strong>: Vaihda lännen pelaaja (ihminen/GIB)</li>
-                <li><strong>Tab</strong>: Liiku elementtien välillä</li>
-                <li><strong>Enter/Välilyönti</strong>: Valitse/aktivoi elementti</li>
+            <h2 id="help-heading">Keyboard Shortcuts</h2>
+            <ul class="help-list" id="help-list">
+                <!-- Help text will be populated by JavaScript -->
             </ul>
             <button id="close-help-button" class="button">
-                Sulje ohje
+                Close Help
             </button>
         </section>
         
@@ -67,48 +62,48 @@
             </div>
         </section>
         
-        <!-- Pelipöytä -->
+        <!-- Game table -->
         <div class="game-table">
-            <!-- Pohjoinen (ylhäällä) -->
+            <!-- North (top) -->
             <div class="hand north-hand" id="north-hand">
-                <h3>Pohjoinen</h3>
-                <!-- Korttitiedot tulevat tähän JavaScript avulla -->
+                <h3>North</h3>
+                <!-- Card information will be added here by JavaScript -->
             </div>
             
-            <!-- Itä (oikealla) -->
+            <!-- East (right) -->
             <div class="hand east-hand" id="east-hand">
-                <h3>Itä</h3>
-                <p>Kortteja: ?</p>
+                <h3>East</h3>
+                <p>Cards: ?</p>
             </div>
             
-            <!-- Keskialue -->
+            <!-- Center area -->
             <div class="center-area" id="center-area">
-                <!-- Tähän tulee pelatut kortit ja pöydän keskellä olevat tiedot -->
+                <!-- Played cards and center information will be added here -->
             </div>
             
-            <!-- Länsi (vasemmalla) -->
+            <!-- West (left) -->
             <div class="hand west-hand" id="west-hand">
-                <h3>Länsi</h3>
-                <p>Kortteja: ?</p>
+                <h3>West</h3>
+                <p>Cards: ?</p>
             </div>
             
-            <!-- Etelä (alhaalla - pelaajan käsi) -->
+            <!-- South (bottom - player's hand) -->
             <div class="hand south-hand" id="south-hand">
-                <h3>Sinun kätesi (Etelä)</h3>
-                <!-- Korttitiedot tulevat tähän JavaScript avulla -->
+                <h3>Your Hand (South)</h3>
+                <!-- Card information will be added here by JavaScript -->
             </div>
         </div>
         
-        <!-- Pelatut kortit -->
+        <!-- Played cards -->
         <section class="section" id="played-cards-section">
-            <h2>Pelatut kortit</h2>
+            <h2>Played Cards</h2>
             <div id="played-cards-container">
-                <p class="text-gray-500">Ei vielä pelattuja kortteja.</p>
+                <p class="text-gray-500">No cards played yet.</p>
             </div>
         </section>
     </div>
     
-    <!-- JavaScript-tiedostot -->
+    <!-- JavaScript files -->
     <script src="scripts/bidding.js"></script>
     <script src="scripts/ui.js"></script>
     <script src="scripts/game.js"></script>
