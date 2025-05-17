@@ -236,7 +236,7 @@ function playCard(suit, card) {
     } else {
         // Move to next player
         gameState.currentPlayer = getNextPlayer('south');
-        updateStatus(`${gameState.players[gameState.currentPlayer].name} is thinking...`);
+//        updateStatus(`${gameState.players[gameState.currentPlayer].name} is thinking...`);
         
         // Update view
         renderUI();
@@ -516,7 +516,7 @@ function playGIBCard(gibPosition, cardCode) {
         if (nextPlayer === 'south') {
             updateStatus('Your turn. Choose a card to play.');
         } else {
-            updateStatus(`${gameState.players[nextPlayer].name} is thinking...`);
+//            updateStatus(`${gameState.players[nextPlayer].name} is thinking...`);
             
             // If next player is also GIB, simulate move
             if (gameState.players[nextPlayer].type === 'gib') {
@@ -630,7 +630,7 @@ function simulateGIBPlay(gibPosition) {
         if (nextPlayer === 'south') {
             updateStatus('Your turn. Choose a card to play.');
         } else {
-            updateStatus(`${gameState.players[nextPlayer].name} is thinking...`);
+//            updateStatus(`${gameState.players[nextPlayer].name} is thinking...`);
             
             // If next player is also GIB, get GIB move
             if (gameState.players[nextPlayer].type === 'gib') {
