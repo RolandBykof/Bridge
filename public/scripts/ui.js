@@ -103,14 +103,19 @@ function renderHands() {
 function renderHand(position, element, isPlayable = false) {
     const hand = gameState.hands[position];
     const isCurrentPlayer = position === gameState.currentPlayer;
+    const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
+    
+    // Tarkistetaan onko tämä ihmisen pelaama käsi (etelä tai pohjoinen, kun NS voitti)
+    const isPlayableByHuman = position === 'south' || 
+                             (position === 'north' && isNSTeamWon && 
+                              gameState.players.north.type === 'human');
     
     let html = `<h3>${position === 'south' ? 'Your hand (South)' : getPositionName(position)} ${gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
     
     // Lisätty ehto pohjoisen korttien näyttämiseen
     const showCards = position === 'south' || 
                      (position === 'north' && 
-                      gameState.gamePhase === 'play' && 
-                      (gameState.declarer === 'south' || gameState.declarer === 'north'));
+                      (gameState.gamePhase === 'play' && isNSTeamWon));
     
     if (!showCards && position === 'north') {
         // Pohjoisen kortit piilotetaan, kunnes ehtoja täyttyy
@@ -136,14 +141,15 @@ function renderHand(position, element, isPlayable = false) {
             cards.forEach(card => {
                 const cardClass = `card-${suit}`;
                 
-                if (isPlayable && gameState.gamePhase === 'play') {
+                // Muokattu: kortteja voi pelata sekä etelästä että pohjoisesta, kun NS voitti
+                if (gameState.gamePhase === 'play' && isPlayableByHuman) {
                     // Playable cards as buttons
                     html += `
                         <button 
                             class="card-button ${cardClass}"
                             data-suit="${suit}"
                             data-card="${card}"
-                            ${!isCurrentPlayer || gameState.gamePhase !== 'play' ? 'disabled' : ''}
+                            ${!isCurrentPlayer ? 'disabled' : ''}
                             aria-label="Play ${getSuitName(suit)} ${card}"
                         >
                             ${card}
@@ -171,7 +177,7 @@ function renderHand(position, element, isPlayable = false) {
     element.innerHTML = html;
     
     // Add listeners for playable cards
-    if (isPlayable && gameState.gamePhase === 'play') {
+    if (gameState.gamePhase === 'play' && isPlayableByHuman) {
         element.querySelectorAll('.card-button').forEach(button => {
             button.addEventListener('click', (e) => {
                 const suit = e.target.dataset.suit;
@@ -596,8 +602,5 @@ function setupEventListeners() {
             toggleHelp();
             e.preventDefault();
         }
-        
-        // Alt + 1-4 toggles player type - ei tarvita enää
-        // Tämä osa poistettu koska emme halua pelaajatyypin vaihtoa
     });
 }

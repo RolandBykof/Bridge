@@ -359,6 +359,16 @@ function switchToPlayPhase() {
     gameState.declarer = biddingState.declarer;
     gameState.dummy = biddingState.dummy;
     
+    // Muutetaan pohjoinen ihmiseksi, jos etelä-pohjoinen pari voitti tarjousvaiheen
+    if (biddingState.declarer === 'south' || biddingState.declarer === 'north') {
+        // Vaihda pohjoinen ihmiseksi
+        gameState.players.north = {
+            type: 'human',
+            name: 'North (You)'
+        };
+        console.log('North is now human player because NS won the bidding');
+    }
+    
     // Update game phase
     gameState.gamePhase = 'play';
     
@@ -375,12 +385,18 @@ function switchToPlayPhase() {
     // Delay the announcement to ensure the screen reader has time
     setTimeout(() => {
         announceToScreenReader(contractMessage);
+        
+        // Ilmoita pohjoisen pelaajan muutoksesta, jos NS voitti tarjousvaiheen
+        if (biddingState.declarer === 'south' || biddingState.declarer === 'north') {
+            announceToScreenReader("North is now a human player. You can play both North and South cards.");
+        }
+        
         announceToScreenReader(`${getPositionName(gameState.currentPlayer)} leads.`);
         
         // Lisätty ilmoitus pohjoisen korttien näkymisestä
         if (biddingState.declarer === 'south' || biddingState.declarer === 'north') {
             setTimeout(() => {
-                announceToScreenReader("North's cards are now visible as dummy.");
+                announceToScreenReader("North's cards are now visible.");
             }, 1500);
         }
         
@@ -677,7 +693,7 @@ function calculateHCP(hand) {
 
 /**
  * Render the bidding UI
- * This function will be implemented in ui.js
+ * This will be implemented in ui.js
  */
 function renderBiddingUI() {
     // This will be implemented in ui.js

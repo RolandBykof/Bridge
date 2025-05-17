@@ -6,7 +6,7 @@
 // Game state
 const gameState = {
     players: {
-        north: { type: 'gib', name: 'GIB-North' },  // Muutettu 'human' -> 'gib'
+        north: { type: 'gib', name: 'GIB-North' },
         east: { type: 'gib', name: 'GIB-East' },
         south: { type: 'human', name: 'You' },
         west: { type: 'gib', name: 'GIB-West' }
@@ -203,8 +203,14 @@ function generateRandomDeal() {
  * Handles playing a card
  */
 function playCard(suit, card) {
-    // Check if it's this player's turn
-    if (gameState.currentPlayer !== 'south') {
+    // Muokattu: Tarkista onko pelaaja joko etelä, tai pohjoinen kun NS on voittanut tarjousvaiheen
+    const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
+    const isPlayersTurn = (gameState.currentPlayer === 'south') || 
+                          (isNSTeamWon && gameState.currentPlayer === 'north' && 
+                           gameState.players.north.type === 'human');
+    
+    // Muokattu: Tarkista onko pelaajan vuoro (joko etelä tai pohjoinen ihmispelaajana)
+    if (!isPlayersTurn) {
         updateStatus('It\'s not your turn.');
         return;
     }
@@ -218,29 +224,32 @@ function playCard(suit, card) {
     // Check if player must follow suit (if not first card in trick)
     if (gameState.currentTrick.length > 0) {
         const leadSuit = gameState.currentTrick[0].suit;
-        if (suit !== leadSuit && gameState.hands.south[leadSuit].length > 0) {
+        if (suit !== leadSuit && gameState.hands[gameState.currentPlayer][leadSuit].length > 0) {
             updateStatus(`You must follow suit (${getSuitName(leadSuit)}).`);
             return;
         }
     }
     
+    // Lisätty muutos: käsittele kortin pelaaminen nykyiseltä pelaajalta (etelä tai pohjoinen)
+    const currentPlayer = gameState.currentPlayer;
+    
     // Add card to current trick and played cards history
-    const playedCard = { player: 'south', suit, card };
+    const playedCard = { player: currentPlayer, suit, card };
     gameState.currentTrick.push(playedCard);
     gameState.playedCards.push(playedCard);
     
     // Remove card from player's hand
-    gameState.hands.south[suit] = gameState.hands.south[suit].filter(c => c !== card);
+    gameState.hands[currentPlayer][suit] = gameState.hands[currentPlayer][suit].filter(c => c !== card);
     
     // Announce to screen reader
-    announceToScreenReader(`You played ${getSuitName(suit)} ${card}`);
+    announceToScreenReader(`${getPositionName(currentPlayer)} played ${getSuitName(suit)} ${card}`);
     
     // Check if trick is complete (4 cards)
     if (gameState.currentTrick.length === 4) {
         handleCompleteTrick();
     } else {
         // Move to next player
-        gameState.currentPlayer = getNextPlayer('south');
+        gameState.currentPlayer = getNextPlayer(currentPlayer);
         
         // Update view
         renderUI();
@@ -592,7 +601,7 @@ function playGIBCard(gibPosition, cardCode) {
         const nextPlayer = getNextPlayer(gibPosition);
         gameState.currentPlayer = nextPlayer;
         
-        if (nextPlayer === 'south') {
+        if (nextPlayer === 'south' || (nextPlayer === 'north' && gameState.players.north.type === 'human')) {
             // Add a delay before announcing it's the user's turn to allow screen reader to finish
             setTimeout(() => {
                 updateStatus('Your turn. Choose a card to play.');
@@ -710,7 +719,7 @@ function simulateGIBPlay(gibPosition) {
         const nextPlayer = getNextPlayer(gibPosition);
         gameState.currentPlayer = nextPlayer;
         
-        if (nextPlayer === 'south') {
+        if (nextPlayer === 'south' || (nextPlayer === 'north' && gameState.players.north.type === 'human')) {
             // Add a delay before announcing it's the user's turn to allow screen reader to finish
             setTimeout(() => {
                 updateStatus('Your turn. Choose a card to play.');
