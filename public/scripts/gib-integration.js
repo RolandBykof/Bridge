@@ -239,7 +239,8 @@ const gibService = {
     },
     
     /**
-     * Parse GIB hand to application format
+     * Parse GIB hand to application format - IMPROVED VERSION
+     * Correctly handles GIB hand format like "SAKQJHT982DA43C76"
      */
     parseGIBHand(gibHand) {
         const result = {
@@ -249,22 +250,66 @@ const gibService = {
             clubs: []
         };
         
+        if (!gibHand || typeof gibHand !== 'string') {
+            console.warn('Invalid GIB hand format:', gibHand);
+            return result;
+        }
+        
         try {
-            // Find cards of different suits using regular expressions
-            const spadesMatch = gibHand.match(/S([A-Za-z0-9]+)/);
-            const heartsMatch = gibHand.match(/H([A-Za-z0-9]+)/);
-            const diamondsMatch = gibHand.match(/D([A-Za-z0-9]+)/);
-            const clubsMatch = gibHand.match(/C([A-Za-z0-9]+)/);
+            // Valid bridge card values
+            const validCardValues = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
             
-            // Add cards to found suits
-            if (spadesMatch) result.spades = Array.from(spadesMatch[1].toUpperCase());
-            if (heartsMatch) result.hearts = Array.from(heartsMatch[1].toUpperCase());
-            if (diamondsMatch) result.diamonds = Array.from(diamondsMatch[1].toUpperCase());
-            if (clubsMatch) result.clubs = Array.from(clubsMatch[1].toUpperCase());
+            // Extract cards for each suit
+            let currentSuit = null;
+            
+            // Loop through the string character by character
+            for (let i = 0; i < gibHand.length; i++) {
+                const char = gibHand.charAt(i).toUpperCase();
+                
+                // Check if this is a suit marker
+                if (char === 'S') {
+                    currentSuit = 'spades';
+                } else if (char === 'H') {
+                    currentSuit = 'hearts';
+                } else if (char === 'D') {
+                    currentSuit = 'diamonds';
+                } else if (char === 'C') {
+                    currentSuit = 'clubs';
+                } else if (currentSuit && validCardValues.includes(char)) {
+                    // This is a card value, add it to the current suit
+                    result[currentSuit].push(char);
+                } else {
+                    console.warn(`Unknown character in GIB hand: ${char}`);
+                }
+            }
+            
+            // Debug log the parsed hand
+            console.log('Parsed GIB hand:', gibHand, 'into:', result);
         } catch (error) {
             console.error('Error parsing GIB hand:', error);
         }
         
         return result;
+    },
+
+    /**
+     * Parse bid from GIB format
+     */
+    parseGIBBid(gibBid) {
+        // Convert GIB bid format (like "1S", "2N", "P") to internal format
+        // This is a placeholder and should be expanded with actual conversion logic
+        return {
+            value: gibBid.charAt(0),
+            suit: gibBid.charAt(1)
+        };
+    },
+    
+    /**
+     * Format bid for GIB API
+     */
+    formatBidForGIB(bid) {
+        // Convert internal bid format to GIB format
+        // This is a placeholder and should be expanded with actual conversion logic
+        return `${bid.value}${bid.suit}`;
     }
 };
