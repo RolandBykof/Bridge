@@ -12,7 +12,7 @@ const gameState = {
         west: { type: 'gib', name: 'GIB-West' }
     },
     currentPlayer: 'south',
-    gamePhase: 'setup', // 'setup', 'play', 'end'
+    gamePhase: 'setup', // 'setup', 'bidding', 'play', 'end'
     statusMessage: 'Start by dealing cards.',
     hands: {
         north: { 
@@ -42,9 +42,10 @@ const gameState = {
     },
     playedCards: [],
     currentTrick: [], // Cards in the current trick
-    bidHistory: [],
+    // Contract-related variables are now managed by bidding.js
+    // but we still need some of them in the game state for play phase
     contract: null,
-    trumpSuit: null, // For now, we'll default to no trump
+    trumpSuit: null,
     declarer: null,
     dummy: null,
     tricks: { ns: 0, ew: 0 },
@@ -61,20 +62,24 @@ function startGame() {
         return;
     }
     
-    // Initialize game to be started
-    gameState.gamePhase = 'play'; 
-    gameState.currentPlayer = 'south'; // South always leads first in this simplified version
-    gameState.leadPlayer = 'south';
-    gameState.playedCards = [];
-    gameState.currentTrick = [];
-    gameState.bidHistory = [];
-    gameState.tricks = { ns: 0, ew: 0 };
-    gameState.totalTricks = 0;
+    // Initialize bidding phase - bidding.js will handle this
+    gameState.gamePhase = 'bidding';
+    initializeBidding('south'); // Start with south as dealer
     
-    updateStatus('Game starts! Your turn.');
-    announceToScreenReader('Game has started. Your turn.');
+    updateStatus('Bidding phase begins.');
+    announceToScreenReader('Bidding phase begins. South to bid first.');
     
-    // Update view
+    // UI will be updated by the bidding module
+}
+
+/**
+ * Start play phase (called after bidding is complete)
+ */
+function startPlayPhase() {
+    // This function is called by bidding.js when bidding is complete
+    // Contract-related information has already been transferred to gameState
+    
+    updateStatus(`Play begins! ${getPositionName(gameState.currentPlayer)} leads.`);
     renderUI();
 }
 
@@ -206,7 +211,7 @@ function playCard(suit, card) {
     
     // Check if game is in progress
     if (gameState.gamePhase !== 'play') {
-        updateStatus('Game is not in progress yet.');
+        updateStatus('Game is not in play phase yet.');
         return;
     }
     
@@ -348,14 +353,33 @@ function determineTrickWinner() {
 function endGame() {
     gameState.gamePhase = 'end';
     
-    // Determine winner
+    // Calculate result based on contract
     let resultMessage = '';
-    if (gameState.tricks.ns > gameState.tricks.ew) {
-        resultMessage = `Game over! North-South team wins with ${gameState.tricks.ns} tricks to ${gameState.tricks.ew}.`;
-    } else if (gameState.tricks.ew > gameState.tricks.ns) {
-        resultMessage = `Game over! East-West team wins with ${gameState.tricks.ew} tricks to ${gameState.tricks.ns}.`;
+    
+    if (gameState.contract) {
+        const level = parseInt(gameState.contract.charAt(0));
+        const tricksNeeded = level + 6; // Contract level + 6
+        
+        // Determine if declarer made the contract
+        const declarerSide = gameState.declarer === 'north' || gameState.declarer === 'south' ? 'ns' : 'ew';
+        const tricksTaken = gameState.tricks[declarerSide];
+        
+        if (tricksTaken >= tricksNeeded) {
+            // Contract made
+            resultMessage = `Contract ${formatContract(gameState.contract)} made! ${getPositionName(gameState.declarer)}-${getPartner(gameState.declarer)} took ${tricksTaken} tricks.`;
+        } else {
+            // Contract defeated
+            resultMessage = `Contract ${formatContract(gameState.contract)} defeated by ${tricksNeeded - tricksTaken}. ${getPositionName(gameState.declarer)}-${getPartner(gameState.declarer)} took ${tricksTaken} tricks.`;
+        }
     } else {
-        resultMessage = `Game over! It's a tie with both teams taking ${gameState.tricks.ns} tricks.`;
+        // No contract - just report tricks
+        if (gameState.tricks.ns > gameState.tricks.ew) {
+            resultMessage = `Game over! North-South team wins with ${gameState.tricks.ns} tricks to ${gameState.tricks.ew}.`;
+        } else if (gameState.tricks.ew > gameState.tricks.ns) {
+            resultMessage = `Game over! East-West team wins with ${gameState.tricks.ew} tricks to ${gameState.tricks.ns}.`;
+        } else {
+            resultMessage = `Game over! It's a tie with both teams taking ${gameState.tricks.ns} tricks.`;
+        }
     }
     
     updateStatus(resultMessage);
@@ -363,6 +387,37 @@ function endGame() {
     
     // Update UI
     renderUI();
+}
+
+/**
+ * Format contract for display
+ */
+function formatContract(contract) {
+    if (!contract) return "No contract";
+    
+    const level = contract.charAt(0);
+    const suit = contract.charAt(1);
+    let suitSymbol;
+    
+    switch(suit) {
+        case 'C': suitSymbol = '♣'; break;
+        case 'D': suitSymbol = '♦'; break;
+        case 'H': suitSymbol = '♥'; break;
+        case 'S': suitSymbol = '♠'; break;
+        case 'N': suitSymbol = 'NT'; break;
+        default: suitSymbol = suit;
+    }
+    
+    let result = `${level}${suitSymbol}`;
+    
+    // Add doubled/redoubled if applicable
+    if (contract.includes('XX')) {
+        result += ' XX';
+    } else if (contract.includes('X')) {
+        result += ' X';
+    }
+    
+    return result;
 }
 
 /**
@@ -375,6 +430,19 @@ function getNextPlayer(currentPosition) {
 }
 
 /**
+ * Gets partner position
+ */
+function getPartner(position) {
+    const partners = {
+        'north': 'south',
+        'south': 'north',
+        'east': 'west',
+        'west': 'east'
+    };
+    return getPositionName(partners[position] || position);
+}
+
+/**
  * Get move from GIB service
  */
 async function getGIBMove(gibPosition) {
@@ -383,6 +451,14 @@ async function getGIBMove(gibPosition) {
         return;
     }
     
+    // Handle different game phases
+    if (gameState.gamePhase === 'bidding') {
+        // Bidding phase - delegate to bidding.js
+        getGIBBid(gibPosition);
+        return;
+    }
+    
+    // Play phase - continue with GIB card play
     try {
         // Check if GIB service is available
         if (typeof gibService === 'undefined' || !gibService.isAvailable()) {
@@ -525,7 +601,6 @@ function playGIBCard(gibPosition, cardCode) {
                 renderUI();
             }, 1000);
         } else {
-            
             // If next player is also GIB, simulate move
             if (gameState.players[nextPlayer].type === 'gib') {
                 setTimeout(() => {
@@ -644,7 +719,6 @@ function simulateGIBPlay(gibPosition) {
                 renderUI();
             }, 1000);
         } else {
-            
             // If next player is also GIB, get GIB move
             if (gameState.players[nextPlayer].type === 'gib') {
                 setTimeout(() => {

@@ -17,7 +17,10 @@ const elements = {
     helpSection: document.getElementById('help-section'),
     toggleHelpButton: document.getElementById('toggle-help-button'),
     closeHelpButton: document.getElementById('close-help-button'),
-    dealButton: document.getElementById('deal-button')
+    dealButton: document.getElementById('deal-button'),
+    biddingArea: document.getElementById('bidding-area'), // New element
+    biddingHistory: document.getElementById('bidding-history'), // New element
+    biddingControls: document.getElementById('bidding-controls') // New element
 };
 
 // UI state
@@ -33,6 +36,16 @@ function renderUI() {
     renderHands();
     renderStatusBar();
     renderPlayedCards();
+    
+    // Render different UI based on game phase
+    if (gameState.gamePhase === 'bidding') {
+        renderBiddingUI();
+        hidePlayUI();
+    } else if (gameState.gamePhase === 'play' || gameState.gamePhase === 'end') {
+        hideBiddingUI();
+        renderPlayUI();
+    }
+    
     toggleHelp();
 }
 
@@ -126,7 +139,7 @@ function renderHand(position, element, isPlayable = false) {
             cards.forEach(card => {
                 const cardClass = `card-${suit}`;
                 
-                if (isPlayable) {
+                if (isPlayable && gameState.gamePhase === 'play') {
                     // Playable cards as buttons
                     html += `
                         <button 
@@ -161,7 +174,7 @@ function renderHand(position, element, isPlayable = false) {
     element.innerHTML = html;
     
     // Add listeners for playable cards
-    if (isPlayable) {
+    if (isPlayable && gameState.gamePhase === 'play') {
         element.querySelectorAll('.card-button').forEach(button => {
             button.addEventListener('click', (e) => {
                 const suit = e.target.dataset.suit;
@@ -169,6 +182,356 @@ function renderHand(position, element, isPlayable = false) {
                 playCard(suit, card);
             });
         });
+    }
+}
+
+/**
+ * Renders the bidding UI
+ */
+function renderBiddingUI() {
+    if (!elements.biddingArea) {
+        createBiddingElements();
+    }
+    
+    // Show bidding area
+    elements.biddingArea.style.display = 'block';
+    
+    // Render bidding history
+    renderBiddingHistory();
+    
+    // Render bidding controls if it's the user's turn
+    if (biddingState.currentBidder === 'south') {
+        renderBiddingControls();
+    } else {
+        // Hide controls if it's not the user's turn
+        elements.biddingControls.innerHTML = `
+            <p>Waiting for ${getPositionName(biddingState.currentBidder)} to bid...</p>
+        `;
+    }
+}
+
+/**
+ * Create bidding UI elements if they don't exist
+ */
+function createBiddingElements() {
+    // Create bidding area if it doesn't exist
+    if (!elements.biddingArea) {
+        const biddingArea = document.createElement('section');
+        biddingArea.id = 'bidding-area';
+        biddingArea.className = 'section';
+        biddingArea.innerHTML = `
+            <h2>Bidding Phase</h2>
+            <div id="bidding-history" class="bidding-history"></div>
+            <div id="bidding-controls" class="bidding-controls"></div>
+        `;
+        
+        // Insert before the game table
+        const gameTable = document.querySelector('.game-table');
+        gameTable.parentNode.insertBefore(biddingArea, gameTable);
+        
+        // Update references
+        elements.biddingArea = biddingArea;
+        elements.biddingHistory = document.getElementById('bidding-history');
+        elements.biddingControls = document.getElementById('bidding-controls');
+    }
+}
+
+/**
+ * Render bidding history
+ */
+function renderBiddingHistory() {
+    if (!elements.biddingHistory) return;
+    
+    let html = '<h3>Bidding History</h3>';
+    
+    if (biddingState.bidHistory.length === 0) {
+        html += '<p>No bids yet.</p>';
+    } else {
+        // Create a table to display bidding history
+        html += `
+            <table class="bidding-table">
+                <thead>
+                    <tr>
+                        <th>West</th>
+                        <th>North</th>
+                        <th>East</th>
+                        <th>South</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        // Group bids by rounds
+        const rounds = [];
+        let currentRound = [];
+        let dealer = biddingState.dealer;
+        
+        // Add empty cells for positions before the dealer
+        const positions = ['west', 'north', 'east', 'south'];
+        const dealerIndex = positions.indexOf(dealer);
+        
+        for (let i = 0; i < dealerIndex; i++) {
+            currentRound.push(null);
+        }
+        
+        // Add all bids to rounds
+        for (const bid of biddingState.bidHistory) {
+            currentRound.push(bid);
+            
+            // New round after every 4 bids
+            if (currentRound.length === 4) {
+                rounds.push([...currentRound]);
+                currentRound = [];
+            }
+        }
+        
+        // Add the current partial round
+        if (currentRound.length > 0) {
+            rounds.push([...currentRound]);
+        }
+        
+        // Render each round
+        for (const round of rounds) {
+            html += '<tr>';
+            
+            for (let i = 0; i < 4; i++) {
+                const bid = round[i];
+                
+                if (!bid) {
+                    html += '<td></td>';
+                } else {
+                    const bidText = formatBidForDisplay(bid.bid);
+                    html += `<td>${bidText}</td>`;
+                }
+            }
+            
+            html += '</tr>';
+        }
+        
+        html += '</tbody></table>';
+    }
+    
+    elements.biddingHistory.innerHTML = html;
+}
+
+/**
+ * Format a bid for display
+ */
+function formatBidForDisplay(bid) {
+    if (bid === 'P') return 'Pass';
+    if (bid === 'X') return 'X (Double)';
+    if (bid === 'XX') return 'XX (Redouble)';
+    
+    const level = bid.charAt(0);
+    const suit = bid.charAt(1);
+    let suitSymbol;
+    
+    switch(suit) {
+        case 'C': suitSymbol = '♣'; break;
+        case 'D': suitSymbol = '♦'; break;
+        case 'H': suitSymbol = '♥'; break;
+        case 'S': suitSymbol = '♠'; break;
+        case 'N': suitSymbol = 'NT'; break;
+        default: suitSymbol = suit;
+    }
+    
+    return `${level}${suitSymbol}`;
+}
+
+/**
+ * Render bidding controls for the user
+ */
+function renderBiddingControls() {
+    if (!elements.biddingControls) return;
+    
+    // Get possible bids
+    const possibleBids = getPossibleBids(biddingState.highestBid);
+    
+    let html = '<h3>Your Bid</h3>';
+    
+    // Create buttons for each possible bid
+    html += '<div class="bidding-buttons">';
+    
+    // Special bids first (Pass, Double, Redouble)
+    for (const specialBid of ['P', 'X', 'XX']) {
+        if (possibleBids.includes(specialBid)) {
+            const bidText = specialBid === 'P' ? 'Pass' : 
+                          specialBid === 'X' ? 'Double (X)' : 'Redouble (XX)';
+            
+            html += `
+                <button class="bid-button" data-bid="${specialBid}">
+                    ${bidText}
+                </button>
+            `;
+        }
+    }
+    
+    // Contract bids grouped by level
+    const contractBids = possibleBids.filter(bid => !['P', 'X', 'XX'].includes(bid));
+    const bidsByLevel = {};
+    
+    for (const bid of contractBids) {
+        const level = bid.charAt(0);
+        if (!bidsByLevel[level]) bidsByLevel[level] = [];
+        bidsByLevel[level].push(bid);
+    }
+    
+    // Create bid buttons by level
+    for (const level in bidsByLevel) {
+        html += `<div class="bid-level-group">`;
+        
+        for (const bid of bidsByLevel[level]) {
+            const suit = bid.charAt(1);
+            let suitSymbol, suitClass;
+            
+            switch(suit) {
+                case 'C': 
+                    suitSymbol = '♣'; 
+                    suitClass = 'bid-clubs';
+                    break;
+                case 'D': 
+                    suitSymbol = '♦'; 
+                    suitClass = 'bid-diamonds';
+                    break;
+                case 'H': 
+                    suitSymbol = '♥'; 
+                    suitClass = 'bid-hearts';
+                    break;
+                case 'S': 
+                    suitSymbol = '♠'; 
+                    suitClass = 'bid-spades';
+                    break;
+                case 'N': 
+                    suitSymbol = 'NT'; 
+                    suitClass = 'bid-notrump';
+                    break;
+                default: 
+                    suitSymbol = suit;
+                    suitClass = '';
+            }
+            
+            html += `
+                <button class="bid-button ${suitClass}" data-bid="${bid}">
+                    ${level}${suitSymbol}
+                </button>
+            `;
+        }
+        
+        html += `</div>`;
+    }
+    
+    html += '</div>';
+    
+    // Show bid meanings if available
+    html += '<div class="bid-meanings">';
+    html += `<p><strong>System:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>`;
+    html += '</div>';
+    
+    elements.biddingControls.innerHTML = html;
+    
+    // Add event listeners to bid buttons
+    document.querySelectorAll('.bid-button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const bid = e.target.dataset.bid;
+            makeBid('south', bid);
+        });
+        
+        // Show bid meaning on hover
+        button.addEventListener('mouseenter', (e) => {
+            const bid = e.target.dataset.bid;
+            const meaning = getBidMeaning(bid);
+            
+            const meaningElement = document.querySelector('.bid-meanings');
+            if (meaningElement) {
+                meaningElement.innerHTML = `
+                    <p><strong>System:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>
+                    <p><strong>${formatBidForDisplay(bid)}:</strong> ${meaning || 'No specific meaning'}</p>
+                `;
+            }
+        });
+        
+        // Reset bid meaning on mouse leave
+        button.addEventListener('mouseleave', () => {
+            const meaningElement = document.querySelector('.bid-meanings');
+            if (meaningElement) {
+                meaningElement.innerHTML = `
+                    <p><strong>System:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>
+                `;
+            }
+        });
+    });
+}
+
+/**
+ * Hide bidding UI
+ */
+function hideBiddingUI() {
+    if (elements.biddingArea) {
+        elements.biddingArea.style.display = 'none';
+    }
+}
+
+/**
+ * Render play phase UI
+ */
+function renderPlayUI() {
+    // Show contract information in center area if it exists
+    if (elements.centerArea && gameState.contract) {
+        let html = '<h3>Contract</h3>';
+        
+        html += `
+            <div class="contract-info">
+                <p><strong>Contract:</strong> ${formatContract(gameState.contract)}</p>
+                <p><strong>Declarer:</strong> ${getPositionName(gameState.declarer)}</p>
+                <p><strong>Dummy:</strong> ${getPositionName(gameState.dummy)}</p>
+                <p><strong>Trump:</strong> ${gameState.trumpSuit ? getSuitName(gameState.trumpSuit) : 'No Trump'}</p>
+            </div>
+        `;
+        
+        // Add current trick info
+        html += '<h3>Current Trick</h3>';
+        
+        if (gameState.currentTrick.length === 0) {
+            html += '<p>No cards played yet in this trick.</p>';
+        } else {
+            html += '<ul class="current-trick-list">';
+            
+            for (const card of gameState.currentTrick) {
+                const cardClass = `card-${card.suit}`;
+                
+                html += `
+                    <li>
+                        <span class="font-medium">${getPositionName(card.player)}: </span>
+                        <span class="${cardClass}">
+                            ${getSuitSymbol(card.suit)} ${card.card}
+                        </span>
+                    </li>
+                `;
+            }
+            
+            html += '</ul>';
+        }
+        
+        // Add score
+        html += '<h3>Score</h3>';
+        html += `
+            <div class="score-info">
+                <p>N-S: ${gameState.tricks.ns} tricks</p>
+                <p>E-W: ${gameState.tricks.ew} tricks</p>
+            </div>
+        `;
+        
+        elements.centerArea.innerHTML = html;
+    }
+}
+
+/**
+ * Hide play UI
+ */
+function hidePlayUI() {
+    // Clear center area
+    if (elements.centerArea) {
+        elements.centerArea.innerHTML = '<h3>Waiting for bidding to complete...</h3>';
     }
 }
 
@@ -266,3 +629,127 @@ function setupEventListeners() {
         }
     });
 }
+
+/**
+ * Add bidding-specific CSS styles
+ */
+function addBiddingStyles() {
+    // Add styles if they don't exist
+    if (!document.getElementById('bidding-styles')) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'bidding-styles';
+        
+        styleElement.textContent = `
+            .bidding-history {
+                margin-bottom: 20px;
+            }
+            
+            .bidding-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+            
+            .bidding-table th, .bidding-table td {
+                border: 1px solid #e2e8f0;
+                padding: 8px;
+                text-align: center;
+            }
+            
+            .bidding-table th {
+                background-color: #f8fafc;
+                font-weight: bold;
+            }
+            
+            .bidding-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            
+            .bid-level-group {
+                display: flex;
+                gap: 5px;
+                margin-right: 15px;
+            }
+            
+            .bid-button {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                background: white;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            
+            .bid-button:hover {
+                background: #f7fafc;
+                transform: translateY(-2px);
+            }
+            
+            .bid-clubs, .bid-spades {
+                color: black;
+            }
+            
+            .bid-diamonds, .bid-hearts {
+                color: #e53e3e;
+            }
+            
+            .bid-meanings {
+                margin-top: 15px;
+                padding: 10px;
+                background: #f8fafc;
+                border-radius: 4px;
+                border: 1px solid #e2e8f0;
+            }
+            
+            .contract-info {
+                margin-bottom: 20px;
+                padding: 10px;
+                background: #f8fafc;
+                border-radius: 4px;
+                border: 1px solid #e2e8f0;
+            }
+            
+            .current-trick-list {
+                list-style-type: none;
+                margin-bottom: 15px;
+            }
+            
+            .current-trick-list li {
+                margin-bottom: 5px;
+            }
+            
+            @media (prefers-color-scheme: dark) {
+                .bidding-table th, .bidding-table td {
+                    border-color: #4a5568;
+                }
+                
+                .bidding-table th {
+                    background-color: #2d3748;
+                }
+                
+                .bid-button {
+                    background: #2d3748;
+                    border-color: #4a5568;
+                    color: #e2e8f0;
+                }
+                
+                .bid-button:hover {
+                    background: #2a3749;
+                }
+                
+                .bid-meanings, .contract-info {
+                    background: #2d3748;
+                    border-color: #4a5568;
+                }
+            }
+        `;
+        
+        document.head.appendChild(styleElement);
+    }
+}
+
+// Add bidding styles when page loads
+document.addEventListener('DOMContentLoaded', addBiddingStyles);
