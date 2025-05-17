@@ -7,6 +7,8 @@
 const elements = {
     statusBar: document.getElementById('status-bar'),
     statusAnnouncer: document.getElementById('status-announcer'),
+    cardAnnouncer: document.getElementById('card-announcer'),  // Uusi kortti-ilmoittaja
+    cardFocusTarget: document.getElementById('card-focus-target'), // Uusi fokuskohde
     playerControls: document.getElementById('player-controls'),
     northHand: document.getElementById('north-hand'),
     eastHand: document.getElementById('east-hand'),
@@ -19,6 +21,7 @@ const elements = {
     toggleHelpButton: document.getElementById('toggle-help-button'),
     closeHelpButton: document.getElementById('close-help-button'),
     dealButton: document.getElementById('deal-button'),
+    fullscreenButton: document.getElementById('fullscreen-button'), // Uusi kokoruututila-nappi
     biddingArea: document.getElementById('bidding-area'),
     biddingHistory: document.getElementById('bidding-history'),
     biddingControls: document.getElementById('bidding-controls')
@@ -1123,14 +1126,43 @@ function toggleHelp() {
 }
 
 /**
- * Announce message to screen reader
+ * Toggle fullscreen mode
  */
-function announceToScreenReader(message) {
+function toggleFullscreenMode() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+        elements.fullscreenButton.textContent = 'Exit Full Screen';
+        announceToScreenReader('Full screen mode activated');
+    } else {
+        document.exitFullscreen();
+        elements.fullscreenButton.textContent = 'Full Screen';
+        announceToScreenReader('Full screen mode deactivated');
+    }
+}
+
+/**
+ * Announce message to screen reader
+ * @param {string} message - The message to announce
+ * @param {boolean} isCardPlay - Whether this is a card play announcement
+ */
+function announceToScreenReader(message, isCardPlay = false) {
     uiState.lastAnnouncement = message; // Store for repetition
-    elements.statusAnnouncer.textContent = '';
-    setTimeout(() => {
-        elements.statusAnnouncer.textContent = message;
-    }, 50);
+    
+    if (isCardPlay) {
+        // Käytä korttien ilmoittajaa korttien pelaamiselle
+        elements.cardAnnouncer.textContent = '';
+        setTimeout(() => {
+            elements.cardAnnouncer.textContent = message;
+        }, 50);
+    } else {
+        // Käytä tavallista ilmoittajaa muille ilmoituksille
+        elements.statusAnnouncer.textContent = '';
+        setTimeout(() => {
+            elements.statusAnnouncer.textContent = message;
+        }, 50);
+    }
 }
 
 /**
@@ -1149,6 +1181,11 @@ function setupEventListeners() {
     
     // Game functions
     elements.dealButton.addEventListener('click', dealNewCards);
+    
+    // Kokoruututila-nappi
+    elements.fullscreenButton.addEventListener('click', () => {
+        toggleFullscreenMode();
+    });
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {

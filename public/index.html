@@ -11,8 +11,14 @@
     <div class="container" id="app">
         <h1>BridgeCircle - Accessible Bridge</h1>
         
-        <!-- ARIA Live area for announcements -->
+        <!-- ARIA Live area for general announcements -->
         <div id="status-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        
+        <!-- ARIA Live area specifically for card plays, with atomic=false to prevent window title repetition -->
+        <div id="card-announcer" class="sr-only" aria-live="assertive" aria-atomic="false"></div>
+        
+        <!-- Invisible focus target to help with screen reader issues -->
+        <span id="card-focus-target" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px"></span>
         
         <!-- Player management -->
         <section class="section">
@@ -35,6 +41,10 @@
             
             <button id="deal-button" class="button">
                 Deal new cards
+            </button>
+            
+            <button id="fullscreen-button" class="button button-secondary">
+                Full Screen
             </button>
         </div>
         

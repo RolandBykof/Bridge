@@ -241,8 +241,8 @@ function playCard(suit, card) {
     // Remove card from player's hand
     gameState.hands[currentPlayer][suit] = gameState.hands[currentPlayer][suit].filter(c => c !== card);
     
-    // Announce to screen reader
-    announceToScreenReader(`${getPositionName(currentPlayer)} played ${getSuitName(suit)} ${card}`);
+    // Announce to screen reader - päivitetty käyttämään isCardPlay=true
+    announceToScreenReader(`${getPositionName(currentPlayer)} played ${getSuitName(suit)} ${card}`, true);
     
     // Check if trick is complete (4 cards)
     if (gameState.currentTrick.length === 4) {
@@ -588,9 +588,10 @@ function playGIBCard(gibPosition, cardCode) {
     // Remove card from player's hand
     gameState.hands[gibPosition][suit] = gameState.hands[gibPosition][suit].filter(c => c !== card);
     
-    // Announce to screen reader
+    // Announce to screen reader - päivitetty käyttämään isCardPlay=true
     announceToScreenReader(
-        `${getPositionName(gibPosition)} played ${getSuitName(suit)} ${card}`
+        `${getPositionName(gibPosition)} played ${getSuitName(suit)} ${card}`,
+        true
     );
     
     // Check if trick is complete
@@ -692,9 +693,10 @@ function simulateGIBPlay(gibPosition) {
     gameState.hands[gibPosition][selectedCard.suit] = 
         hand[selectedCard.suit].filter(c => c !== selectedCard.card);
     
-    // Announce to screen reader
+    // Announce to screen reader - päivitetty käyttämään isCardPlay=true
     announceToScreenReader(
-        `${getPositionName(gibPosition)} played ${getSuitName(selectedCard.suit)} ${selectedCard.card}`
+        `${getPositionName(gibPosition)} played ${getSuitName(selectedCard.suit)} ${selectedCard.card}`,
+        true
     );
     
     // Check if trick is complete

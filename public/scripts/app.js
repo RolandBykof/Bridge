@@ -33,7 +33,28 @@ async function initializeApp() {
     // Handle potential CORS issues
     handleCORSIssues();
     
+    // Tarkista onko selaimen kokoruututila tuettu
+    checkFullscreenSupport();
+    
     console.log('BridgeCircle application initialized.');
+}
+
+/**
+ * Checks if the browser supports fullscreen mode
+ */
+function checkFullscreenSupport() {
+    const fullscreenButton = document.getElementById('fullscreen-button');
+    
+    if (!document.fullscreenEnabled && !document.webkitFullscreenEnabled && 
+        !document.mozFullScreenEnabled && !document.msFullscreenEnabled) {
+        // Jos kokoruututila ei ole tuettu, piilota nappi
+        if (fullscreenButton) {
+            fullscreenButton.style.display = 'none';
+        }
+        console.log('Fullscreen mode is not supported in this browser');
+    } else {
+        console.log('Fullscreen mode is supported');
+    }
 }
 
 /**
