@@ -12,7 +12,7 @@ const gameState = {
         west: { type: 'gib', name: 'GIB-West' }
     },
     currentPlayer: 'south',
-    gamePhase: 'setup', // 'setup', 'bidding', 'play', 'end'
+    gamePhase: 'setup', // 'setup', 'play', 'end'
     statusMessage: 'Start by dealing cards.',
     hands: {
         north: { 
@@ -56,13 +56,13 @@ const gameState = {
  * Starts the game
  */
 function startGame() {
-    if (gameState.gamePhase !== 'setup' || !hasDealtCards()) {
+    if (!hasDealtCards()) {
         updateStatus('Deal cards before starting the game.');
         return;
     }
     
     // Initialize game to be started
-    gameState.gamePhase = 'play'; // In future development this would be 'bidding', but now we start directly with play
+    gameState.gamePhase = 'play'; 
     gameState.currentPlayer = 'south'; // South always leads first in this simplified version
     gameState.leadPlayer = 'south';
     gameState.playedCards = [];
@@ -102,6 +102,11 @@ async function dealNewCards() {
                 updateStatus('New cards dealt!');
                 announceToScreenReader('New cards have been dealt');
                 renderUI();
+                
+                // Automatically start the game after dealing cards
+                setTimeout(() => {
+                    startGame();
+                }, 1000); // Short delay for better user experience
                 return;
             }
         }
@@ -114,6 +119,11 @@ async function dealNewCards() {
     updateStatus('New cards dealt!');
     announceToScreenReader('New cards have been dealt');
     renderUI();
+    
+    // Automatically start the game after dealing cards
+    setTimeout(() => {
+        startGame();
+    }, 1000); // Short delay for better user experience
 }
 
 /**

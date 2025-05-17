@@ -17,8 +17,7 @@ const elements = {
     helpSection: document.getElementById('help-section'),
     toggleHelpButton: document.getElementById('toggle-help-button'),
     closeHelpButton: document.getElementById('close-help-button'),
-    dealButton: document.getElementById('deal-button'),
-    startGameButton: document.getElementById('start-game-button')
+    dealButton: document.getElementById('deal-button')
 };
 
 // UI state
@@ -244,7 +243,6 @@ function setupEventListeners() {
     
     // Game functions
     elements.dealButton.addEventListener('click', dealNewCards);
-    elements.startGameButton.addEventListener('click', startGame);
     
     // Keyboard functions
     document.addEventListener('keydown', (e) => {
