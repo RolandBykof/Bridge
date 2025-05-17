@@ -58,13 +58,18 @@ const keyboardShortcuts = [
     { key: 'd', alt: true, description: 'Bid Double', action: () => makeBidShortcut('X') },
     { key: 'f', alt: true, description: 'Bid Redouble', action: () => makeBidShortcut('XX') },
     
-    // Card playing shortcuts - REMOVED SHIFT + 1-4 for playing lowest cards
-    
-    // High card playing shortcuts - these remain
+    // Card playing shortcuts - high cards only
     { key: '1', ctrl: true, description: 'Play highest spade', action: () => playHighestCard('spades') },
     { key: '2', ctrl: true, description: 'Play highest heart', action: () => playHighestCard('hearts') },
     { key: '3', ctrl: true, description: 'Play highest diamond', action: () => playHighestCard('diamonds') },
     { key: '4', ctrl: true, description: 'Play highest club', action: () => playHighestCard('clubs') },
+    
+    // Direct suit keys - dual purpose in bidding and play
+    { key: 's', description: 'Bidding: Spades | Play: Focus lowest spade', action: null }, // Handled separately
+    { key: 'h', description: 'Bidding: Hearts | Play: Focus lowest heart', action: null }, // Handled separately
+    { key: 'd', description: 'Bidding: Diamonds | Play: Focus lowest diamond', action: null }, // Handled separately
+    { key: 'c', description: 'Bidding: Clubs | Play: Focus lowest club', action: null }, // Handled separately
+    { key: 'n', description: 'Bidding: No Trump', action: null }, // Handled separately
     
     // General shortcuts
     { key: 'h', alt: true, description: 'Show/hide help', action: () => toggleHelp() },
@@ -114,6 +119,9 @@ function renderHelpList() {
     elements.helpList.innerHTML = '';
     
     keyboardShortcuts.forEach(shortcut => {
+        // Skip shortcuts with no action (they're handled separately)
+        if (!shortcut.action) return;
+        
         const modifiers = [];
         if (shortcut.alt) modifiers.push('Alt');
         if (shortcut.shift) modifiers.push('Shift');
@@ -127,6 +135,32 @@ function renderHelpList() {
         li.innerHTML = `<strong>${keyCombo}</strong>: ${shortcut.description}`;
         elements.helpList.appendChild(li);
     });
+    
+    // Add the dual-purpose keys
+    const gamePhase = gameState.gamePhase;
+    const phaseText = gamePhase === 'bidding' ? 'Select suit for bidding' : 
+                     gamePhase === 'play' ? 'Focus on lowest card of suit' : 
+                     'Depends on game phase';
+    
+    const dualPurposeKeys = [
+        { key: 'S', desc: 'Spades' },
+        { key: 'H', desc: 'Hearts' },
+        { key: 'D', desc: 'Diamonds' },
+        { key: 'C', desc: 'Clubs' }
+    ];
+    
+    dualPurposeKeys.forEach(key => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${key.key}</strong>: ${phaseText} (${key.desc})`;
+        elements.helpList.appendChild(li);
+    });
+    
+    // Add the No Trump key for bidding
+    if (gameState.gamePhase === 'bidding') {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>N</strong>: Select No Trump for bidding`;
+        elements.helpList.appendChild(li);
+    }
 }
 
 /**
@@ -554,6 +588,76 @@ function getSuitNameForBid(suit) {
         case 'S': return 'Spades';
         case 'N': return 'No Trump';
         default: return suit;
+    }
+}
+
+/**
+ * Handles suit key press during play phase
+ */
+function handleSuitKeyInPlayPhase(suitKey) {
+    // Map key to suit
+    const suitMap = {
+        's': 'spades',
+        'h': 'hearts',
+        'd': 'diamonds',
+        'c': 'clubs'
+    };
+    
+    const suit = suitMap[suitKey];
+    if (!suit) return;
+    
+    // Determine current player
+    const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
+    const isCurrentPlayerHuman = (gameState.currentPlayer === 'south') || 
+                               (isNSTeamWon && gameState.currentPlayer === 'north' && 
+                                gameState.players.north.type === 'human');
+    
+    if (!isCurrentPlayerHuman) {
+        announceToScreenReader("It's not your turn to play.");
+        return;
+    }
+    
+    // Get current player's hand
+    const hand = gameState.hands[gameState.currentPlayer];
+    const cards = hand[suit] || [];
+    
+    if (cards.length === 0) {
+        announceToScreenReader(`You have no ${getSuitName(suit)}s.`);
+        return;
+    }
+    
+    // Check if player must follow suit
+    let canPlayThisSuit = true;
+    if (gameState.currentTrick.length > 0) {
+        const leadSuit = gameState.currentTrick[0].suit;
+        if (suit !== leadSuit && hand[leadSuit].length > 0) {
+            // Notify player but still focus on the card
+            announceToScreenReader(`Reminder: You must follow the lead suit (${getSuitName(leadSuit)}). Focusing on ${getSuitName(suit)}.`);
+            canPlayThisSuit = false;
+        }
+    }
+    
+    // Focus on the lowest card
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const sortedCards = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b));
+    const lowestCard = sortedCards[0];
+    
+    // Get the hand element for the current player
+    const handElement = gameState.currentPlayer === 'south' ? elements.southHand : elements.northHand;
+    
+    // Find the button for this card
+    const cardButton = handElement.querySelector(`button[data-suit="${suit}"][data-card="${lowestCard}"]`);
+    
+    if (cardButton) {
+        // Focus the button
+        cardButton.focus();
+        
+        // Announce that focus has moved (with suit playability warning if needed)
+        if (canPlayThisSuit) {
+            announceToScreenReader(`Focused on ${getSuitName(suit)} ${lowestCard}.`);
+        }
+    } else {
+        announceToScreenReader(`Could not find playable ${getSuitName(suit)} card.`);
     }
 }
 
@@ -1050,7 +1154,8 @@ function setupEventListeners() {
     document.addEventListener('keydown', (e) => {
         // Process keyboard shortcuts
         for (const shortcut of keyboardShortcuts) {
-            if (e.key.toLowerCase() === shortcut.key.toLowerCase() && 
+            if (shortcut.action && // Skip shortcuts with no action (they're handled separately)
+                e.key.toLowerCase() === shortcut.key.toLowerCase() && 
                 (!shortcut.alt || e.altKey) && 
                 (!shortcut.shift || e.shiftKey) && 
                 (!shortcut.ctrl || e.ctrlKey)) {
@@ -1061,6 +1166,26 @@ function setupEventListeners() {
             }
         }
         
+        // Handle s, h, d, c keys with dual purpose:
+        // 1. In bidding phase: suit selection for bidding
+        // 2. In play phase: focus on lowest card of that suit
+        const suitKey = e.key.toLowerCase();
+        if (['s', 'h', 'd', 'c'].includes(suitKey) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+            e.preventDefault();
+            
+            // Check game phase and handle accordingly
+            if (gameState.gamePhase === 'bidding') {
+                // Bidding phase - use for bid suit selection
+                if (suitKey in bidSuitKeys) {
+                    handleBidSuitKey(bidSuitKeys[suitKey]);
+                }
+            } else if (gameState.gamePhase === 'play') {
+                // Play phase - focus on lowest card
+                handleSuitKeyInPlayPhase(suitKey);
+            }
+            return;
+        }
+        
         // Handle bidding level selection (1-7)
         if (bidLevelKeys.includes(e.key) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
             e.preventDefault();
@@ -1068,11 +1193,12 @@ function setupEventListeners() {
             return;
         }
         
-        // Handle bidding suit selection (s, h, d, c, n)
-        const suitKey = e.key.toLowerCase();
-        if (suitKey in bidSuitKeys && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        // Handle 'n' key for No Trump in bidding
+        if (e.key.toLowerCase() === 'n' && !e.altKey && !e.ctrlKey && !e.shiftKey) {
             e.preventDefault();
-            handleBidSuitKey(bidSuitKeys[suitKey]);
+            if (gameState.gamePhase === 'bidding') {
+                handleBidSuitKey('N');
+            }
             return;
         }
     });
