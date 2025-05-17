@@ -189,12 +189,10 @@ function renderHand(position, element, isPlayable = false) {
  * Renders the bidding UI
  */
 function renderBiddingUI() {
-    if (!elements.biddingArea) {
-        createBiddingElements();
-    }
-    
     // Show bidding area
-    elements.biddingArea.style.display = 'block';
+    if (elements.biddingArea) {
+        elements.biddingArea.style.display = 'block';
+    }
     
     // Render bidding history
     renderBiddingHistory();
@@ -204,36 +202,22 @@ function renderBiddingUI() {
         renderBiddingControls();
     } else {
         // Hide controls if it's not the user's turn
-        elements.biddingControls.innerHTML = `
-            <p>Waiting for ${getPositionName(biddingState.currentBidder)} to bid...</p>
-        `;
+        if (elements.biddingControls) {
+            elements.biddingControls.innerHTML = `
+                <h3>Your Bid</h3>
+                <p>Waiting for ${getPositionName(biddingState.currentBidder)} to bid...</p>
+            `;
+        }
     }
 }
 
 /**
  * Create bidding UI elements if they don't exist
+ * This function is kept for backward compatibility but is not used actively
+ * since we've moved the elements to the HTML file
  */
 function createBiddingElements() {
-    // Create bidding area if it doesn't exist
-    if (!elements.biddingArea) {
-        const biddingArea = document.createElement('section');
-        biddingArea.id = 'bidding-area';
-        biddingArea.className = 'section';
-        biddingArea.innerHTML = `
-            <h2>Bidding Phase</h2>
-            <div id="bidding-history" class="bidding-history"></div>
-            <div id="bidding-controls" class="bidding-controls"></div>
-        `;
-        
-        // Insert before the game table
-        const gameTable = document.querySelector('.game-table');
-        gameTable.parentNode.insertBefore(biddingArea, gameTable);
-        
-        // Update references
-        elements.biddingArea = biddingArea;
-        elements.biddingHistory = document.getElementById('bidding-history');
-        elements.biddingControls = document.getElementById('bidding-controls');
-    }
+    console.log("This function is deprecated. Bidding elements should be in the HTML file.");
 }
 
 /**
@@ -242,20 +226,20 @@ function createBiddingElements() {
 function renderBiddingHistory() {
     if (!elements.biddingHistory) return;
     
-    let html = '<h3>Bidding History</h3>';
+    let html = '<h3>Tarjoushistoria</h3>';
     
     if (biddingState.bidHistory.length === 0) {
-        html += '<p>No bids yet.</p>';
+        html += '<p>Ei vielä tarjouksia.</p>';
     } else {
         // Create a table to display bidding history
         html += `
             <table class="bidding-table">
                 <thead>
                     <tr>
-                        <th>West</th>
-                        <th>North</th>
-                        <th>East</th>
-                        <th>South</th>
+                        <th>Länsi</th>
+                        <th>Pohjoinen</th>
+                        <th>Itä</th>
+                        <th>Etelä</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -347,7 +331,7 @@ function renderBiddingControls() {
     // Get possible bids
     const possibleBids = getPossibleBids(biddingState.highestBid);
     
-    let html = '<h3>Your Bid</h3>';
+    let html = '<h3>Sinun tarjouksesi</h3>';
     
     // Create buttons for each possible bid
     html += '<div class="bidding-buttons">';
@@ -356,7 +340,7 @@ function renderBiddingControls() {
     for (const specialBid of ['P', 'X', 'XX']) {
         if (possibleBids.includes(specialBid)) {
             const bidText = specialBid === 'P' ? 'Pass' : 
-                          specialBid === 'X' ? 'Double (X)' : 'Redouble (XX)';
+                          specialBid === 'X' ? 'Kahdennus (X)' : 'Vastakahdennus (XX)';
             
             html += `
                 <button class="bid-button" data-bid="${specialBid}">
@@ -424,7 +408,7 @@ function renderBiddingControls() {
     
     // Show bid meanings if available
     html += '<div class="bid-meanings">';
-    html += `<p><strong>System:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>`;
+    html += `<p><strong>Järjestelmä:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>`;
     html += '</div>';
     
     elements.biddingControls.innerHTML = html;
@@ -444,8 +428,8 @@ function renderBiddingControls() {
             const meaningElement = document.querySelector('.bid-meanings');
             if (meaningElement) {
                 meaningElement.innerHTML = `
-                    <p><strong>System:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>
-                    <p><strong>${formatBidForDisplay(bid)}:</strong> ${meaning || 'No specific meaning'}</p>
+                    <p><strong>Järjestelmä:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>
+                    <p><strong>${formatBidForDisplay(bid)}:</strong> ${meaning || 'Ei erityistä merkitystä'}</p>
                 `;
             }
         });
@@ -455,7 +439,7 @@ function renderBiddingControls() {
             const meaningElement = document.querySelector('.bid-meanings');
             if (meaningElement) {
                 meaningElement.innerHTML = `
-                    <p><strong>System:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>
+                    <p><strong>Järjestelmä:</strong> ${biddingSystems[biddingState.selectedSystem].name}</p>
                 `;
             }
         });
