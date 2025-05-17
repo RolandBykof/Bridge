@@ -236,7 +236,6 @@ function playCard(suit, card) {
     } else {
         // Move to next player
         gameState.currentPlayer = getNextPlayer('south');
-//        updateStatus(`${gameState.players[gameState.currentPlayer].name} is thinking...`);
         
         // Update view
         renderUI();
@@ -279,20 +278,24 @@ function handleCompleteTrick() {
         return;
     }
     
-    // Announce winner and update status
+    // Announce winner with a delay to allow screen reader to finish previous announcements
     const winnerMessage = `${getPositionName(winner)} won the trick!`;
     updateStatus(winnerMessage);
-    announceToScreenReader(winnerMessage);
     
-    // Update UI
-    renderUI();
-    
-    // If next player is GIB, get GIB move after delay
-    if (gameState.players[winner].type === 'gib') {
-        setTimeout(() => {
-            getGIBMove(winner);
-        }, 1500); // Slightly longer delay between tricks
-    }
+    // Delay the screen reader announcement by 1 second
+    setTimeout(() => {
+        announceToScreenReader(winnerMessage);
+        
+        // Update UI
+        renderUI();
+        
+        // If next player is GIB, get GIB move after delay
+        if (gameState.players[winner].type === 'gib') {
+            setTimeout(() => {
+                getGIBMove(winner);
+            }, 1500); // Slightly longer delay between tricks
+        }
+    }, 1000);
 }
 
 /**
@@ -514,9 +517,14 @@ function playGIBCard(gibPosition, cardCode) {
         gameState.currentPlayer = nextPlayer;
         
         if (nextPlayer === 'south') {
-            updateStatus('Your turn. Choose a card to play.');
+            // Add a delay before announcing it's the user's turn to allow screen reader to finish
+            setTimeout(() => {
+                updateStatus('Your turn. Choose a card to play.');
+                announceToScreenReader('Your turn. Choose a card to play.');
+                // Update view
+                renderUI();
+            }, 1000);
         } else {
-//            updateStatus(`${gameState.players[nextPlayer].name} is thinking...`);
             
             // If next player is also GIB, simulate move
             if (gameState.players[nextPlayer].type === 'gib') {
@@ -524,10 +532,10 @@ function playGIBCard(gibPosition, cardCode) {
                     getGIBMove(nextPlayer);
                 }, 1000);
             }
+            
+            // Update view
+            renderUI();
         }
-        
-        // Update view
-        renderUI();
     }
 }
 
@@ -628,9 +636,14 @@ function simulateGIBPlay(gibPosition) {
         gameState.currentPlayer = nextPlayer;
         
         if (nextPlayer === 'south') {
-            updateStatus('Your turn. Choose a card to play.');
+            // Add a delay before announcing it's the user's turn to allow screen reader to finish
+            setTimeout(() => {
+                updateStatus('Your turn. Choose a card to play.');
+                announceToScreenReader('Your turn. Choose a card to play.');
+                // Update view
+                renderUI();
+            }, 1000);
         } else {
-//            updateStatus(`${gameState.players[nextPlayer].name} is thinking...`);
             
             // If next player is also GIB, get GIB move
             if (gameState.players[nextPlayer].type === 'gib') {
@@ -638,10 +651,10 @@ function simulateGIBPlay(gibPosition) {
                     getGIBMove(nextPlayer);
                 }, 1000);
             }
+            
+            // Update view
+            renderUI();
         }
-        
-        // Update view
-        renderUI();
     }
 }
 
