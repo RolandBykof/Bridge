@@ -271,7 +271,7 @@ function renderHand(position, element, isPlayable = false) {
 }
 
 /**
- * Announces cards in a specific suit from a hand
+ * Announces cards in a specific suit from a hand and focuses on the lowest card
  */
 function announceHandSuit(position, suit) {
     // Check if we can view these cards
@@ -296,6 +296,80 @@ function announceHandSuit(position, suit) {
     
     const message = `${getPositionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
     announceToScreenReader(message);
+    
+    // Add a delay before focusing to allow screen reader to finish
+    // Only focus if it's the current player's turn and game is in play phase
+    const isCurrentPlayer = position === gameState.currentPlayer;
+    const isPlayable = gameState.gamePhase === 'play' && isCurrentPlayer;
+    
+    if (isPlayable) {
+        // Estimate a delay based on message length - approximately 100ms per character
+        // with a minimum of 2 seconds
+        const estimatedReadTime = Math.max(2000, message.length * 100);
+        
+        setTimeout(() => {
+            focusLowestCardOfSuit(position, suit);
+        }, estimatedReadTime);
+    }
+}
+
+/**
+ * Focuses on the lowest card of a specific suit
+ */
+function focusLowestCardOfSuit(position, suit) {
+    // Check if the current player can play cards
+    const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
+    const isPlayersTurn = (gameState.currentPlayer === position) && 
+                         (position === 'south' || 
+                          (position === 'north' && isNSTeamWon && 
+                           gameState.players.north.type === 'human'));
+    
+    if (!isPlayersTurn || gameState.gamePhase !== 'play') {
+        return; // Don't focus if not player's turn or not in play phase
+    }
+    
+    // Get the cards of the suit
+    const hand = gameState.hands[position];
+    const cards = hand[suit] || [];
+    
+    if (cards.length === 0) {
+        return; // No cards of this suit
+    }
+    
+    // Check if the player must follow suit
+    let canPlayThisSuit = true;
+    if (gameState.currentTrick.length > 0) {
+        const leadSuit = gameState.currentTrick[0].suit;
+        if (suit !== leadSuit && hand[leadSuit].length > 0) {
+            canPlayThisSuit = false; // Must follow lead suit
+        }
+    }
+    
+    if (!canPlayThisSuit) {
+        // Announce that player must follow lead suit
+        const leadSuit = gameState.currentTrick[0].suit;
+        announceToScreenReader(`You must follow the lead suit (${getSuitName(leadSuit)}).`);
+        return;
+    }
+    
+    // Find the lowest card button for this suit
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const sortedCards = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b));
+    const lowestCard = sortedCards[0];
+    
+    // Get the hand element
+    const handElement = position === 'south' ? elements.southHand : elements.northHand;
+    
+    // Find the button for this card
+    const cardButton = handElement.querySelector(`button[data-suit="${suit}"][data-card="${lowestCard}"]`);
+    
+    if (cardButton) {
+        // Focus the button
+        cardButton.focus();
+        
+        // Announce that focus has moved
+        announceToScreenReader(`Focused on ${getSuitName(suit)} ${lowestCard}.`);
+    }
 }
 
 /**
@@ -325,6 +399,7 @@ function announceEntireHand(position) {
         }
     }
     
+    // For "read all cards" commands, we don't focus on any specific card
     announceToScreenReader(message);
 }
 
