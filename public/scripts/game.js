@@ -41,11 +41,15 @@ const gameState = {
         }
     },
     playedCards: [],
+    currentTrick: [], // Cards in the current trick
     bidHistory: [],
     contract: null,
+    trumpSuit: null, // For now, we'll default to no trump
     declarer: null,
     dummy: null,
-    tricks: { ns: 0, ew: 0 }
+    tricks: { ns: 0, ew: 0 },
+    totalTricks: 0, // Track how many tricks have been played
+    leadPlayer: 'south' // Player who leads the current trick
 };
 
 /**
@@ -59,10 +63,13 @@ function startGame() {
     
     // Initialize game to be started
     gameState.gamePhase = 'play'; // In future development this would be 'bidding', but now we start directly with play
-    gameState.currentPlayer = 'south';
+    gameState.currentPlayer = 'south'; // South always leads first in this simplified version
+    gameState.leadPlayer = 'south';
     gameState.playedCards = [];
+    gameState.currentTrick = [];
     gameState.bidHistory = [];
     gameState.tricks = { ns: 0, ew: 0 };
+    gameState.totalTricks = 0;
     
     updateStatus('Game starts! Your turn.');
     announceToScreenReader('Game has started. Your turn.');
@@ -113,17 +120,15 @@ async function dealNewCards() {
  * Imports deal from GIB service to game state
  */
 function importDealToGameState(deal) {
-    // Here we assume that deal is in some format that needs to be converted to match game state
-    // This function needs to be adapted to the format used by GIB service
-    
-    // Example:
-    gameState.hands.north = parseBridgeHand(deal.north);
-    gameState.hands.east = parseBridgeHand(deal.east);
-    gameState.hands.south = parseBridgeHand(deal.south);
-    gameState.hands.west = parseBridgeHand(deal.west);
+    // Parse the GIB hand format to our game state format
+    gameState.hands.north = gibService.parseGIBHand(deal.north);
+    gameState.hands.east = gibService.parseGIBHand(deal.east);
+    gameState.hands.south = gibService.parseGIBHand(deal.south);
+    gameState.hands.west = gibService.parseGIBHand(deal.west);
     
     gameState.gamePhase = 'setup';
     gameState.playedCards = [];
+    gameState.currentTrick = [];
 }
 
 /**
@@ -176,6 +181,7 @@ function generateRandomDeal() {
     
     gameState.gamePhase = 'setup';
     gameState.playedCards = [];
+    gameState.currentTrick = [];
 }
 
 /**
@@ -194,30 +200,343 @@ function playCard(suit, card) {
         return;
     }
     
-    // Play the card
-    gameState.playedCards.push({ player: 'south', suit, card });
+    // Check if player must follow suit (if not first card in trick)
+    if (gameState.currentTrick.length > 0) {
+        const leadSuit = gameState.currentTrick[0].suit;
+        if (suit !== leadSuit && gameState.hands.south[leadSuit].length > 0) {
+            updateStatus(`You must follow suit (${getSuitName(leadSuit)}).`);
+            return;
+        }
+    }
+    
+    // Add card to current trick and played cards history
+    const playedCard = { player: 'south', suit, card };
+    gameState.currentTrick.push(playedCard);
+    gameState.playedCards.push(playedCard);
     
     // Remove card from player's hand
     gameState.hands.south[suit] = gameState.hands.south[suit].filter(c => c !== card);
     
-    // Move to next player
-    gameState.currentPlayer = 'west';
-    updateStatus('GIB-West is thinking...');
-    
-    // Update view
-    renderUI();
-    
     // Announce to screen reader
     announceToScreenReader(`You played ${getSuitName(suit)} ${card}`);
     
-    // Simulate GIB's move after 1 second
-    setTimeout(() => {
-        simulateGIBPlay('west');
-    }, 1000);
+    // Check if trick is complete (4 cards)
+    if (gameState.currentTrick.length === 4) {
+        handleCompleteTrick();
+    } else {
+        // Move to next player
+        gameState.currentPlayer = getNextPlayer('south');
+        updateStatus(`${gameState.players[gameState.currentPlayer].name} is thinking...`);
+        
+        // Update view
+        renderUI();
+        
+        // If next player is GIB, get actual GIB move
+        if (gameState.players[gameState.currentPlayer].type === 'gib') {
+            setTimeout(() => {
+                getGIBMove(gameState.currentPlayer);
+            }, 1000);
+        }
+    }
 }
 
 /**
- * Simulates GIB player's move (placeholder implementation until actual GIB integration is ready)
+ * Handles a complete trick (4 cards played)
+ */
+function handleCompleteTrick() {
+    // Determine trick winner
+    const winner = determineTrickWinner();
+    
+    // Update trick counts
+    if (winner === 'north' || winner === 'south') {
+        gameState.tricks.ns += 1;
+    } else {
+        gameState.tricks.ew += 1;
+    }
+    
+    gameState.totalTricks += 1;
+    
+    // Clear current trick
+    gameState.currentTrick = [];
+    
+    // Set winner as next lead player
+    gameState.leadPlayer = winner;
+    gameState.currentPlayer = winner;
+    
+    // Check if game is over (13 tricks played)
+    if (gameState.totalTricks >= 13) {
+        endGame();
+        return;
+    }
+    
+    // Announce winner and update status
+    const winnerMessage = `${getPositionName(winner)} won the trick!`;
+    updateStatus(winnerMessage);
+    announceToScreenReader(winnerMessage);
+    
+    // Update UI
+    renderUI();
+    
+    // If next player is GIB, get GIB move after delay
+    if (gameState.players[winner].type === 'gib') {
+        setTimeout(() => {
+            getGIBMove(winner);
+        }, 1500); // Slightly longer delay between tricks
+    }
+}
+
+/**
+ * Determines who won the trick
+ */
+function determineTrickWinner() {
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const leadSuit = gameState.currentTrick[0].suit;
+    const trumpSuit = gameState.trumpSuit; // Will be null if no trump
+    
+    let highestCard = gameState.currentTrick[0];
+    let winningPlayer = gameState.currentTrick[0].player;
+    
+    for (let i = 1; i < gameState.currentTrick.length; i++) {
+        const currentCard = gameState.currentTrick[i];
+        
+        // Check if this card is a trump while highest is not
+        if (trumpSuit && currentCard.suit === trumpSuit && highestCard.suit !== trumpSuit) {
+            highestCard = currentCard;
+            winningPlayer = currentCard.player;
+        }
+        // Check if both cards are trumps
+        else if (trumpSuit && currentCard.suit === trumpSuit && highestCard.suit === trumpSuit) {
+            if (values.indexOf(currentCard.card) > values.indexOf(highestCard.card)) {
+                highestCard = currentCard;
+                winningPlayer = currentCard.player;
+            }
+        }
+        // Check if current card is lead suit and highest is also lead suit
+        else if (currentCard.suit === leadSuit && highestCard.suit === leadSuit) {
+            if (values.indexOf(currentCard.card) > values.indexOf(highestCard.card)) {
+                highestCard = currentCard;
+                winningPlayer = currentCard.player;
+            }
+        }
+        // If current card is lead suit but highest is not (and not trump)
+        else if (currentCard.suit === leadSuit && highestCard.suit !== leadSuit && 
+                 (!trumpSuit || highestCard.suit !== trumpSuit)) {
+            highestCard = currentCard;
+            winningPlayer = currentCard.player;
+        }
+    }
+    
+    return winningPlayer;
+}
+
+/**
+ * Ends the game
+ */
+function endGame() {
+    gameState.gamePhase = 'end';
+    
+    // Determine winner
+    let resultMessage = '';
+    if (gameState.tricks.ns > gameState.tricks.ew) {
+        resultMessage = `Game over! North-South team wins with ${gameState.tricks.ns} tricks to ${gameState.tricks.ew}.`;
+    } else if (gameState.tricks.ew > gameState.tricks.ns) {
+        resultMessage = `Game over! East-West team wins with ${gameState.tricks.ew} tricks to ${gameState.tricks.ns}.`;
+    } else {
+        resultMessage = `Game over! It's a tie with both teams taking ${gameState.tricks.ns} tricks.`;
+    }
+    
+    updateStatus(resultMessage);
+    announceToScreenReader(resultMessage);
+    
+    // Update UI
+    renderUI();
+}
+
+/**
+ * Gets the next player in clockwise order
+ */
+function getNextPlayer(currentPosition) {
+    const positions = ['north', 'east', 'south', 'west'];
+    const currentIndex = positions.indexOf(currentPosition);
+    return positions[(currentIndex + 1) % 4];
+}
+
+/**
+ * Get move from GIB service
+ */
+async function getGIBMove(gibPosition) {
+    // Check if this is a GIB player
+    if (gameState.players[gibPosition].type !== 'gib') {
+        return;
+    }
+    
+    try {
+        // Check if GIB service is available
+        if (typeof gibService === 'undefined' || !gibService.isAvailable()) {
+            // Fall back to simulation if GIB is not available
+            console.warn('GIB service not available, using simulation instead');
+            simulateGIBPlay(gibPosition);
+            return;
+        }
+        
+        // Prepare parameters for GIB API
+        const params = prepareGIBParameters(gibPosition);
+        
+        // Get move from GIB service
+        const move = await gibService.getGIBMove(params);
+        
+        // If no move received, fall back to simulation
+        if (!move) {
+            console.warn('No move received from GIB service, using simulation instead');
+            simulateGIBPlay(gibPosition);
+            return;
+        }
+        
+        // Handle GIB's move
+        if (move.type === 'play') {
+            playGIBCard(gibPosition, move.card);
+        } else {
+            console.warn('Unexpected move type from GIB:', move.type);
+            simulateGIBPlay(gibPosition);
+        }
+    } catch (error) {
+        console.error('Error getting GIB move:', error);
+        // Fall back to simulation in case of error
+        simulateGIBPlay(gibPosition);
+    }
+}
+
+/**
+ * Prepare parameters for the GIB API
+ */
+function prepareGIBParameters(gibPosition) {
+    // Convert all hands to GIB format
+    const north = gibService.formatHandForGIB(gameState.hands.north);
+    const east = gibService.formatHandForGIB(gameState.hands.east);
+    const south = gibService.formatHandForGIB(gameState.hands.south);
+    const west = gibService.formatHandForGIB(gameState.hands.west);
+    
+    // Convert played cards to GIB format
+    let playHistory = '';
+    for (const playedCard of gameState.playedCards) {
+        // Skip cards in the current trick
+        if (gameState.currentTrick.includes(playedCard)) {
+            continue;
+        }
+        
+        const suitCode = getSuitCode(playedCard.suit);
+        playHistory += suitCode + playedCard.card + ' ';
+    }
+    playHistory = playHistory.trim();
+    
+    // Convert current trick to GIB format
+    let currentTrickString = '';
+    for (const playedCard of gameState.currentTrick) {
+        const suitCode = getSuitCode(playedCard.suit);
+        currentTrickString += suitCode + playedCard.card + ' ';
+    }
+    currentTrickString = currentTrickString.trim();
+    
+    // Prepare final parameters
+    return {
+        pov: gibPosition.charAt(0).toUpperCase(), // First letter uppercase (N, E, S, W)
+        d: '-', // Default dealer
+        s: south,
+        w: west,
+        n: north,
+        e: east,
+        h: playHistory + (playHistory && currentTrickString ? ' ' : '') + currentTrickString
+    };
+}
+
+/**
+ * Play the card returned by GIB
+ */
+function playGIBCard(gibPosition, cardCode) {
+    // Parse card code (e.g. "S2" -> suit: "spades", card: "2")
+    const suitMap = {
+        'S': 'spades',
+        'H': 'hearts',
+        'D': 'diamonds',
+        'C': 'clubs'
+    };
+    
+    const suit = suitMap[cardCode.charAt(0)];
+    const card = cardCode.charAt(1);
+    
+    if (!suit || !card) {
+        console.error(`Invalid card code from GIB: ${cardCode}`);
+        simulateGIBPlay(gibPosition);
+        return;
+    }
+    
+    // Validate card (make sure it's in the player's hand)
+    if (!gameState.hands[gibPosition][suit] || !gameState.hands[gibPosition][suit].includes(card)) {
+        console.error(`GIB tried to play a card not in its hand: ${suit} ${card}`);
+        simulateGIBPlay(gibPosition);
+        return;
+    }
+    
+    // Play the card
+    const playedCard = { 
+        player: gibPosition, 
+        suit, 
+        card 
+    };
+    
+    gameState.currentTrick.push(playedCard);
+    gameState.playedCards.push(playedCard);
+    
+    // Remove card from player's hand
+    gameState.hands[gibPosition][suit] = gameState.hands[gibPosition][suit].filter(c => c !== card);
+    
+    // Announce to screen reader
+    announceToScreenReader(
+        `${getPositionName(gibPosition)} played ${getSuitName(suit)} ${card}`
+    );
+    
+    // Check if trick is complete
+    if (gameState.currentTrick.length === 4) {
+        handleCompleteTrick();
+    } else {
+        // Move to next player
+        const nextPlayer = getNextPlayer(gibPosition);
+        gameState.currentPlayer = nextPlayer;
+        
+        if (nextPlayer === 'south') {
+            updateStatus('Your turn. Choose a card to play.');
+        } else {
+            updateStatus(`${gameState.players[nextPlayer].name} is thinking...`);
+            
+            // If next player is also GIB, simulate move
+            if (gameState.players[nextPlayer].type === 'gib') {
+                setTimeout(() => {
+                    getGIBMove(nextPlayer);
+                }, 1000);
+            }
+        }
+        
+        // Update view
+        renderUI();
+    }
+}
+
+/**
+ * Get suit code for GIB API
+ */
+function getSuitCode(suit) {
+    const codes = { 
+        'spades': 'S', 
+        'hearts': 'H', 
+        'diamonds': 'D', 
+        'clubs': 'C' 
+    };
+    return codes[suit] || '';
+}
+
+/**
+ * Simulates GIB player's move - FALLBACK ONLY
+ * This is a fallback when the GIB service fails
  */
 function simulateGIBPlay(gibPosition) {
     // Check if this is a GIB player
@@ -225,64 +544,95 @@ function simulateGIBPlay(gibPosition) {
         return;
     }
     
+    console.warn('Using GIB simulation as fallback');
+    
     // Get player's hand
     const hand = gameState.hands[gibPosition];
     
-    // Find suit with cards
-    const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
-    let selectedSuit = null;
-    let selectedCard = null;
+    // Find legal cards to play
+    let playableCards = [];
     
-    for (const suit of suits) {
-        if (hand[suit].length > 0) {
-            selectedSuit = suit;
-            selectedCard = hand[suit][0]; // Choose first card in this suit
-            break;
+    // If this is the first card in the trick, any card is legal
+    if (gameState.currentTrick.length === 0) {
+        for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+            if (hand[suit].length > 0) {
+                hand[suit].forEach(card => {
+                    playableCards.push({ suit, card });
+                });
+            }
+        }
+    } else {
+        // If not first card, must follow suit if possible
+        const leadSuit = gameState.currentTrick[0].suit;
+        
+        if (hand[leadSuit].length > 0) {
+            // Must follow suit
+            hand[leadSuit].forEach(card => {
+                playableCards.push({ suit: leadSuit, card });
+            });
+        } else {
+            // Can play any card
+            for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+                if (hand[suit].length > 0) {
+                    hand[suit].forEach(card => {
+                        playableCards.push({ suit, card });
+                    });
+                }
+            }
         }
     }
     
-    if (!selectedSuit || !selectedCard) {
-        console.error(`GIB player ${gibPosition} has no cards!`);
+    if (playableCards.length === 0) {
+        console.error(`GIB player ${gibPosition} has no legal cards to play!`);
         return;
     }
     
+    // Select a card (simple AI - just pick first legal card)
+    const selectedCard = playableCards[0];
+    
     // Play the card
-    gameState.playedCards.push({ 
+    const playedCard = { 
         player: gibPosition, 
-        suit: selectedSuit, 
-        card: selectedCard 
-    });
+        suit: selectedCard.suit, 
+        card: selectedCard.card 
+    };
+    
+    gameState.currentTrick.push(playedCard);
+    gameState.playedCards.push(playedCard);
     
     // Remove card from player's hand
-    gameState.hands[gibPosition][selectedSuit] = hand[selectedSuit].filter(c => c !== selectedCard);
-    
-    // Determine next player
-    const positions = ['north', 'east', 'south', 'west'];
-    const currentIndex = positions.indexOf(gibPosition);
-    const nextPosition = positions[(currentIndex + 1) % 4];
-    
-    gameState.currentPlayer = nextPosition;
-    
-    if (nextPosition === 'south') {
-        updateStatus('Your turn. Choose a card to play.');
-    } else {
-        updateStatus(`${gameState.players[nextPosition].name} is thinking...`);
-        
-        // If next player is also GIB, simulate move
-        if (gameState.players[nextPosition].type === 'gib') {
-            setTimeout(() => {
-                simulateGIBPlay(nextPosition);
-            }, 1000);
-        }
-    }
-    
-    // Update view
-    renderUI();
+    gameState.hands[gibPosition][selectedCard.suit] = 
+        hand[selectedCard.suit].filter(c => c !== selectedCard.card);
     
     // Announce to screen reader
     announceToScreenReader(
-        `${getPositionName(gibPosition)} played ${getSuitName(selectedSuit)} ${selectedCard}`
+        `${getPositionName(gibPosition)} played ${getSuitName(selectedCard.suit)} ${selectedCard.card}`
     );
+    
+    // Check if trick is complete
+    if (gameState.currentTrick.length === 4) {
+        handleCompleteTrick();
+    } else {
+        // Move to next player
+        const nextPlayer = getNextPlayer(gibPosition);
+        gameState.currentPlayer = nextPlayer;
+        
+        if (nextPlayer === 'south') {
+            updateStatus('Your turn. Choose a card to play.');
+        } else {
+            updateStatus(`${gameState.players[nextPlayer].name} is thinking...`);
+            
+            // If next player is also GIB, get GIB move
+            if (gameState.players[nextPlayer].type === 'gib') {
+                setTimeout(() => {
+                    getGIBMove(nextPlayer);
+                }, 1000);
+            }
+        }
+        
+        // Update view
+        renderUI();
+    }
 }
 
 /**
@@ -343,18 +693,4 @@ function getSuitSymbol(suit) {
         clubs: '♣' 
     };
     return symbols[suit] || suit;
-}
-
-/**
- * Parses bridge hand from string (for future GIB integration)
- */
-function parseBridgeHand(handString) {
-    // Placeholder for GIB integration
-    // This will change based on the format used by GIB service
-    return {
-        spades: [],
-        hearts: [],
-        diamonds: [],
-        clubs: []
-    };
 }
