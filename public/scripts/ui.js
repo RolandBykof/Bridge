@@ -58,12 +58,9 @@ const keyboardShortcuts = [
     { key: 'd', alt: true, description: 'Bid Double', action: () => makeBidShortcut('X') },
     { key: 'f', alt: true, description: 'Bid Redouble', action: () => makeBidShortcut('XX') },
     
-    // Card playing shortcuts
-    { key: '1', shift: true, description: 'Play lowest spade', action: () => playLowestCard('spades') },
-    { key: '2', shift: true, description: 'Play lowest heart', action: () => playLowestCard('hearts') },
-    { key: '3', shift: true, description: 'Play lowest diamond', action: () => playLowestCard('diamonds') },
-    { key: '4', shift: true, description: 'Play lowest club', action: () => playLowestCard('clubs') },
+    // Card playing shortcuts - REMOVED SHIFT + 1-4 for playing lowest cards
     
+    // High card playing shortcuts - these remain
     { key: '1', ctrl: true, description: 'Play highest spade', action: () => playHighestCard('spades') },
     { key: '2', ctrl: true, description: 'Play highest heart', action: () => playHighestCard('hearts') },
     { key: '3', ctrl: true, description: 'Play highest diamond', action: () => playHighestCard('diamonds') },
@@ -558,47 +555,6 @@ function getSuitNameForBid(suit) {
         case 'N': return 'No Trump';
         default: return suit;
     }
-}
-
-/**
- * Plays the lowest card of a suit
- */
-function playLowestCard(suit) {
-    // Determine which player is active
-    const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
-    const isCurrentPlayerHuman = (gameState.currentPlayer === 'south') || 
-                               (isNSTeamWon && gameState.currentPlayer === 'north' && 
-                                gameState.players.north.type === 'human');
-    
-    if (gameState.gamePhase !== 'play' || !isCurrentPlayerHuman) {
-        announceToScreenReader("It's not your turn to play.");
-        return;
-    }
-    
-    const hand = gameState.hands[gameState.currentPlayer];
-    const cards = hand[suit] || [];
-    
-    if (cards.length === 0) {
-        announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
-        return;
-    }
-    
-    // Check if player must follow suit
-    if (gameState.currentTrick.length > 0) {
-        const leadSuit = gameState.currentTrick[0].suit;
-        if (suit !== leadSuit && hand[leadSuit].length > 0) {
-            announceToScreenReader(`You must follow the lead suit (${getSuitName(leadSuit)}).`);
-            return;
-        }
-    }
-    
-    // Get the lowest card (we need to convert card ranks for comparison)
-    const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
-    const sortedCards = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b));
-    const lowestCard = sortedCards[0];
-    
-    // Play the card
-    playCard(suit, lowestCard);
 }
 
 /**
