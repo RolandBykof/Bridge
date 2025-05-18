@@ -50,7 +50,11 @@ async function initializeSoloGame() {
     }
     
     // Set event listeners for UI elements
-    setupEventListeners();
+    if (typeof setupEventListeners === 'function') {
+        setupEventListeners();
+    } else {
+        console.warn('setupEventListeners function not available yet');
+    }
     
     // Render UI
     renderUI();

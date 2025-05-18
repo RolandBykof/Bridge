@@ -6,11 +6,18 @@
 // Initialize socket.io connection - with error handling
 let socket;
 try {
-    socket = io();
+    socket = io({
+        transports: ['websocket', 'polling'], // Use websocket primarily, then polling as fallback
+        timeout: 10000 // Longer timeout
+    });
     
     // Add connection event listeners with debugging
     socket.on('connect', () => {
         console.log('Socket.IO connected successfully with ID:', socket.id);
+        socket.ready = true; // Mark socket as ready
+        
+        // Retry getting active tables when connected
+        socket.emit('getActiveTables');
     });
     
     socket.on('connect_error', (error) => {
@@ -24,7 +31,7 @@ try {
 
 // Lobby state
 const lobbyState = {
-    currentView: 'lobby', // 'lobby', 'create', 'join', 'waiting', 'game'
+    currentView: 'lobby', // 'lobby', 'create', 'join', 'position', 'waiting', 'game'
     playerName: '',
     tableCode: '',
     selectedPosition: null,
@@ -63,10 +70,10 @@ function initializeLobby() {
     }
     
     // Get active tables info
-    if (socket && socket.connected) {
+    if (socket && socket.connected && socket.ready) {
         socket.emit('getActiveTables');
     } else {
-        console.warn('Socket not connected, cannot get active tables');
+        console.warn('Socket not connected yet, will try again when connected');
     }
     
     console.log('Lobby initialized');
@@ -1057,7 +1064,7 @@ function switchToLobby() {
     lobbyState.currentTable = null;
     
     // Get active tables info again
-    if (socket && socket.connected) {
+    if (socket && socket.connected && socket.ready) {
         socket.emit('getActiveTables');
     }
 }

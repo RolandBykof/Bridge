@@ -8,11 +8,22 @@ require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    transports: ['websocket', 'polling'],
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+    }
+});
 const PORT = process.env.PORT || 3000;
 
 // CORS settings
 app.use(cors());
+
+// Log environment and port
+console.log(`Starting server in environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`Running on Azure: ${process.env.WEBSITE_SITE_NAME ? 'Yes' : 'No'}`);
+console.log(`Server will listen on port ${PORT}`);
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -486,6 +497,15 @@ app.get('/api/gib/bid-meanings', async (req, res) => {
     }
 });
 
+// Health check endpoint for Azure
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        uptime: process.uptime(),
+        timestamp: Date.now()
+    });
+});
+
 // SPA fallback
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -493,7 +513,7 @@ app.get('*', (req, res) => {
 
 // Apufunktiot pelilogiikalle
 
-// Hae kortit GIB API:sta
+// Hae kortit GIB API:sta - huomaa XML-parseri korjaus Node.js serverille
 async function getDealFromGIB() {
   try {
     const response = await axios.get('http://gibrest.bridgebase.com/u_dealer/u_dealer.php', {
@@ -504,6 +524,11 @@ async function getDealFromGIB() {
     });
     
     const text = response.data;
+    
+    // Palvelimella tarvitaan jsdom DOM-parseria XML-parsintaa varten
+    const { JSDOM } = require('jsdom');
+    const { DOMParser } = new JSDOM().window;
+    
     const parser = new DOMParser();
     const xml = parser.parseFromString(text, "text/xml");
     
