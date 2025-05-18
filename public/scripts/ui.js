@@ -3,6 +3,145 @@
  * Handles UI rendering and user input processing
  */
 
+// Määrittele globaali muuttuja tunnistamaan moninpeli/yksinpeli-tila
+window.isMultiplayerGame = window.location.pathname === '/' || 
+                          window.location.pathname === '/index.html';
+
+// Alkuperäinen setupEventListeners-funktio
+const originalSetupEventListeners = window.setupEventListeners || function() {};
+
+/**
+ * Uusi setupEventListeners joka tarkistaa elementtien olemassaolon
+ */
+window.setupEventListeners = function() {
+    console.log("Running setupEventListeners in", 
+                window.isMultiplayerGame ? "multiplayer mode" : "solo mode");
+    
+    // Jos olemme moninpelitilassa, älä suorita tätä funktiota
+    // koska lobby.js hoitaa tapahtumankuuntelijat
+    if (window.isMultiplayerGame) {
+        console.log("Skipping original setupEventListeners in multiplayer mode");
+        return;
+    }
+    
+    try {
+        // Help buttons
+        const toggleHelpButton = document.getElementById('toggle-help-button');
+        if (toggleHelpButton) {
+            toggleHelpButton.addEventListener('click', () => {
+                toggleHelp();
+            });
+        } else {
+            console.warn("Element 'toggle-help-button' not found");
+        }
+        
+        const closeHelpButton = document.getElementById('close-help-button');
+        if (closeHelpButton) {
+            closeHelpButton.addEventListener('click', () => {
+                uiState.showHelp = false;
+                toggleHelp();
+            });
+        } else {
+            console.warn("Element 'close-help-button' not found");
+        }
+        
+        // Game functions
+        const dealButton = document.getElementById('deal-button');
+        if (dealButton) {
+            dealButton.addEventListener('click', dealNewCards);
+        } else {
+            console.warn("Element 'deal-button' not found");
+        }
+        
+        // Fullscreen button
+        const fullscreenButton = document.getElementById('fullscreen-button');
+        if (fullscreenButton) {
+            fullscreenButton.addEventListener('click', () => {
+                toggleFullscreenMode();
+            });
+        } else {
+            console.warn("Element 'fullscreen-button' not found");
+        }
+        
+        // Solo view specific button
+        const backToLobbyButton = document.getElementById('back-to-lobby-button');
+        if (backToLobbyButton) {
+            backToLobbyButton.addEventListener('click', () => {
+                window.location.href = '/';
+            });
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Processed in keydown handler that follows
+            handleKeyDown(e);
+        });
+        
+        console.log("setupEventListeners completed successfully");
+    } catch (error) {
+        console.error("Error in setupEventListeners:", error);
+    }
+};
+
+/**
+ * Handle keyboard events
+ */
+function handleKeyDown(e) {
+    try {
+        // Process keyboard shortcuts
+        for (const shortcut of keyboardShortcuts) {
+            if (shortcut.action && // Skip shortcuts with no action (they're handled separately)
+                e.key.toLowerCase() === shortcut.key.toLowerCase() && 
+                (!shortcut.alt || e.altKey) && 
+                (!shortcut.shift || e.shiftKey) && 
+                (!shortcut.ctrl || e.ctrlKey)) {
+                
+                e.preventDefault();
+                shortcut.action();
+                return;
+            }
+        }
+        
+        // Handle s, h, d, c keys with dual purpose:
+        // 1. In bidding phase: suit selection for bidding
+        // 2. In play phase: focus on lowest card of that suit
+        const suitKey = e.key.toLowerCase();
+        if (['s', 'h', 'd', 'c'].includes(suitKey) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+            e.preventDefault();
+            
+            // Check game phase and handle accordingly
+            if (gameState.gamePhase === 'bidding') {
+                // Bidding phase - use for bid suit selection
+                if (suitKey in bidSuitKeys) {
+                    handleBidSuitKey(bidSuitKeys[suitKey]);
+                }
+            } else if (gameState.gamePhase === 'play') {
+                // Play phase - focus on lowest card
+                handleSuitKeyInPlayPhase(suitKey);
+            }
+            return;
+        }
+        
+        // Handle bidding level selection (1-7)
+        if (bidLevelKeys.includes(e.key) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+            e.preventDefault();
+            handleBidLevelKey(e.key);
+            return;
+        }
+        
+        // Handle 'n' key for No Trump in bidding
+        if (e.key.toLowerCase() === 'n' && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+            e.preventDefault();
+            if (gameState.gamePhase === 'bidding') {
+                handleBidSuitKey('N');
+            }
+            return;
+        }
+    } catch (error) {
+        console.error("Error in handleKeyDown:", error);
+    }
+}
+
 // DOM references
 const elements = {
     statusBar: document.getElementById('status-bar'),
@@ -441,8 +580,7 @@ function announceEntireHand(position) {
  * Announces the current trick
  */
 function announceCurrentTrick() {
-    if (gameState.gamePhase !== 'play') {
-        announceToScreenReader('The game is not in play phase yet.');
+    if (gameState.gamePhase !== 'play') {        announceToScreenReader('The game is not in play phase yet.');
         return;
     }
     
