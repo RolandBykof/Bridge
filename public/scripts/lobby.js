@@ -65,8 +65,8 @@ function initializeLobby() {
     const savedName = localStorage.getItem('bridgePlayerName');
     if (savedName) {
         lobbyState.playerName = savedName;
-        lobbyElements.createNameInput.value = savedName;
-        lobbyElements.joinNameInput.value = savedName;
+        if (lobbyElements.createNameInput) lobbyElements.createNameInput.value = savedName;
+        if (lobbyElements.joinNameInput) lobbyElements.joinNameInput.value = savedName;
     }
     
     // Get active tables info
@@ -91,23 +91,26 @@ function initializeElements() {
         waitingRoomView: document.getElementById('waiting-room-view'),
         gameView: document.getElementById('game-view'),
         
-        // Lobby elements
+        // Forms
         createTableForm: document.getElementById('create-table-form'),
         joinTableForm: document.getElementById('join-table-form'),
         positionSelectionForm: document.getElementById('position-selection-form'),
         
-        // Buttons
+        // Main buttons (direct references)
         createTableButton: document.getElementById('create-table-button'),
         joinTableButton: document.getElementById('join-table-button'),
         playSoloButton: document.getElementById('play-solo-button'),
+        
+        // Create form buttons
         createSubmitButton: document.getElementById('create-submit-button'),
         createCancelButton: document.getElementById('create-cancel-button'),
+        
+        // Join form buttons
         joinSubmitButton: document.getElementById('join-submit-button'),
         joinCancelButton: document.getElementById('join-cancel-button'),
+        
+        // Position selection form
         positionCancelButton: document.getElementById('position-cancel-button'),
-        startGameButton: document.getElementById('start-game-button'),
-        leaveTableButton: document.getElementById('leave-table-button'),
-        leaveGameButton: document.getElementById('leave-game-button'),
         
         // Form inputs
         createNameInput: document.getElementById('create-name-input'),
@@ -129,6 +132,8 @@ function initializeElements() {
         waitingEast: document.getElementById('waiting-east'),
         waitingSouth: document.getElementById('waiting-south'),
         waitingWest: document.getElementById('waiting-west'),
+        startGameButton: document.getElementById('start-game-button'),
+        leaveTableButton: document.getElementById('leave-table-button'),
         
         // Chat elements
         chatMessages: document.getElementById('chat-messages'),
@@ -140,6 +145,7 @@ function initializeElements() {
         gameChatMessages: document.getElementById('game-chat-messages'),
         gameChatInput: document.getElementById('game-chat-input'),
         gameSendChatButton: document.getElementById('game-send-chat-button'),
+        leaveGameButton: document.getElementById('leave-game-button'),
         
         // ARIA live regions
         lobbyAnnouncer: document.getElementById('lobby-announcer'),
@@ -148,6 +154,12 @@ function initializeElements() {
     
     // Check if all required elements exist
     validateElements();
+    
+    // Print elements to console for debugging
+    console.log('Lobby elements found:', Object.keys(lobbyElements).reduce((acc, key) => {
+        acc[key] = !!lobbyElements[key];
+        return acc;
+    }, {}));
 }
 
 /**
@@ -377,39 +389,45 @@ function setupSocketListeners() {
 function setupEventListeners() {
     console.log('Setting up UI event listeners...');
     
-    // Main lobby buttons
+    // Main lobby buttons - direct method
     if (lobbyElements.createTableButton) {
-        lobbyElements.createTableButton.addEventListener('click', () => {
+        lobbyElements.createTableButton.addEventListener('click', function() {
             console.log('Create table button clicked');
             switchView('create');
         });
+    } else {
+        console.error('Create table button not found');
     }
     
     if (lobbyElements.joinTableButton) {
-        lobbyElements.joinTableButton.addEventListener('click', () => {
+        lobbyElements.joinTableButton.addEventListener('click', function() {
             console.log('Join table button clicked');
             switchView('join');
         });
+    } else {
+        console.error('Join table button not found');
     }
     
     if (lobbyElements.playSoloButton) {
-        lobbyElements.playSoloButton.addEventListener('click', () => {
+        lobbyElements.playSoloButton.addEventListener('click', function() {
             console.log('Play solo button clicked');
             // Redirect to solo game (original game without multiplayer)
             window.location.href = '/solo.html';
         });
+    } else {
+        console.error('Play solo button not found');
     }
     
     // Create table form
     if (lobbyElements.createCancelButton) {
-        lobbyElements.createCancelButton.addEventListener('click', () => {
+        lobbyElements.createCancelButton.addEventListener('click', function() {
             console.log('Create cancel button clicked');
             switchView('lobby');
         });
     }
     
     if (lobbyElements.createSubmitButton) {
-        lobbyElements.createSubmitButton.addEventListener('click', () => {
+        lobbyElements.createSubmitButton.addEventListener('click', function() {
             console.log('Create submit button clicked');
             createTable();
         });
@@ -417,14 +435,14 @@ function setupEventListeners() {
     
     // Join table form
     if (lobbyElements.joinCancelButton) {
-        lobbyElements.joinCancelButton.addEventListener('click', () => {
+        lobbyElements.joinCancelButton.addEventListener('click', function() {
             console.log('Join cancel button clicked');
             switchView('lobby');
         });
     }
     
     if (lobbyElements.joinSubmitButton) {
-        lobbyElements.joinSubmitButton.addEventListener('click', () => {
+        lobbyElements.joinSubmitButton.addEventListener('click', function() {
             console.log('Join submit button clicked');
             joinTable();
         });
@@ -432,7 +450,7 @@ function setupEventListeners() {
     
     // Position selection form
     if (lobbyElements.positionCancelButton) {
-        lobbyElements.positionCancelButton.addEventListener('click', () => {
+        lobbyElements.positionCancelButton.addEventListener('click', function() {
             console.log('Position cancel button clicked');
             switchView('lobby');
         });
@@ -441,7 +459,7 @@ function setupEventListeners() {
     // Position buttons in create form
     if (lobbyElements.positionButtons) {
         lobbyElements.positionButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
+            button.addEventListener('click', function(e) {
                 console.log('Position button clicked:', e.target.dataset.position);
                 
                 // Remove selected class from all buttons
@@ -461,7 +479,7 @@ function setupEventListeners() {
     // Position selection buttons in join form
     if (lobbyElements.selectPositionButtons) {
         lobbyElements.selectPositionButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
+            button.addEventListener('click', function(e) {
                 console.log('Select position button clicked:', e.target.dataset.position);
                 selectPosition(e.target.dataset.position);
             });
@@ -470,14 +488,14 @@ function setupEventListeners() {
     
     // Waiting room buttons
     if (lobbyElements.startGameButton) {
-        lobbyElements.startGameButton.addEventListener('click', () => {
+        lobbyElements.startGameButton.addEventListener('click', function() {
             console.log('Start game button clicked');
             startGame();
         });
     }
     
     if (lobbyElements.leaveTableButton) {
-        lobbyElements.leaveTableButton.addEventListener('click', () => {
+        lobbyElements.leaveTableButton.addEventListener('click', function() {
             console.log('Leave table button clicked');
             leaveTable();
         });
@@ -485,7 +503,7 @@ function setupEventListeners() {
     
     // Game leave button
     if (lobbyElements.leaveGameButton) {
-        lobbyElements.leaveGameButton.addEventListener('click', () => {
+        lobbyElements.leaveGameButton.addEventListener('click', function() {
             console.log('Leave game button clicked');
             leaveGame();
         });
@@ -493,14 +511,14 @@ function setupEventListeners() {
     
     // Chat functions
     if (lobbyElements.sendChatButton) {
-        lobbyElements.sendChatButton.addEventListener('click', () => {
+        lobbyElements.sendChatButton.addEventListener('click', function() {
             console.log('Send chat button clicked');
             sendChatMessage();
         });
     }
     
     if (lobbyElements.chatInput) {
-        lobbyElements.chatInput.addEventListener('keypress', (e) => {
+        lobbyElements.chatInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 console.log('Chat input enter pressed');
                 sendChatMessage();
@@ -510,14 +528,14 @@ function setupEventListeners() {
     
     // Game chat functions
     if (lobbyElements.gameSendChatButton) {
-        lobbyElements.gameSendChatButton.addEventListener('click', () => {
+        lobbyElements.gameSendChatButton.addEventListener('click', function() {
             console.log('Game send chat button clicked');
             sendGameChatMessage();
         });
     }
     
     if (lobbyElements.gameChatInput) {
-        lobbyElements.gameChatInput.addEventListener('keypress', (e) => {
+        lobbyElements.gameChatInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 console.log('Game chat input enter pressed');
                 sendGameChatMessage();
@@ -527,19 +545,19 @@ function setupEventListeners() {
     
     // Form inputs - store value in state on change
     if (lobbyElements.createNameInput) {
-        lobbyElements.createNameInput.addEventListener('input', (e) => {
+        lobbyElements.createNameInput.addEventListener('input', function(e) {
             lobbyState.playerName = e.target.value;
         });
     }
     
     if (lobbyElements.joinNameInput) {
-        lobbyElements.joinNameInput.addEventListener('input', (e) => {
+        lobbyElements.joinNameInput.addEventListener('input', function(e) {
             lobbyState.playerName = e.target.value;
         });
     }
     
     if (lobbyElements.tableCodeInput) {
-        lobbyElements.tableCodeInput.addEventListener('input', (e) => {
+        lobbyElements.tableCodeInput.addEventListener('input', function(e) {
             lobbyState.joinTableCode = e.target.value;
         });
     }
@@ -584,6 +602,10 @@ function switchView(view) {
     // Update current view in state
     lobbyState.currentView = view;
     
+    // Clear any previous error messages
+    const errorMessages = document.querySelectorAll('.error-message');
+    errorMessages.forEach(el => el.remove());
+    
     // Hide all forms first
     if (lobbyElements.createTableForm) {
         lobbyElements.createTableForm.style.display = 'none';
@@ -597,33 +619,42 @@ function switchView(view) {
         lobbyElements.positionSelectionForm.style.display = 'none';
     }
     
-    // Show appropriate view
+    // Show appropriate view with direct DOM manipulation
     switch (view) {
         case 'lobby':
             // Just hide all forms, main lobby is already visible
             break;
         case 'create':
+            // Force direct display
             if (lobbyElements.createTableForm) {
                 lobbyElements.createTableForm.style.display = 'block';
                 
                 if (lobbyElements.createNameInput) {
-                    lobbyElements.createNameInput.focus();
+                    setTimeout(() => lobbyElements.createNameInput.focus(), 50);
                 }
+            } else {
+                console.error('Create table form not found in DOM');
             }
             break;
         case 'join':
+            // Force direct display
             if (lobbyElements.joinTableForm) {
                 lobbyElements.joinTableForm.style.display = 'block';
                 
                 if (lobbyElements.joinNameInput) {
-                    lobbyElements.joinNameInput.focus();
+                    setTimeout(() => lobbyElements.joinNameInput.focus(), 50);
                 }
+            } else {
+                console.error('Join table form not found in DOM');
             }
             break;
         case 'position':
+            // Force direct display
             if (lobbyElements.positionSelectionForm) {
                 lobbyElements.positionSelectionForm.style.display = 'block';
                 // Focus will be set on an available position button
+            } else {
+                console.error('Position selection form not found in DOM');
             }
             break;
         case 'waiting':
@@ -933,7 +964,7 @@ function switchToWaitingRoom() {
     
     // Focus chat input
     if (lobbyElements.chatInput) {
-        lobbyElements.chatInput.focus();
+        setTimeout(() => lobbyElements.chatInput.focus(), 100);
     }
 }
 
@@ -1120,7 +1151,7 @@ function updatePositionSelection(availablePositions, currentPlayers) {
     if (availablePositions.length > 0) {
         const firstAvailable = document.querySelector(`#position-${availablePositions[0]} .select-position-button`);
         if (firstAvailable) {
-            firstAvailable.focus();
+            setTimeout(() => firstAvailable.focus(), 100);
         }
     }
 }
