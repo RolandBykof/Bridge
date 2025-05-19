@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BridgeCircle - Create Table</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/multiplayer.css">
+    <meta name="description" content="Create a new bridge table">
+</head>
+<body>
+    <div class="container">
+        <h1>BridgeCircle - Create Table</h1>
+        
+        <div class="section">
+            <h2>Create New Table</h2>
+            
+            <form id="create-table-form" action="javascript:void(0);">
+                <div class="form-group">
+                    <label for="create-name-input">Your Name:</label>
+                    <input type="text" id="create-name-input" class="form-input" placeholder="Enter your name" required>
+                </div>
+                
+                <div class="form-group">
+                    <h3>Select Your Position:</h3>
+                    <div class="position-selector">
+                        <div class="position-row">
+                            <div></div>
+                            <div>
+                                <button type="button" class="position-button" data-position="north">
+                                    North
+                                </button>
+                            </div>
+                            <div></div>
+                        </div>
+                        <div class="position-row">
+                            <div>
+                                <button type="button" class="position-button" data-position="west">
+                                    West
+                                </button>
+                            </div>
+                            <div class="position-center">
+                                <div class="position-table"></div>
+                            </div>
+                            <div>
+                                <button type="button" class="position-button" data-position="east">
+                                    East
+                                </button>
+                            </div>
+                        </div>
+                        <div class="position-row">
+                            <div></div>
+                            <div>
+                                <button type="button" class="position-button" data-position="south">
+                                    South
+                                </button>
+                            </div>
+                            <div></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button type="submit" id="create-submit-button" class="button">
+                        Create Table
+                    </button>
+                    
+                    <a href="/" class="button button-secondary">
+                        Back to Lobby
+                    </a>
+                </div>
+                
+                <div id="error-message" class="error-message" style="display:none;"></div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Yksinkertainen JavaScript suoraan tällä sivulla
+        document.addEventListener('DOMContentLoaded', function() {
+            // Socket yhteys
+            const socket = io();
+            let selectedPosition = null;
+            
+            // Tallenna nimi localStoragesta jos on
+            const savedName = localStorage.getItem('bridgePlayerName');
+            if (savedName) {
+                document.getElementById('create-name-input').value = savedName;
+            }
+            
+            // Position painikkeiden käsittely
+            const positionButtons = document.querySelectorAll('.position-button');
+            positionButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Poista valinta kaikista
+                    positionButtons.forEach(btn => btn.classList.remove('selected'));
+                    // Lisää valinta tähän
+                    this.classList.add('selected');
+                    // Tallenna valittu positio
+                    selectedPosition = this.dataset.position;
+                });
+            });
+            
+            // Lomakkeen lähetys
+            document.getElementById('create-table-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const playerName = document.getElementById('create-name-input').value.trim();
+                
+                if (!playerName) {
+                    showError('Please enter your name');
+                    return;
+                }
+                
+                if (!selectedPosition) {
+                    showError('Please select a position');
+                    return;
+                }
+                
+                // Tallenna nimi local storageen
+                localStorage.setItem('bridgePlayerName', playerName);
+                
+                // Lähetä pyyntö serverille
+                socket.emit('createTable', {
+                    playerName: playerName,
+                    position: selectedPosition
+                });
+            });
+            
+            // Pöytä luotu onnistuneesti
+            socket.on('tableCreated', function({ tableCode, table }) {
+                // Siirry odotushuoneeseen
+                window.location.href = `/waitingroom.html?code=${tableCode}`;
+            });
+            
+            // Virheen käsittely
+            socket.on('error', function({ message }) {
+                showError(message);
+            });
+            
+            // Virheviesti
+            function showError(message) {
+                const errorElement = document.getElementById('error-message');
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+                
+                // Piilota 5 sekunnin jälkeen
+                setTimeout(() => {
+                    errorElement.style.display = 'none';
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>

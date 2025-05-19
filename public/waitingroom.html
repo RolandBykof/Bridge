@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BridgeCircle - Waiting Room</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/multiplayer.css">
+    <meta name="description" content="Waiting room for bridge game">
+</head>
+<body>
+    <div class="container" id="waiting-room-view">
+        <h1>BridgeCircle - Table <span id="waiting-table-code"></span></h1>
+        
+        <!-- ARIA Live area for waiting room announcements -->
+        <div id="waiting-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        
+        <div class="section">
+            <h2>Waiting for Players</h2>
+            <p>Share this table code with your friends: <strong id="share-table-code"></strong></p>
+            
+            <div class="player-status">
+                <div class="player-positions">
+                    <div class="position-card" id="waiting-north">
+                        <h3>North</h3>
+                        <p class="player-name">Waiting...</p>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-east">
+                        <h3>East</h3>
+                        <p class="player-name">Waiting...</p>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-south">
+                        <h3>South</h3>
+                        <p class="player-name">Waiting...</p>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-west">
+                        <h3>West</h3>
+                        <p class="player-name">Waiting...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="start-game-button" class="button">
+                    Start Game (with GIB for missing players)
+                </button>
+                
+                <button id="leave-table-button" class="button button-secondary">
+                    Leave Table
+                </button>
+            </div>
+        </div>
+        
+        <!-- Chat Section -->
+        <div class="section">
+            <h2>Table Chat</h2>
+            <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+            <div class="chat-input-container">
+                <input type="text" id="chat-input" class="chat-input" placeholder="Type a message...">
+                <button id="send-chat-button" class="button">Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Socket yhteys
+            const socket = io();
+            
+            // Hae pöydän koodi URL:sta
+            const urlParams = new URLSearchParams(window.location.search);
+            const tableCode = urlParams.get('code');
+            
+            if (!tableCode) {
+                window.location.href = '/'; // Palaa etusivulle jos koodia ei ole
+                return;
+            }
+            
+            // Näytä pöydän koodi
+            document.getElementById('waiting-table-code').textContent = tableCode;
+            document.getElementById('share-table-code').textContent = tableCode;
+            
+            // Pyydetään pöydän tiedot
+            socket.emit('getTableInfo', { tableCode });
+            
+            // Pöydän tiedot
+            socket.on('tableInfo', function({ table }) {
+                updateWaitingRoom(table);
+            });
+            
+            // Pelaaja liittyi pöytään
+            socket.on('playerJoined', function({ position, playerName, table }) {
+                announceToWaiting(`${playerName} joined as ${position}.`);
+                updateWaitingRoom(table);
+            });
+            
+            // Pelaaja poistui pöydästä
+            socket.on('playerLeft', function({ position, table }) {
+                announceToWaiting(`Player at ${position} left the table.`);
+                updateWaitingRoom(table);
+            });
+            
+            // Peli alkoi
+            socket.on('gameStarted', function({ gameState, biddingState, players }) {
+                // Siirry peliin
+                window.location.href = `/game.html?code=${tableCode}`;
+            });
+            
+            // Chat-viesti
+            socket.on('chatMessage', function({ sender, position, message, timestamp }) {
+                addChatMessage(sender, position, message);
+            });
+            
+            // Pöytä poistettu
+            socket.on('tableRemoved', function({ message }) {
+                alert(message);
+                window.location.href = '/';
+            });
+            
+            // Virheviesti
+            socket.on('error', function({ message }) {
+                alert(message);
+            });
+            
+            // Aloita peli -painike
+            document.getElementById('start-game-button').addEventListener('click', function() {
+                socket.emit('startGame', { tableCode });
+            });
+            
+            // Poistu pöydästä -painike
+            document.getElementById('leave-table-button').addEventListener('click', function() {
+                socket.emit('leaveTable');
+                window.location.href = '/';
+            });
+            
+            // Chat-viestin lähetys
+            document.getElementById('send-chat-button').addEventListener('click', sendChatMessage);
+            document.getElementById('chat-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendChatMessage();
+                }
+            });
+            
+            // Päivitä odotushuone
+            function updateWaitingRoom(table) {
+                const positions = ['north', 'east', 'south', 'west'];
+                
+                positions.forEach(pos => {
+                    const element = document.getElementById(`waiting-${pos}`);
+                    const player = table.players[pos];
+                    
+                    if (player) {
+                        element.classList.add('occupied');
+                        
+                        // Tarkista onko tämä käyttäjä
+                        if (player.id === socket.id) {
+                            element.classList.add('you');
+                            
+                            const playerNameElement = element.querySelector('.player-name');
+                            if (playerNameElement) {
+                                playerNameElement.textContent = `${player.name} (You)`;
+                            }
+                        } else {
+                            element.classList.remove('you');
+                            
+                            const playerNameElement = element.querySelector('.player-name');
+                            if (playerNameElement) {
+                                playerNameElement.textContent = player.name;
+                            }
+                        }
+                    } else {
+                        element.classList.remove('occupied', 'you');
+                        
+                        const playerNameElement = element.querySelector('.player-name');
+                        if (playerNameElement) {
+                            playerNameElement.textContent = 'Waiting...';
+                        }
+                    }
+                });
+                
+                // Enable start button if there's at least one player
+                const playerCount = Object.values(table.players).filter(p => p !== null).length;
+                document.getElementById('start-game-button').disabled = playerCount === 0;
+            }
+            
+            // Lähetä chat-viesti
+            function sendChatMessage() {
+                const chatInput = document.getElementById('chat-input');
+                const message = chatInput.value.trim();
+                
+                if (message) {
+                    socket.emit('sendChatMessage', {
+                        tableCode,
+                        message
+                    });
+                    
+                    chatInput.value = '';
+                    chatInput.focus();
+                }
+            }
+            
+            // Lisää chat-viesti
+            function addChatMessage(sender, position, message) {
+                const chatMessages = document.getElementById('chat-messages');
+                const messageElement = document.createElement('div');
+                messageElement.className = 'chat-message';
+                
+                const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                messageElement.innerHTML = `
+                    <span class="chat-sender">${sender} (${position}):</span>
+                    <span class="chat-time">[${timestamp}]</span>
+                    <div class="chat-text">${message}</div>
+                `;
+                
+                chatMessages.appendChild(messageElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Ilmoita ruudunlukijalle
+                announceToWaiting(`New message from ${sender}: ${message}`);
+            }
+            
+            // Ilmoita odotushuoneessa
+            function announceToWaiting(message) {
+                const announcer = document.getElementById('waiting-announcer');
+                announcer.textContent = '';
+                setTimeout(() => {
+                    announcer.textContent = message;
+                }, 50);
+            }
+        });
+    </script>
+</body>
+</html>
