@@ -8,7 +8,7 @@
     <meta name="description" content="Play bridge against GIB AI opponents">
 </head>
 <body>
-    <div class="container" id="app">
+    <div class="container" id="game-view">
         <h1>BridgeCircle - Solo Play</h1>
         
         <div id="error-container" class="error-message" style="display:none;"></div>
@@ -32,7 +32,7 @@
         
         <!-- Status message display -->
         <div class="status-bar" id="status-bar" role="status">
-            Welcome to BridgeCircle application
+            Welcome to BridgeCircle Solo Play
         </div>
         
         <!-- Action buttons -->
@@ -119,85 +119,59 @@
         </section>
     </div>
     
-    <!-- JavaScript files for solo mode -->
+    <!-- JavaScript files -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/socket-handler.js"></script>
     <script src="scripts/ui.js"></script>
-    <script src="scripts/bidding.js"></script>
-    <script src="scripts/game.js"></script>
-    <script src="scripts/gib-integration.js"></script>
+    <script src="scripts/client-bridge.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Specify we're in solo mode
-            window.isMultiplayerMode = false;
+            // Specify we're in solo mode but using multiplayer backend
+            window.isSoloMode = true;
+            window.isMultiplayerMode = true;
             
-            // Setup original UI event listeners specifically for solo mode
-            setupSoloEventListeners();
+            // Set a default player name for solo if not exists
+            if (!localStorage.getItem('bridgePlayerName')) {
+                localStorage.setItem('bridgePlayerName', 'Player');
+            }
             
-            // Add back to lobby button functionality
+            // Initialize solo game
+            initializeSoloGame();
+            
+            // Help and fullscreen buttons
+            document.getElementById('toggle-help-button').addEventListener('click', toggleHelp);
+            document.getElementById('close-help-button').addEventListener('click', toggleHelp);
+            document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreenMode);
+            
+            // Deal button - use our solo deal function
+            document.getElementById('deal-button').addEventListener('click', dealNewSoloGame);
+            
+            // Back to lobby button
             document.getElementById('back-to-lobby-button').addEventListener('click', function() {
                 window.location.href = '/';
             });
-            
-            // Function to setup solo event listeners (similar to original app.js)
-            function setupSoloEventListeners() {
-                // Help buttons
-                document.getElementById('toggle-help-button').addEventListener('click', toggleHelp);
-                document.getElementById('close-help-button').addEventListener('click', function() {
-                    document.getElementById('help-section').style.display = 'none';
-                    document.getElementById('toggle-help-button').textContent = 'Show Help';
-                });
-                
-                // Deal button
-                document.getElementById('deal-button').addEventListener('click', dealNewCards);
-                
-                // Fullscreen button
-                document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreenMode);
-                
-                // Keyboard shortcuts
-                document.addEventListener('keydown', handleKeyDown);
-                
-                // Initialize game UI
-                renderUI();
-                
-                // Initialize GIB service if available
-                if (typeof gibService !== 'undefined') {
-                    gibService.initialize().then(() => {
-                        if (gibService.isAvailable()) {
-                            console.log('GIB service is available');
-                        } else {
-                            console.log('GIB service not available, using simulated game');
-                        }
-                    }).catch(error => {
-                        console.error('Error initializing GIB service:', error);
-                    });
-                }
-            }
-            
-            // Toggle help display
-            function toggleHelp() {
-                const helpSection = document.getElementById('help-section');
-                const isVisible = helpSection.style.display !== 'none';
-                helpSection.style.display = isVisible ? 'none' : 'block';
-                document.getElementById('toggle-help-button').textContent = isVisible ? 'Show Help' : 'Hide Help';
-            }
-            
-            // Toggle fullscreen mode
-            function toggleFullscreenMode() {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(err => {
-                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-                    });
-                    document.getElementById('fullscreen-button').textContent = 'Exit Full Screen';
-                } else {
-                    document.exitFullscreen();
-                    document.getElementById('fullscreen-button').textContent = 'Full Screen';
-                }
-            }
-            
-            // Handle keyboard events
-            function handleKeyDown(e) {
-                // This will be handled by the ui.js keyboard handler
-            }
         });
+        
+        // Toggle help display
+        function toggleHelp() {
+            const helpSection = document.getElementById('help-section');
+            const isVisible = helpSection.style.display !== 'none';
+            helpSection.style.display = isVisible ? 'none' : 'block';
+            document.getElementById('toggle-help-button').textContent = isVisible ? 'Show Help' : 'Hide Help';
+        }
+        
+        // Toggle fullscreen mode
+        function toggleFullscreenMode() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+                document.getElementById('fullscreen-button').textContent = 'Exit Full Screen';
+            } else {
+                document.exitFullscreen();
+                document.getElementById('fullscreen-button').textContent = 'Full Screen';
+            }
+        }
     </script>
 </body>
 </html>

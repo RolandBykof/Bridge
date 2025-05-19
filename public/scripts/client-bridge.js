@@ -862,3 +862,99 @@ function formatContract(contract) {
 // The rest of the UI update functions like renderHand, renderBiddingHistory,
 // updateGameUI, etc. would use the original UI.js implementations with slight
 // modifications to work with the new clientState instead of direct gameState
+
+/**
+ * Initialize solo game
+ * Creates a special solo table with GIB players
+ */
+function initializeSoloGame() {
+  console.log('Initializing solo game...');
+  
+  // Get player name from localStorage or use default
+  const playerName = localStorage.getItem('bridgePlayerName') || 'Player';
+  clientState.playerName = playerName;
+  clientState.myPosition = 'south'; // In solo mode, player is always south
+  
+  // Set up socket listeners for solo mode
+  socketHandler.setupGameListeners({
+    onYourCards: handleYourCards,
+    onBidMade: handleBidMade,
+    onBiddingComplete: handleBiddingComplete,
+    onPlayPhaseCards: handlePlayPhaseCards,
+    onCardPlayed: handleCardPlayed,
+    onNextPlayer: handleNextPlayer,
+    onTrickComplete: handleTrickComplete,
+    onGameOver: handleGameOver
+  });
+  
+  // Create a solo game - this will be a special request to the server
+  socket.emit('createSoloGame', {
+    playerName: playerName
+  });
+  
+  console.log('Solo game initialization request sent');
+}
+
+/**
+ * Deal a new solo game
+ * Resets the current game and deals new cards
+ */
+function dealNewSoloGame() {
+  // Check if we're in a solo game
+  if (!window.isSoloMode) {
+    console.error('dealNewSoloGame called but not in solo mode');
+    return;
+  }
+  
+  // If we have a table code, send a reset request
+  if (clientState.tableCode) {
+    socket.emit('resetSoloGame', {
+      tableCode: clientState.tableCode
+    });
+  } else {
+    // Otherwise create a new solo game
+    initializeSoloGame();
+  }
+}
+
+// Update UI function for solo mode
+function updateGameUI() {
+  if (window.isSoloMode) {
+    // Update player controls to show all players as GIB except south
+    if (elements.playerControls) {
+      let html = '';
+      
+      const positions = ['north', 'east', 'south', 'west'];
+      positions.forEach(pos => {
+        const isCurrentPlayer = clientState.gameState && clientState.gameState.currentPlayer === pos;
+        const playerName = pos === 'south' ? clientState.playerName : `GIB (${pos})`;
+        const playerType = pos === 'south' ? 'human' : 'gib';
+        
+        html += `
+          <div class="player-badge ${isCurrentPlayer ? 'current' : ''}">
+            <div>${getPositionName(pos)}</div>
+            <div>${playerName}</div>
+            <div>${playerType}</div>
+          </div>
+        `;
+      });
+      
+      elements.playerControls.innerHTML = html;
+    }
+    
+    // Update status bar
+    if (elements.statusBar) {
+      if (clientState.gameState) {
+        if (clientState.gameState.gamePhase === 'bidding') {
+          elements.statusBar.textContent = 'Bidding phase';
+        } else if (clientState.gameState.gamePhase === 'play') {
+          elements.statusBar.textContent = `Playing: ${formatContract(clientState.gameState.contract)}`;
+        } else {
+          elements.statusBar.textContent = 'Solo game with GIB';
+        }
+      } else {
+        elements.statusBar.textContent = 'Solo game with GIB';
+      }
+    }
+  }
+}
