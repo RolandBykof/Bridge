@@ -353,5 +353,66 @@
     <script src="scripts/game.js"></script>
     <script src="scripts/gib-integration.js"></script>
     <script src="scripts/app.js"></script>
+<!-- Suorat painikekäsittelijät -->
+<script>
+  // Odota että sivu on täysin latautunut
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('Direct event handlers being attached');
+    
+    // Päänäkymän painikkeet
+    var createTableButton = document.getElementById('create-table-button');
+    var joinTableButton = document.getElementById('join-table-button');
+    var playSoloButton = document.getElementById('play-solo-button');
+    
+    if (createTableButton) {
+      createTableButton.addEventListener('click', function() {
+        console.log('Create table button clicked');
+        var createForm = document.getElementById('create-table-form');
+        if (createForm) {
+          document.getElementById('create-table-form').style.display = 'block';
+        }
+      });
+    }
+    
+    if (joinTableButton) {
+      joinTableButton.addEventListener('click', function() {
+        console.log('Join table button clicked');
+        var joinForm = document.getElementById('join-table-form');
+        if (joinForm) {
+          joinForm.style.display = 'block';
+        }
+      });
+    }
+    
+    if (playSoloButton) {
+      playSoloButton.addEventListener('click', function() {
+        console.log('Play solo button clicked');
+        window.location.href = '/solo.html';
+      });
+    }
+    
+    // Peruuta-painikkeet
+    var createCancelButton = document.getElementById('create-cancel-button');
+    var joinCancelButton = document.getElementById('join-cancel-button');
+    
+    if (createCancelButton) {
+      createCancelButton.addEventListener('click', function() {
+        var createForm = document.getElementById('create-table-form');
+        if (createForm) {
+          createForm.style.display = 'none';
+        }
+      });
+    }
+    
+    if (joinCancelButton) {
+      joinCancelButton.addEventListener('click', function() {
+        var joinForm = document.getElementById('join-table-form');
+        if (joinForm) {
+          joinForm.style.display = 'none';
+        }
+      });
+    }
+  });
+</script>
 </body>
 </html>
