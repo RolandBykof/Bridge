@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BridgeCircle - Solo Play</title>
+    <title>BridgeCircle - Game</title>
     <link rel="stylesheet" href="css/main.css">
-    <meta name="description" content="Play bridge against GIB AI opponents">
+    <link rel="stylesheet" href="css/multiplayer.css">
+    <meta name="description" content="Multiplayer bridge game">
 </head>
 <body>
-    <div class="container" id="app">
-        <h1>BridgeCircle - Solo Play</h1>
+    <div class="container" id="game-view">
+        <h1>BridgeCircle - Table <span id="game-table-code"></span></h1>
         
         <div id="error-container" class="error-message" style="display:none;"></div>
         
@@ -32,7 +33,7 @@
         
         <!-- Status message display -->
         <div class="status-bar" id="status-bar" role="status">
-            Welcome to BridgeCircle application
+            Welcome to BridgeCircle game
         </div>
         
         <!-- Action buttons -->
@@ -41,12 +42,8 @@
                 Show Help
             </button>
             
-            <button id="deal-button" class="button">
-                Deal new cards
-            </button>
-            
-            <button id="back-to-lobby-button" class="button button-secondary">
-                Back to Lobby
+            <button id="leave-game-button" class="button button-secondary">
+                Leave Game
             </button>
             
             <button id="fullscreen-button" class="button button-secondary">
@@ -117,87 +114,71 @@
                 <p class="text-gray-500">No cards played yet.</p>
             </div>
         </section>
+        
+        <!-- Chat Section for in-game chat -->
+        <div class="section">
+            <h2>Game Chat</h2>
+            <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+            <div class="chat-input-container">
+                <input type="text" id="chat-input" class="chat-input" placeholder="Type a message...">
+                <button id="send-chat-button" class="button">Send</button>
+            </div>
+        </div>
     </div>
     
-    <!-- JavaScript files for solo mode -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/socket-handler.js"></script>
     <script src="scripts/ui.js"></script>
-    <script src="scripts/bidding.js"></script>
-    <script src="scripts/game.js"></script>
-    <script src="scripts/gib-integration.js"></script>
+    <script src="scripts/client-bridge.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Specify we're in solo mode
-            window.isMultiplayerMode = false;
+            // Indicate that we're in multiplayer game mode
+            window.isMultiplayerMode = true;
             
-            // Setup original UI event listeners specifically for solo mode
-            setupSoloEventListeners();
-            
-            // Add back to lobby button functionality
-            document.getElementById('back-to-lobby-button').addEventListener('click', function() {
+            // Get table code from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('code')) {
+                // Setup game screen with the table code
+                clientState.tableCode = urlParams.get('code');
+                setupGameScreen();
+            } else {
+                // Redirect to home page if no code provided
                 window.location.href = '/';
+            }
+            
+            // Handle game exit button
+            document.getElementById('leave-game-button').addEventListener('click', function() {
+                if(confirm('Are you sure you want to leave the game? You will be replaced by GIB AI.')) {
+                    leaveTable();
+                }
             });
             
-            // Function to setup solo event listeners (similar to original app.js)
-            function setupSoloEventListeners() {
-                // Help buttons
-                document.getElementById('toggle-help-button').addEventListener('click', toggleHelp);
-                document.getElementById('close-help-button').addEventListener('click', function() {
-                    document.getElementById('help-section').style.display = 'none';
-                    document.getElementById('toggle-help-button').textContent = 'Show Help';
-                });
-                
-                // Deal button
-                document.getElementById('deal-button').addEventListener('click', dealNewCards);
-                
-                // Fullscreen button
-                document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreenMode);
-                
-                // Keyboard shortcuts
-                document.addEventListener('keydown', handleKeyDown);
-                
-                // Initialize game UI
-                renderUI();
-                
-                // Initialize GIB service if available
-                if (typeof gibService !== 'undefined') {
-                    gibService.initialize().then(() => {
-                        if (gibService.isAvailable()) {
-                            console.log('GIB service is available');
-                        } else {
-                            console.log('GIB service not available, using simulated game');
-                        }
-                    }).catch(error => {
-                        console.error('Error initializing GIB service:', error);
-                    });
-                }
-            }
-            
-            // Toggle help display
-            function toggleHelp() {
-                const helpSection = document.getElementById('help-section');
-                const isVisible = helpSection.style.display !== 'none';
-                helpSection.style.display = isVisible ? 'none' : 'block';
-                document.getElementById('toggle-help-button').textContent = isVisible ? 'Show Help' : 'Hide Help';
-            }
-            
-            // Toggle fullscreen mode
-            function toggleFullscreenMode() {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(err => {
-                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-                    });
-                    document.getElementById('fullscreen-button').textContent = 'Exit Full Screen';
-                } else {
-                    document.exitFullscreen();
-                    document.getElementById('fullscreen-button').textContent = 'Full Screen';
-                }
-            }
-            
-            // Handle keyboard events
-            function handleKeyDown(e) {
-                // This will be handled by the ui.js keyboard handler
-            }
+            // Setup help and fullscreen buttons
+            document.getElementById('toggle-help-button').addEventListener('click', toggleHelp);
+            document.getElementById('close-help-button').addEventListener('click', toggleHelp);
+            document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreenMode);
         });
+        
+        // Toggle help display
+        function toggleHelp() {
+            const helpSection = document.getElementById('help-section');
+            const isVisible = helpSection.style.display !== 'none';
+            helpSection.style.display = isVisible ? 'none' : 'block';
+            document.getElementById('toggle-help-button').textContent = isVisible ? 'Show Help' : 'Hide Help';
+        }
+        
+        // Toggle fullscreen mode
+        function toggleFullscreenMode() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+                document.getElementById('fullscreen-button').textContent = 'Exit Full Screen';
+            } else {
+                document.exitFullscreen();
+                document.getElementById('fullscreen-button').textContent = 'Full Screen';
+            }
+        }
     </script>
 </body>
 </html>

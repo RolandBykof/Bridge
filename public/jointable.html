@@ -12,6 +12,8 @@
     <div class="container">
         <h1>BridgeCircle - Join Table</h1>
         
+        <div id="error-container" class="error-message" style="display:none;"></div>
+        
         <div class="section">
             <h2>Join Existing Table</h2>
             
@@ -35,8 +37,6 @@
                         Back to Lobby
                     </a>
                 </div>
-                
-                <div id="error-message" class="error-message" style="display:none;"></div>
             </form>
         </div>
         
@@ -58,129 +58,17 @@
     </div>
     
     <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/socket-handler.js"></script>
+    <script src="scripts/client-bridge.js"></script>
     <script>
-        // Yksinkertainen JavaScript suoraan tällä sivulla
         document.addEventListener('DOMContentLoaded', function() {
-            // Socket yhteys
-            const socket = io();
+            // Specifics for join table page
+            window.isJoinTablePage = true;
             
-            // Lomakkeet
-            const joinForm = document.getElementById('join-table-form');
-            const positionSelection = document.getElementById('position-selection');
-            
-            // Tallenna nimi localStoragesta jos on
-            const savedName = localStorage.getItem('bridgePlayerName');
-            if (savedName) {
-                document.getElementById('join-name-input').value = savedName;
-            }
-            
-            // Lomakkeen lähetys
-            joinForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const playerName = document.getElementById('join-name-input').value.trim();
-                const tableCode = document.getElementById('table-code-input').value.trim();
-                
-                if (!playerName) {
-                    showError('Please enter your name');
-                    return;
-                }
-                
-                if (!tableCode) {
-                    showError('Please enter a table code');
-                    return;
-                }
-                
-                // Tallenna nimi local storageen
-                localStorage.setItem('bridgePlayerName', playerName);
-                
-                // Lähetä pyyntö serverille
-                socket.emit('joinTable', {
-                    playerName: playerName,
-                    tableCode: tableCode.toUpperCase()
-                });
-            });
-            
-            // Position valinta
-            socket.on('selectPosition', function({ tableCode, positions, currentPlayers }) {
-                // Näytä position valinta
-                joinForm.style.display = 'none';
-                positionSelection.style.display = 'block';
-                
-                // Näytä pöydän koodi
-                document.getElementById('position-table-code').textContent = tableCode;
-                
-                // Luo positioiden valinnat
-                const positionsContainer = document.getElementById('positions-container');
-                positionsContainer.innerHTML = '';
-                
-                const positions_list = ['north', 'east', 'south', 'west'];
-                
-                positions_list.forEach(position => {
-                    // Tarkista onko positio vapaa
-                    const isAvailable = positions.includes(position);
-                    const player = currentPlayers[position];
-                    
-                    const positionDiv = document.createElement('div');
-                    positionDiv.className = 'position-info';
-                    positionDiv.id = `position-${position}`;
-                    
-                    // Position tiedot
-                    let html = `
-                        <h3>${position.charAt(0).toUpperCase() + position.slice(1)}</h3>
-                    `;
-                    
-                    if (player) {
-                        html += `<p class="player-name">${player.name}</p>`;
-                    } else if (isAvailable) {
-                        html += `
-                            <p class="player-name">Available</p>
-                            <button class="select-position-button" data-position="${position}">Select</button>
-                        `;
-                    } else {
-                        html += `<p class="player-name">Not available</p>`;
-                    }
-                    
-                    positionDiv.innerHTML = html;
-                    positionsContainer.appendChild(positionDiv);
-                });
-                
-                // Positio valintapainikkeiden käsittely
-                document.querySelectorAll('.select-position-button').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const position = this.dataset.position;
-                        
-                        // Lähetä pyyntö serverille
-                        socket.emit('selectPosition', {
-                            tableCode: tableCode,
-                            position: position,
-                            playerName: document.getElementById('join-name-input').value.trim()
-                        });
-                    });
-                });
-            });
-            
-            // Pelaaja liittyi pöytään
-            socket.on('playerJoined', function({ position, playerName, table }) {
-                // Siirry odotushuoneeseen
-                window.location.href = `/waitingroom.html?code=${table.code}`;
-            });
-            
-            // Virheen käsittely
-            socket.on('error', function({ message }) {
-                showError(message);
-            });
-            
-            // Virheviesti
-            function showError(message) {
-                const errorElement = document.getElementById('error-message');
-                errorElement.textContent = message;
-                errorElement.style.display = 'block';
-                
-                // Piilota 5 sekunnin jälkeen
-                setTimeout(() => {
-                    errorElement.style.display = 'none';
-                }, 5000);
+            // If table code is in URL parameters, fill it in
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('code')) {
+                document.getElementById('table-code-input').value = urlParams.get('code');
             }
         });
     </script>

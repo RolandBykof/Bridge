@@ -12,6 +12,8 @@
     <div class="container">
         <h1>BridgeCircle - Create Table</h1>
         
+        <div id="error-container" class="error-message" style="display:none;"></div>
+        
         <div class="section">
             <h2>Create New Table</h2>
             
@@ -69,87 +71,25 @@
                         Back to Lobby
                     </a>
                 </div>
-                
-                <div id="error-message" class="error-message" style="display:none;"></div>
             </form>
         </div>
     </div>
     
     <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/socket-handler.js"></script>
+    <script src="scripts/client-bridge.js"></script>
     <script>
-        // Yksinkertainen JavaScript suoraan tällä sivulla
         document.addEventListener('DOMContentLoaded', function() {
-            // Socket yhteys
-            const socket = io();
-            let selectedPosition = null;
+            // Specifics for create table page
+            window.isCreateTablePage = true;
             
-            // Tallenna nimi localStoragesta jos on
-            const savedName = localStorage.getItem('bridgePlayerName');
-            if (savedName) {
-                document.getElementById('create-name-input').value = savedName;
-            }
-            
-            // Position painikkeiden käsittely
-            const positionButtons = document.querySelectorAll('.position-button');
-            positionButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    // Poista valinta kaikista
-                    positionButtons.forEach(btn => btn.classList.remove('selected'));
-                    // Lisää valinta tähän
-                    this.classList.add('selected');
-                    // Tallenna valittu positio
-                    selectedPosition = this.dataset.position;
-                });
-            });
-            
-            // Lomakkeen lähetys
-            document.getElementById('create-table-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const playerName = document.getElementById('create-name-input').value.trim();
-                
-                if (!playerName) {
-                    showError('Please enter your name');
-                    return;
+            // Select first position button for better UX
+            setTimeout(() => {
+                const firstPositionButton = document.querySelector('.position-button[data-position="south"]');
+                if (firstPositionButton) {
+                    firstPositionButton.click();
                 }
-                
-                if (!selectedPosition) {
-                    showError('Please select a position');
-                    return;
-                }
-                
-                // Tallenna nimi local storageen
-                localStorage.setItem('bridgePlayerName', playerName);
-                
-                // Lähetä pyyntö serverille
-                socket.emit('createTable', {
-                    playerName: playerName,
-                    position: selectedPosition
-                });
-            });
-            
-            // Pöytä luotu onnistuneesti
-            socket.on('tableCreated', function({ tableCode, table }) {
-                // Siirry odotushuoneeseen
-                window.location.href = `/waitingroom.html?code=${tableCode}`;
-            });
-            
-            // Virheen käsittely
-            socket.on('error', function({ message }) {
-                showError(message);
-            });
-            
-            // Virheviesti
-            function showError(message) {
-                const errorElement = document.getElementById('error-message');
-                errorElement.textContent = message;
-                errorElement.style.display = 'block';
-                
-                // Piilota 5 sekunnin jälkeen
-                setTimeout(() => {
-                    errorElement.style.display = 'none';
-                }, 5000);
-            }
+            }, 100);
         });
     </script>
 </body>
