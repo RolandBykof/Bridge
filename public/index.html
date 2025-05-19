@@ -353,66 +353,106 @@
     <script src="scripts/game.js"></script>
     <script src="scripts/gib-integration.js"></script>
     <script src="scripts/app.js"></script>
-<!-- Suorat painikekäsittelijät -->
 <script>
-  // Odota että sivu on täysin latautunut
-  document.addEventListener('DOMContentLoaded', function() {
-    console.log('Direct event handlers being attached');
+  // Suoritetaan heti, ei odoteta DOMContentLoaded-tapahtumaa
+  (function() {
+    console.log('Immediate event handlers being attached');
     
-    // Päänäkymän painikkeet
+    // Tarkista ja tulosta löytyykö painikkeet
     var createTableButton = document.getElementById('create-table-button');
     var joinTableButton = document.getElementById('join-table-button');
     var playSoloButton = document.getElementById('play-solo-button');
     
+    console.log('Buttons found:', {
+      createTableButton: !!createTableButton,
+      joinTableButton: !!joinTableButton,
+      playSoloButton: !!playSoloButton
+    });
+    
+    // Tarkista ja tulosta löytyykö lomakkeet
+    var createTableForm = document.getElementById('create-table-form');
+    var joinTableForm = document.getElementById('join-table-form');
+    
+    console.log('Forms found:', {
+      createTableForm: !!createTableForm,
+      joinTableForm: !!joinTableForm
+    });
+    
+    // Aseta tapahtumankäsittelijät alertien kanssa
     if (createTableButton) {
-      createTableButton.addEventListener('click', function() {
-        console.log('Create table button clicked');
-        var createForm = document.getElementById('create-table-form');
-        if (createForm) {
-          document.getElementById('create-table-form').style.display = 'block';
+      createTableButton.onclick = function() {
+        alert('Create table button clicked!');
+        console.log('Create table clicked via direct onclick');
+        if (createTableForm) {
+          createTableForm.style.display = 'block';
+          console.log('Form display set to block');
+        } else {
+          console.error('Create form not found!');
         }
-      });
+        return false; // Estä mahdollinen lomakkeen lähetys
+      };
     }
     
     if (joinTableButton) {
-      joinTableButton.addEventListener('click', function() {
-        console.log('Join table button clicked');
-        var joinForm = document.getElementById('join-table-form');
-        if (joinForm) {
-          joinForm.style.display = 'block';
+      joinTableButton.onclick = function() {
+        alert('Join table button clicked!');
+        console.log('Join table clicked via direct onclick');
+        if (joinTableForm) {
+          joinTableForm.style.display = 'block';
+          console.log('Form display set to block');
+        } else {
+          console.error('Join form not found!');
         }
-      });
+        return false; // Estä mahdollinen lomakkeen lähetys
+      };
     }
     
     if (playSoloButton) {
-      playSoloButton.addEventListener('click', function() {
-        console.log('Play solo button clicked');
+      playSoloButton.onclick = function() {
+        alert('Play solo button clicked!');
+        console.log('Play solo clicked via direct onclick');
         window.location.href = '/solo.html';
-      });
+        return false; // Estä mahdollinen lomakkeen lähetys
+      };
     }
     
-    // Peruuta-painikkeet
-    var createCancelButton = document.getElementById('create-cancel-button');
-    var joinCancelButton = document.getElementById('join-cancel-button');
+    // Jos painikkeet eivät toimi, kokeillaan luoda backup-painikkeet
+    var backupContainer = document.createElement('div');
+    backupContainer.style.position = 'fixed';
+    backupContainer.style.top = '10px';
+    backupContainer.style.right = '10px';
+    backupContainer.style.zIndex = '9999';
+    backupContainer.style.backgroundColor = 'rgba(255,255,255,0.9)';
+    backupContainer.style.padding = '10px';
+    backupContainer.style.border = '1px solid black';
     
-    if (createCancelButton) {
-      createCancelButton.addEventListener('click', function() {
-        var createForm = document.getElementById('create-table-form');
-        if (createForm) {
-          createForm.style.display = 'none';
-        }
-      });
-    }
+    var backupCreateButton = document.createElement('button');
+    backupCreateButton.textContent = 'Backup Create Table';
+    backupCreateButton.style.display = 'block';
+    backupCreateButton.style.margin = '5px';
+    backupCreateButton.onclick = function() {
+      alert('Backup Create button clicked!');
+      if (createTableForm) {
+        createTableForm.style.display = 'block';
+      }
+    };
     
-    if (joinCancelButton) {
-      joinCancelButton.addEventListener('click', function() {
-        var joinForm = document.getElementById('join-table-form');
-        if (joinForm) {
-          joinForm.style.display = 'none';
-        }
-      });
-    }
-  });
+    var backupJoinButton = document.createElement('button');
+    backupJoinButton.textContent = 'Backup Join Table';
+    backupJoinButton.style.display = 'block';
+    backupJoinButton.style.margin = '5px';
+    backupJoinButton.onclick = function() {
+      alert('Backup Join button clicked!');
+      if (joinTableForm) {
+        joinTableForm.style.display = 'block';
+      }
+    };
+    
+    backupContainer.appendChild(backupCreateButton);
+    backupContainer.appendChild(backupJoinButton);
+    document.body.appendChild(backupContainer);
+    console.log('Backup buttons added');
+  })(); // Suoritetaan heti
 </script>
 </body>
 </html>
