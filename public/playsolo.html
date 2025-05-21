@@ -133,6 +133,7 @@
         let tableCode = null;
         let gameState = null;
         let biddingState = null;
+        let myPosition = 'south';
         
         // Show help
         function showHelp() {
@@ -199,70 +200,486 @@
             window.location.href = page;
         }
         
-        // Initialize page when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set solo mode flag
-            window.isSoloMode = true;
+        // Render hand
+        function renderHand(position, hand, isPlayable = false) {
+            // Get element for this position
+            const element = position === 'north' ? document.getElementById('north-hand') :
+                          position === 'south' ? document.getElementById('south-hand') :
+                          position === 'east' ? document.getElementById('east-hand') :
+                          document.getElementById('west-hand');
             
-            // Connect to server
-            connectToServer();
+            if (!element || !hand) return;
             
-            // Initialize solo game
-            initializeSoloGame();
+            const isCurrentPlayer = gameState && gameState.currentPlayer === position;
+            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
             
-            // Socket events
-            // Use same socket events as in game.html,
-            // but also listen for solo-specific events
+            // Check if this hand is played by a human
+            const isPlayableByHuman = position === 'south' || 
+                                  (position === 'north' && isNSTeamWon && 
+                                  gameState.players && gameState.players[position].type === 'human');
             
-            socket.on('soloGameCreated', (data) => {
-                tableCode = data.tableCode;
-                // Solo game created, wait for other events
+            let html = `<h3>${position === 'south' ? 'Your Hand (South)' : positionName(position)} 
+                      ${gameState && gameState.players && gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
+            
+            // Show cards?
+            const showCards = position === 'south' || 
+                          (position === 'north' && 
+                          (gameState && gameState.gamePhase === 'play' && isNSTeamWon));
+            
+            if (!showCards && position === 'north') {
+                // Hide north's cards until conditions are met
+                html += `<p>Cards will be visible when play begins, if South or North is declarer.</p>`;
+                element.innerHTML = html;
+                return;
+            }
+            
+            // Add cards by suit
+            Object.entries(hand).forEach(([suit, cards]) => {
+                const suitClass = `suit-${suit}`;
+                
+                html += `
+                    <div class="suit-row">
+                        <div class="suit-label ${suitClass}">
+                            ${suitSymbol(suit)} ${suitName(suit)}
+                        </div>
+                        <div class="cards-buttons">
+                `;
+                
+                if (cards.length > 0) {
+                    // Add cards
+                    cards.forEach(card => {
+                        const cardClass = `card-${suit}`;
+                        
+                        // Playable cards as buttons, if playable
+                        if (gameState && gameState.gamePhase === 'play' && isPlayableByHuman) {
+                            // HTML buttons with direct onclick event handlers
+                            html += `
+                                <button 
+                                    class="card-button ${cardClass}"
+                                    onclick="playCard('${suit}', '${card}')"
+                                    ${!isCurrentPlayer ? 'disabled' : ''}
+                                    aria-label="Play ${suitName(suit)} ${card}"
+                                >
+                                    ${card}
+                                </button>
+                            `;
+                        } else {
+                            // Other cards as text
+                            html += `
+                                <span class="card-display ${cardClass}" aria-label="${suitName(suit)} ${card}">
+                                    ${card}
+                                </span>
+                            `;
+                        }
+                    });
+                } else {
+                    html += `<span class="text-gray-400">(empty)</span>`;
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
             });
             
-            // Initialize keyboard listeners - same as in game.html
-            document.addEventListener('keydown', function(event) {
-                if ((event.altKey || event.metaKey) && !event.ctrlKey && !event.shiftKey) {
-                    switch(event.key.toLowerCase()) {
-                        case 'h': // Read cards
-                            event.preventDefault();
-                            readCards();
-                            break;
-                        case 'j': // Card 1
-                            event.preventDefault();
-                            clickButton('.card-button', 0);
-                            break;
-                        case 'k': // Card 2
-                            event.preventDefault();
-                            clickButton('.card-button', 1);
-                            break;
-                        case 'l': // Card 3
-                            event.preventDefault();
-                            clickButton('.card-button', 2);
-                            break;
-                        case 'ö': // Card 4
-                            event.preventDefault();
-                            clickButton('.card-button', 3);
-                            break;
-                        case 'ä': // Card 5
-                            event.preventDefault();
-                            clickButton('.card-button', 4);
-                            break;
-                        case 'i': // Repeat announcement
-                            event.preventDefault();
-                            repeatLastAnnouncement();
-                            break;
-                        case 'n': // Deal new cards
-                            event.preventDefault();
-                            dealNewCards();
-                            break;
-                        case 'p': // Make bid or play card
-                            event.preventDefault();
-                            makeMove();
-                            break;
+            element.innerHTML = html;
+        }
+        
+        // Update game UI
+        function updateGameUI() {
+            if (!gameState) return;
+            
+            // Update player information
+            const playersArea = document.getElementById('players-area');
+            if (playersArea) {
+                let html = '';
+                
+                const positions = ['north', 'east', 'south', 'west'];
+                for (const position of positions) {
+                    const isCurrentPlayer = gameState.currentPlayer === position;
+                    const player = gameState.players[position];
+                    const playerName = player ? player.name : positionName(position);
+                    const playerType = player ? player.type : 'human';
+                    
+                    html += `
+                        <div class="player-badge ${isCurrentPlayer ? 'current' : ''}">
+                            <div>${positionName(position)}</div>
+                            <div>${playerName}</div>
+                            <div>${playerType === 'gib' ? 'GIB' : 'Human'}</div>
+                        </div>
+                    `;
+                }
+                
+                playersArea.innerHTML = html;
+            }
+            
+            // Update status bar
+            const statusArea = document.getElementById('status-area');
+            if (statusArea) {
+                if (gameState.gamePhase === 'bidding') {
+                    statusArea.textContent = 'Bidding phase';
+                } else if (gameState.gamePhase === 'play') {
+                    statusArea.textContent = `Playing: ${formatContract(gameState.contract)}`;
+                } else {
+                    statusArea.textContent = 'BridgeCircle Game';
+                }
+            }
+        }
+        
+        // Render bidding UI
+        function renderBiddingUI() {
+            // Show bidding area
+            const biddingArea = document.getElementById('bidding-area');
+            if (biddingArea) {
+                biddingArea.style.display = 'block';
+            }
+            
+            // Render bidding history
+            renderBiddingHistory();
+            
+            // Render bidding controls if it's our turn
+            if (biddingState.currentBidder === myPosition) {
+                renderBiddingControls();
+            } else {
+                // Hide controls if not our turn
+                const biddingControls = document.getElementById('bidding-controls');
+                if (biddingControls) {
+                    biddingControls.innerHTML = `
+                        <h3>Your Bid</h3>
+                        <p>Waiting for ${positionName(biddingState.currentBidder)} to bid...</p>
+                    `;
+                }
+            }
+        }
+        
+        // Render bidding history
+        function renderBiddingHistory() {
+            const biddingHistory = document.getElementById('bidding-history');
+            if (!biddingHistory) return;
+            
+            let html = '<h3>Bidding History</h3>';
+            
+            if (!biddingState.bidHistory || biddingState.bidHistory.length === 0) {
+                html += '<p>No bids yet.</p>';
+            } else {
+                // Create table for bidding history
+                html += `
+                    <table class="bidding-table">
+                        <thead>
+                            <tr>
+                                <th>West</th>
+                                <th>North</th>
+                                <th>East</th>
+                                <th>South</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                // Group bids by rounds
+                const rounds = [];
+                let currentRound = [];
+                let dealerIndex = ['west', 'north', 'east', 'south'].indexOf(biddingState.dealer);
+                
+                // Add empty cells for positions before dealer
+                for (let i = 0; i < dealerIndex; i++) {
+                    currentRound.push(null);
+                }
+                
+                // Add all bids to rounds
+                for (const bid of biddingState.bidHistory) {
+                    currentRound.push(bid);
+                    
+                    // New round after every 4 bids
+                    if (currentRound.length === 4) {
+                        rounds.push([...currentRound]);
+                        currentRound = [];
                     }
                 }
+                
+                // Add current partial round
+                if (currentRound.length > 0) {
+                    rounds.push([...currentRound]);
+                }
+                
+                // Render each round
+                for (const round of rounds) {
+                    html += '<tr>';
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const bid = round[i];
+                        
+                        if (!bid) {
+                            html += '<td></td>';
+                        } else {
+                            const bidText = formatBidForDisplay(bid.bid);
+                            html += `<td>${bidText}</td>`;
+                        }
+                    }
+                    
+                    html += '</tr>';
+                }
+                
+                html += '</tbody></table>';
+            }
+            
+            biddingHistory.innerHTML = html;
+        }
+        
+        // Render bidding controls
+        function renderBiddingControls() {
+            const biddingControls = document.getElementById('bidding-controls');
+            if (!biddingControls) return;
+            
+            // Get possible bids
+            const possibleBids = getPossibleBids(biddingState.highestBid);
+            
+            let html = '<h3>Your Bid</h3>';
+            
+            // Create buttons for each possible bid
+            html += '<div class="bidding-buttons">';
+            
+            // Special bids first (Pass, Double, Redouble)
+            for (const specialBid of ['P', 'X', 'XX']) {
+                if (possibleBids.includes(specialBid)) {
+                    const bidText = specialBid === 'P' ? 'Pass' : 
+                                  specialBid === 'X' ? 'Double (X)' : 'Redouble (XX)';
+                    
+                    html += `
+                        <button class="bid-button" onclick="makeBid('${specialBid}')">
+                            ${bidText}
+                        </button>
+                    `;
+                }
+            }
+            
+            // Contract bids grouped by level
+            const contractBids = possibleBids.filter(bid => !['P', 'X', 'XX'].includes(bid));
+            const bidsByLevel = {};
+            
+            for (const bid of contractBids) {
+                const level = bid.charAt(0);
+                if (!bidsByLevel[level]) bidsByLevel[level] = [];
+                bidsByLevel[level].push(bid);
+            }
+            
+            // Create bid buttons by level
+            for (const level in bidsByLevel) {
+                html += `<div class="bid-level-group">`;
+                
+                for (const bid of bidsByLevel[level]) {
+                    const suit = bid.charAt(1);
+                    let suitSymbol, suitClass;
+                    
+                    switch(suit) {
+                        case 'C': 
+                            suitSymbol = '♣'; 
+                            suitClass = 'bid-clubs';
+                            break;
+                        case 'D': 
+                            suitSymbol = '♦'; 
+                            suitClass = 'bid-diamonds';
+                            break;
+                        case 'H': 
+                            suitSymbol = '♥'; 
+                            suitClass = 'bid-hearts';
+                            break;
+                        case 'S': 
+                            suitSymbol = '♠'; 
+                            suitClass = 'bid-spades';
+                            break;
+                        case 'N': 
+                            suitSymbol = 'NT'; 
+                            suitClass = 'bid-notrump';
+                            break;
+                        default: 
+                            suitSymbol = suit;
+                            suitClass = '';
+                    }
+                    
+                    html += `
+                        <button class="bid-button ${suitClass}" onclick="makeBid('${bid}')">
+                            ${level}${suitSymbol}
+                        </button>
+                    `;
+                }
+                
+                html += `</div>`;
+            }
+            
+            html += '</div>';
+            
+            // Show bidding system info
+            html += '<div class="bid-meanings">';
+            html += `<p><strong>System:</strong> Natural</p>`;
+            html += '</div>';
+            
+            biddingControls.innerHTML = html;
+        }
+        
+        // Get possible bids
+        function getPossibleBids(highestBid) {
+            const possibleBids = ['P']; // Pass is always possible
+            
+            // Double/redouble logic
+            if (highestBid) {
+                possibleBids.push('X');
+            }
+            
+            // Create normal bids
+            const levels = ['1', '2', '3', '4', '5', '6', '7'];
+            const suits = ['C', 'D', 'H', 'S', 'N'];
+            
+            if (!highestBid) {
+                // If no bids yet, all bids 1C-7N are possible
+                for (const level of levels) {
+                    for (const suit of suits) {
+                        possibleBids.push(`${level}${suit}`);
+                    }
+                }
+            } else {
+                // Create all bids higher than current highest
+                const highestLevel = parseInt(highestBid.charAt(0));
+                const highestSuit = highestBid.charAt(1);
+                const highestSuitIndex = suits.indexOf(highestSuit);
+                
+                for (let level = highestLevel; level <= 7; level++) {
+                    for (let suitIndex = 0; suitIndex < suits.length; suitIndex++) {
+                        if (level === highestLevel && suitIndex <= highestSuitIndex) continue;
+                        possibleBids.push(`${level}${suits[suitIndex]}`);
+                    }
+                }
+            }
+            
+            return possibleBids;
+        }
+        
+        // Format bid for display
+        function formatBidForDisplay(bid) {
+            if (bid === 'P') return 'Pass';
+            if (bid === 'X') return 'X (Double)';
+            if (bid === 'XX') return 'XX (Redouble)';
+            
+            const level = bid.charAt(0);
+            const suit = bid.charAt(1);
+            let suitSymbol;
+            
+            switch(suit) {
+                case 'C': suitSymbol = '♣'; break;
+                case 'D': suitSymbol = '♦'; break;
+                case 'H': suitSymbol = '♥'; break;
+                case 'S': suitSymbol = '♠'; break;
+                case 'N': suitSymbol = 'NT'; break;
+                default: suitSymbol = suit;
+            }
+            
+            return `${level}${suitSymbol}`;
+        }
+        
+        // Make bid
+        function makeBid(bid) {
+            if (!tableCode) return;
+            
+            socket.emit('makeBid', {
+                tableCode: tableCode,
+                position: myPosition,
+                bid: bid
             });
-        });
+        }
+        
+        // Play card
+        function playCard(suit, card) {
+            if (!tableCode) return;
+            
+            socket.emit('playCard', {
+                tableCode: tableCode,
+                position: myPosition,
+                suit: suit,
+                card: card
+            });
+        }
+        
+        // Update played card
+        function updatePlayedCard(position, suit, card) {
+            // Show played card in center area
+            const centerArea = document.getElementById('center-area');
+            if (!centerArea) return;
+            
+            // If no cards were shown before, clear text
+            if (gameState.currentTrick.length === 1) {
+                centerArea.innerHTML = '<h3>Current Trick</h3>';
+            }
+            
+            // Add card
+            const cardElement = document.createElement('div');
+            cardElement.className = `played-card ${suit === 'hearts' || suit === 'diamonds' ? 'red-card' : ''}`;
+            cardElement.innerHTML = `<span class="player-name">${positionName(position)}:</span> ${suitSymbol(suit)} ${card}`;
+            
+            centerArea.appendChild(cardElement);
+        }
+        
+        // Update center area
+        function updateCenterArea() {
+            const centerArea = document.getElementById('center-area');
+            if (!centerArea) return;
+            
+            if (gameState.gamePhase === 'play') {
+                let html = '<h3>Played Tricks</h3>';
+                
+                html += `<p>NS: ${gameState.tricks.ns}, EW: ${gameState.tricks.ew}</p>`;
+                
+                if (gameState.contract) {
+                    html += `<p>Contract: ${formatContract(gameState.contract)}, `;
+                    html += `declarer: ${positionName(gameState.declarer)}</p>`;
+                }
+                
+                centerArea.innerHTML = html;
+            }
+        }
+        
+        // Show game over
+        function showGameOver(message) {
+            const centerArea = document.getElementById('center-area');
+            if (!centerArea) return;
+            
+            let html = '<h3>Game Over</h3>';
+            html += `<p>${message}</p>`;
+            
+            html += `<p>NS: ${gameState.tricks.ns}, EW: ${gameState.tricks.ew}</p>`;
+            
+            html += `<button onclick="dealNewCards()" class="button">Deal New Cards</button>`;
+            
+            centerArea.innerHTML = html;
+        }
+        
+        // Format contract
+        function formatContract(contract) {
+            if (!contract) return "No contract";
+            
+            const level = contract.charAt(0);
+            const suit = contract.charAt(1);
+            let suitSymbol;
+            
+            switch(suit) {
+                case 'C': suitSymbol = '♣'; break;
+                case 'D': suitSymbol = '♦'; break;
+                case 'H': suitSymbol = '♥'; break;
+                case 'S': suitSymbol = '♠'; break;
+                case 'N': suitSymbol = 'NT'; break;
+                default: suitSymbol = suit;
+            }
+            
+            let result = `${level}${suitSymbol}`;
+            
+            // Add doubling info
+            if (contract.includes('XX')) {
+                result += ' XX';
+            } else if (contract.includes('X')) {
+                result += ' X';
+            }
+            
+            return result;
+        }
         
         // Make move (bid or play card)
         function makeMove() {
@@ -307,6 +724,274 @@
                 }
             }
         }
+        
+        // Announce to screen reader
+        function announce(message, isCardPlay = false) {
+            if (isCardPlay) {
+                const cardAnnouncement = document.getElementById('card-announcement');
+                if (cardAnnouncement) {
+                    cardAnnouncement.textContent = message;
+                }
+            } else {
+                const announcementArea = document.getElementById('announcement-area');
+                if (announcementArea) {
+                    announcementArea._lastMessage = message;
+                    
+                    // Clear first then add, to ensure screen reader announces
+                    announcementArea.textContent = '';
+                    setTimeout(() => {
+                        announcementArea.textContent = message;
+                    }, 50);
+                }
+            }
+        }
+        
+        // Repeat last announcement
+        function repeatLastAnnouncement() {
+            const announcementArea = document.getElementById('announcement-area');
+            if (announcementArea && announcementArea._lastMessage) {
+                // Clear and refill to make screen reader announce again
+                const message = announcementArea._lastMessage;
+                announcementArea.textContent = '';
+                setTimeout(() => {
+                    announcementArea.textContent = message;
+                }, 50);
+            }
+        }
+        
+        // Read cards to screen reader
+        function readCards() {
+            if (!gameState || !gameState.hands || !myPosition) return;
+            
+            const hand = gameState.hands[myPosition];
+            if (!hand) return;
+            
+            let cardList = [];
+            
+            // Create list of cards by suit
+            for (const [suit, cards] of Object.entries(hand)) {
+                if (cards.length > 0) {
+                    cardList.push(`${suitName(suit)}: ${cards.join(', ')}`);
+                }
+            }
+            
+            // Announce hand content
+            const cardText = `Your cards: ${cardList.join('. ')}`;
+            announce(cardText);
+        }
+        
+        // Click button at given selector and index
+        function clickButton(selector, index) {
+            const buttons = document.querySelectorAll(selector);
+            if (buttons.length > index) {
+                buttons[index].click();
+                setTimeout(() => buttons[index].focus(), 100);
+            }
+        }
+        
+        // Initialize page when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set solo mode flag
+            window.isSoloMode = true;
+            // Set default player position
+            window.myPosition = 'south';
+            
+            // Connect to server
+            connectToServer();
+            
+            // Initialize solo game
+            initializeSoloGame();
+            
+            // Socket events
+            socket.on('soloGameCreated', (data) => {
+                tableCode = data.tableCode;
+                // Solo game created, wait for other events
+            });
+            
+            // Add missing event handlers from game.html
+            socket.on('yourCards', (data) => {
+                myPosition = data.position;
+                if (!gameState) gameState = {};
+                if (!gameState.hands) gameState.hands = {};
+                
+                gameState.hands[data.position] = data.cards;
+                
+                // Render hand
+                renderHand(data.position, data.cards);
+            });
+            
+            socket.on('bidMade', (data) => {
+                // Update bidding state
+                biddingState = data.biddingState;
+                
+                // Render bidding UI
+                renderBiddingUI();
+                
+                // Announce bid
+                const bidText = data.bid === 'P' ? 'passes' : 
+                              data.bid === 'X' ? 'doubles' : 
+                              data.bid === 'XX' ? 'redoubles' : `bids ${formatBidForDisplay(data.bid)}`;
+                announce(`${positionName(data.position)} ${bidText}.`);
+            });
+            
+            socket.on('biddingComplete', (data) => {
+                // Update game state
+                gameState.contract = data.contract;
+                gameState.declarer = data.declarer;
+                gameState.dummy = data.dummy;
+                gameState.trumpSuit = data.trumpSuit;
+                gameState.currentPlayer = data.currentPlayer;
+                gameState.gamePhase = 'play';
+                
+                // Update bidding state
+                if (biddingState) {
+                    biddingState.biddingComplete = true;
+                }
+                
+                // Update UI
+                document.getElementById('bidding-area').style.display = 'none';
+                updateGameUI();
+                
+                // Announce contract
+                const contractMessage = `Final contract: ${formatContract(data.contract)} by ${positionName(data.declarer)}. ${positionName(data.currentPlayer)} leads.`;
+                announce(contractMessage);
+            });
+            
+            socket.on('playPhaseCards', (data) => {
+                // Update known cards
+                if (!gameState.hands) gameState.hands = {};
+                
+                gameState.hands[data.position] = data.cards;
+                
+                // If dummy cards are provided, store them
+                if (data.dummyCards) {
+                    gameState.hands[gameState.dummy] = data.dummyCards;
+                    renderHand(gameState.dummy, data.dummyCards);
+                    announce(`Dummy's cards are now visible.`);
+                }
+                
+                // Update UI
+                renderHand(data.position, data.cards);
+            });
+            
+            socket.on('cardPlayed', (data) => {
+                // Update game state
+                if (!gameState.currentTrick) gameState.currentTrick = [];
+                
+                gameState.currentTrick = data.currentTrick;
+                
+                // Remove card from player's hand
+                if (gameState.hands[data.position]) {
+                    const suitCards = gameState.hands[data.position][data.suit];
+                    if (suitCards) {
+                        const index = suitCards.indexOf(data.card);
+                        if (index > -1) {
+                            suitCards.splice(index, 1);
+                        }
+                    }
+                }
+                
+                // Update UI
+                renderHand(data.position, gameState.hands[data.position]);
+                
+                // Update played card view
+                updatePlayedCard(data.position, data.suit, data.card);
+                
+                // Announce card play
+                announce(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`, true);
+            });
+            
+            socket.on('nextPlayer', (data) => {
+                // Update current player
+                gameState.currentPlayer = data.currentPlayer;
+                
+                // Update UI
+                updateGameUI();
+                
+                // Check if it's our turn
+                const isOurTurn = data.currentPlayer === myPosition;
+                const isDummy = data.currentPlayer === gameState.dummy;
+                const weAreController = myPosition === gameState.declarer && isDummy;
+                
+                if (isOurTurn || weAreController) {
+                    announce(`Your turn to play a card.`);
+                } else {
+                    announce(`${positionName(data.currentPlayer)} plays next.`);
+                }
+            });
+            
+            socket.on('trickComplete', (data) => {
+                // Update game state
+                gameState.currentTrick = [];
+                gameState.tricks = data.tricks;
+                gameState.currentPlayer = data.nextPlayer;
+                
+                // Update UI
+                updateCenterArea();
+                
+                // Announce winner
+                announce(`${positionName(data.winner)} won the trick!`);
+                
+                // Update current player
+                updateGameUI();
+            });
+            
+            socket.on('gameOver', (data) => {
+                // Update game state
+                gameState.gamePhase = 'end';
+                gameState.tricks = data.tricks;
+                
+                // Update UI
+                showGameOver(data.message);
+                
+                // Announce result
+                announce(data.message);
+            });
+            
+            // Initialize keyboard listeners
+            document.addEventListener('keydown', function(event) {
+                if ((event.altKey || event.metaKey) && !event.ctrlKey && !event.shiftKey) {
+                    switch(event.key.toLowerCase()) {
+                        case 'h': // Read cards
+                            event.preventDefault();
+                            readCards();
+                            break;
+                        case 'j': // Card 1
+                            event.preventDefault();
+                            clickButton('.card-button', 0);
+                            break;
+                        case 'k': // Card 2
+                            event.preventDefault();
+                            clickButton('.card-button', 1);
+                            break;
+                        case 'l': // Card 3
+                            event.preventDefault();
+                            clickButton('.card-button', 2);
+                            break;
+                        case 'ö': // Card 4
+                            event.preventDefault();
+                            clickButton('.card-button', 3);
+                            break;
+                        case 'ä': // Card 5
+                            event.preventDefault();
+                            clickButton('.card-button', 4);
+                            break;
+                        case 'i': // Repeat announcement
+                            event.preventDefault();
+                            repeatLastAnnouncement();
+                            break;
+                        case 'n': // Deal new cards
+                            event.preventDefault();
+                            dealNewCards();
+                            break;
+                        case 'p': // Make bid or play card
+                            event.preventDefault();
+                            makeMove();
+                            break;
+                    }
+                }
+            });
+        });
     </script>
 </body>
 </html>
