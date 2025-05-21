@@ -5,22 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BridgeCircle - Create Table</title>
     <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/multiplayer.css">
     <meta name="description" content="Create a new bridge table">
 </head>
 <body>
     <div class="container">
         <h1>BridgeCircle - Create Table</h1>
         
-        <div id="error-container" class="error-message" style="display:none;"></div>
+        <!-- ARIA Live area for announcements -->
+        <div id="announcement-area" aria-live="polite" class="sr-only"></div>
+        
+        <!-- Error message container -->
+        <div id="error-area" class="error-message" style="display: none;"></div>
         
         <div class="section">
             <h2>Create New Table</h2>
             
             <form id="create-table-form" action="javascript:void(0);">
                 <div class="form-group">
-                    <label for="create-name-input">Your Name:</label>
-                    <input type="text" id="create-name-input" class="form-input" placeholder="Enter your name" required>
+                    <label for="name-input">Your Name:</label>
+                    <input type="text" id="name-input" class="form-input" 
+                           placeholder="Enter your name" required 
+                           aria-required="true">
                 </div>
                 
                 <div class="form-group">
@@ -29,7 +34,7 @@
                         <div class="position-row">
                             <div></div>
                             <div>
-                                <button type="button" class="position-button" data-position="north">
+                                <button type="button" class="position-button" onclick="selectPosition('north')">
                                     North
                                 </button>
                             </div>
@@ -37,7 +42,7 @@
                         </div>
                         <div class="position-row">
                             <div>
-                                <button type="button" class="position-button" data-position="west">
+                                <button type="button" class="position-button" onclick="selectPosition('west')">
                                     West
                                 </button>
                             </div>
@@ -45,7 +50,7 @@
                                 <div class="position-table"></div>
                             </div>
                             <div>
-                                <button type="button" class="position-button" data-position="east">
+                                <button type="button" class="position-button" onclick="selectPosition('east')">
                                     East
                                 </button>
                             </div>
@@ -53,7 +58,7 @@
                         <div class="position-row">
                             <div></div>
                             <div>
-                                <button type="button" class="position-button" data-position="south">
+                                <button type="button" class="position-button" onclick="selectPosition('south')">
                                     South
                                 </button>
                             </div>
@@ -63,33 +68,99 @@
                 </div>
                 
                 <div class="action-buttons">
-                    <button type="submit" id="create-submit-button" class="button">
+                    <button type="submit" onclick="createTable()" class="button">
                         Create Table
                     </button>
                     
-                    <a href="/" class="button button-secondary">
+                    <button type="button" onclick="navigate('/')" class="button button-secondary">
                         Back to Lobby
-                    </a>
+                    </button>
                 </div>
             </form>
         </div>
     </div>
     
+    <!-- JavaScript files -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="scripts/socket-handler.js"></script>
-    <script src="scripts/client-bridge.js"></script>
+    <script src="js/bridge.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Specifics for create table page
-            window.isCreateTablePage = true;
+        let selectedPosition = null;
+        
+        // Direct function for navigation
+        function navigate(page) {
+            window.location.href = page;
+        }
+        
+        // Position selection
+        function selectPosition(position) {
+            // Remove previous selection
+            const positionElements = document.querySelectorAll('.position-button');
+            positionElements.forEach(elem => {
+                elem.classList.remove('selected');
+            });
             
-            // Select first position button for better UX
+            // Add selection indicator
+            const selectedElement = document.querySelector(`.position-button[onclick*="${position}"]`);
+            if (selectedElement) {
+                selectedElement.classList.add('selected');
+                selectedPosition = position;
+                
+                // Announce to screen reader
+                announce(`Selected position: ${positionName(position)}`);
+            }
+        }
+        
+        // Table creation
+        function createTable() {
+            const name = document.getElementById('name-input').value.trim();
+            
+            if (!name) {
+                showError('Please enter your name');
+                return;
+            }
+            
+            if (!selectedPosition) {
+                showError('Please select your position');
+                return;
+            }
+            
+            // Save name for later use
+            localStorage.setItem('playerName', name);
+            
+            // Send table creation request to server
+            socket.emit('createTable', {
+                playerName: name,
+                position: selectedPosition
+            });
+        }
+        
+        // Initialize page when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Connect to server
+            connectToServer();
+            
+            // Get saved name
+            const savedName = localStorage.getItem('playerName');
+            if (savedName) {
+                document.getElementById('name-input').value = savedName;
+            }
+            
+            // Pre-select south position for better UX
             setTimeout(() => {
-                const firstPositionButton = document.querySelector('.position-button[data-position="south"]');
-                if (firstPositionButton) {
-                    firstPositionButton.click();
-                }
+                selectPosition('south');
             }, 100);
+            
+            // Form submission with Enter
+            document.getElementById('name-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (selectedPosition) {
+                        createTable();
+                    } else {
+                        selectPosition('south'); // Default position
+                    }
+                }
+            });
         });
     </script>
 </body>

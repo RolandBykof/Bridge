@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BridgeCircle - Play Solo</title>
+    <link rel="stylesheet" href="css/main.css">
+    <meta name="description" content="Play bridge against GIB AI opponents">
+</head>
+<body>
+    <div class="container" id="game-view">
+        <h1>BridgeCircle - Play Solo</h1>
+        
+        <!-- ARIA Live area for announcements -->
+        <div id="announcement-area" aria-live="polite" class="sr-only"></div>
+        
+        <!-- ARIA Live area for card plays -->
+        <div id="card-announcement" aria-live="assertive" class="sr-only"></div>
+        
+        <!-- Error message container -->
+        <div id="error-area" class="error-message" style="display: none;"></div>
+        
+        <!-- Player management -->
+        <section class="section">
+            <h2>Players</h2>
+            <div class="player-controls" id="players-area">
+                <!-- Player information will be added here with JavaScript -->
+            </div>
+        </section>
+        
+        <!-- Status message -->
+        <div class="status-bar" id="status-area" role="status">
+            Welcome to BridgeCircle Solo Play
+        </div>
+        
+        <!-- Action buttons -->
+        <div class="action-buttons">
+            <button onclick="showHelp()" id="show-help-button" class="button button-secondary">
+                Show Help
+            </button>
+            
+            <button onclick="dealNewCards()" id="deal-cards-button" class="button">
+                Deal New Cards
+            </button>
+            
+            <button onclick="navigate('/')" class="button button-secondary">
+                Back to Lobby
+            </button>
+            
+            <button onclick="fullscreen()" id="fullscreen-button" class="button button-secondary">
+                Full Screen
+            </button>
+        </div>
+        
+        <!-- Help section (hidden initially) -->
+        <section class="help-section" id="help-area" style="display: none;" role="dialog" aria-labelledby="help-title">
+            <h2 id="help-title">Keyboard Shortcuts</h2>
+            <ul class="help-list" id="help-list">
+                <li><kbd>Alt + H</kbd> - Read cards</li>
+                <li><kbd>Alt + J</kbd> - Select card 1 (from left)</li>
+                <li><kbd>Alt + K</kbd> - Select card 2</li>
+                <li><kbd>Alt + L</kbd> - Select card 3</li>
+                <li><kbd>Alt + Ö</kbd> - Select card 4</li>
+                <li><kbd>Alt + Ä</kbd> - Select card 5</li>
+                <li><kbd>Alt + I</kbd> - Repeat last announcement</li>
+                <li><kbd>Alt + N</kbd> - Deal new cards</li>
+                <li><kbd>Alt + P</kbd> - Bid/Make a move</li>
+            </ul>
+            <button onclick="closeHelp()" class="button">
+                Close Help
+            </button>
+        </section>
+        
+        <!-- Bidding area -->
+        <section class="section" id="bidding-area" style="display: none;">
+            <h2>Bidding Phase</h2>
+            <div id="bidding-history" class="bidding-history">
+                <h3>Bidding History</h3>
+                <p>No bids yet.</p>
+            </div>
+            <div id="bidding-controls" class="bidding-controls">
+                <h3>Your Bid</h3>
+                <p>Waiting for bidding to start...</p>
+            </div>
+        </section>
+        
+        <!-- Game table -->
+        <div class="game-table">
+            <!-- North (top) -->
+            <div class="hand north-hand" id="north-hand">
+                <h3>North (GIB)</h3>
+                <!-- Card information will be added here with JavaScript -->
+            </div>
+            
+            <!-- East (right) -->
+            <div class="hand east-hand" id="east-hand">
+                <h3>East (GIB)</h3>
+                <p>Cards: ?</p>
+            </div>
+            
+            <!-- Center area -->
+            <div class="center-area" id="center-area">
+                <!-- Played cards and center information will be added here -->
+                <p>Click "Deal New Cards" to start a game</p>
+            </div>
+            
+            <!-- West (left) -->
+            <div class="hand west-hand" id="west-hand">
+                <h3>West (GIB)</h3>
+                <p>Cards: ?</p>
+            </div>
+            
+            <!-- South (bottom - player's hand) -->
+            <div class="hand south-hand" id="south-hand">
+                <h3>Your Hand (South)</h3>
+                <!-- Card information will be added here with JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Played cards -->
+        <section class="section" id="played-cards-area">
+            <h2>Played Cards</h2>
+            <div id="played-cards-container">
+                <p class="text-gray-500">No cards played yet.</p>
+            </div>
+        </section>
+    </div>
+    
+    <!-- JavaScript files -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/bridge.js"></script>
+    <script>
+        let tableCode = null;
+        let gameState = null;
+        let biddingState = null;
+        
+        // Show help
+        function showHelp() {
+            const helpArea = document.getElementById('help-area');
+            helpArea.style.display = 'block';
+            document.getElementById('show-help-button').textContent = 'Hide Help';
+            document.getElementById('show-help-button').onclick = closeHelp;
+        }
+        
+        // Close help
+        function closeHelp() {
+            const helpArea = document.getElementById('help-area');
+            helpArea.style.display = 'none';
+            document.getElementById('show-help-button').textContent = 'Show Help';
+            document.getElementById('show-help-button').onclick = showHelp;
+        }
+        
+        // Deal new cards
+        function dealNewCards() {
+            // Clear previous game state
+            gameState = null;
+            biddingState = null;
+            
+            // If table code exists, reset the game
+            if (tableCode) {
+                socket.emit('resetSoloGame', {
+                    tableCode: tableCode
+                });
+            } else {
+                // Otherwise initialize a new solo game
+                initializeSoloGame();
+            }
+            
+            // Announce new deal
+            announce('Dealing new cards...');
+        }
+        
+        // Fullscreen mode
+        function fullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error entering fullscreen mode: ${err.message}`);
+                });
+                document.getElementById('fullscreen-button').textContent = 'Exit Fullscreen';
+            } else {
+                document.exitFullscreen();
+                document.getElementById('fullscreen-button').textContent = 'Full Screen';
+            }
+        }
+        
+        // Initialize solo game
+        function initializeSoloGame() {
+            // Get player name from localStorage or use default
+            const playerName = localStorage.getItem('playerName') || 'Player';
+            
+            // Send request to server
+            socket.emit('createSoloGame', {
+                playerName: playerName
+            });
+        }
+        
+        // Direct function for navigation
+        function navigate(page) {
+            window.location.href = page;
+        }
+        
+        // Initialize page when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set solo mode flag
+            window.isSoloMode = true;
+            
+            // Connect to server
+            connectToServer();
+            
+            // Initialize solo game
+            initializeSoloGame();
+            
+            // Socket events
+            // Use same socket events as in game.html,
+            // but also listen for solo-specific events
+            
+            socket.on('soloGameCreated', (data) => {
+                tableCode = data.tableCode;
+                // Solo game created, wait for other events
+            });
+            
+            // Initialize keyboard listeners - same as in game.html
+            document.addEventListener('keydown', function(event) {
+                if ((event.altKey || event.metaKey) && !event.ctrlKey && !event.shiftKey) {
+                    switch(event.key.toLowerCase()) {
+                        case 'h': // Read cards
+                            event.preventDefault();
+                            readCards();
+                            break;
+                        case 'j': // Card 1
+                            event.preventDefault();
+                            clickButton('.card-button', 0);
+                            break;
+                        case 'k': // Card 2
+                            event.preventDefault();
+                            clickButton('.card-button', 1);
+                            break;
+                        case 'l': // Card 3
+                            event.preventDefault();
+                            clickButton('.card-button', 2);
+                            break;
+                        case 'ö': // Card 4
+                            event.preventDefault();
+                            clickButton('.card-button', 3);
+                            break;
+                        case 'ä': // Card 5
+                            event.preventDefault();
+                            clickButton('.card-button', 4);
+                            break;
+                        case 'i': // Repeat announcement
+                            event.preventDefault();
+                            repeatLastAnnouncement();
+                            break;
+                        case 'n': // Deal new cards
+                            event.preventDefault();
+                            dealNewCards();
+                            break;
+                        case 'p': // Make bid or play card
+                            event.preventDefault();
+                            makeMove();
+                            break;
+                    }
+                }
+            });
+        });
+        
+        // Make move (bid or play card)
+        function makeMove() {
+            if (!gameState) return;
+            
+            if (gameState.gamePhase === 'bidding' && biddingState.currentBidder === 'south') {
+                // Default to pass as a bid
+                makeBid('P');
+            } else if (gameState.gamePhase === 'play' && gameState.currentPlayer === 'south') {
+                // Play first possible card
+                const hand = gameState.hands['south'];
+                if (!hand) return;
+                
+                let playableCard = null;
+                
+                // If there are cards in the trick, try to follow suit
+                if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                    const leadSuit = gameState.currentTrick[0].suit;
+                    if (hand[leadSuit] && hand[leadSuit].length > 0) {
+                        playableCard = {
+                            suit: leadSuit,
+                            card: hand[leadSuit][0]
+                        };
+                    }
+                }
+                
+                // If can't follow suit, play first available card
+                if (!playableCard) {
+                    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+                        if (hand[suit] && hand[suit].length > 0) {
+                            playableCard = {
+                                suit: suit,
+                                card: hand[suit][0]
+                            };
+                            break;
+                        }
+                    }
+                }
+                
+                if (playableCard) {
+                    playCard(playableCard.suit, playableCard.card);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

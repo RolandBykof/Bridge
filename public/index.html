@@ -5,47 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BridgeCircle - Accessible Bridge</title>
     <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/multiplayer.css">
-    <meta name="description" content="Accessible Bridge application with GIB AI integration">
+    <meta name="description" content="Accessible Bridge application">
 </head>
 <body>
-    <!-- Multiplayer Lobby View -->
     <div class="container" id="lobby-view">
         <h1>BridgeCircle - Accessible Bridge</h1>
         
         <!-- ARIA Live area for announcements -->
-        <div id="lobby-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        <div id="announcement-area" aria-live="polite" class="sr-only"></div>
+        
+        <!-- Error message container -->
+        <div id="error-area" class="error-message" style="display: none;"></div>
         
         <div class="section">
             <h2>Welcome to BridgeCircle</h2>
             <p>You can create a new table or join an existing one.</p>
             
             <div class="action-buttons">
-                <button id="create-table-button" class="button" onclick="location.href='/createtable.html'">
+                <button onclick="navigate('createtable.html')" class="button">
                     Create Table
                 </button>
                 
-                <button id="join-table-button" class="button button-secondary" onclick="location.href='/jointable.html'">
+                <button onclick="navigate('jointable.html')" class="button button-secondary">
                     Join Table
                 </button>
                 
-                <button id="play-solo-button" class="button" onclick="location.href='/solo.html'">
-                    Play Solo (with GIB)
+                <button onclick="navigate('playsolo.html')" class="button">
+                    Play Solo (vs GIB AI)
                 </button>
-            </div>            
-
+            </div>
+            
             <div class="stats-section">
                 <p>Players online: <span id="players-count">-</span></p>
                 <p>Active tables: <span id="tables-count">-</span></p>
             </div>
         </div>
-        
-        <div id="error-container" class="error-message" style="display: none;"></div>
     </div>
     
     <!-- JavaScript files -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="scripts/socket-handler.js"></script>
-    <script src="scripts/client-bridge.js"></script>
+    <script src="js/bridge.js"></script>
+    <script>
+        // Direct function for navigation
+        function navigate(page) {
+            window.location.href = page;
+        }
+        
+        // Initialize page when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Connect to server
+            connectToServer();
+            
+            // Get active tables
+            getTables();
+        });
+    </script>
 </body>
 </html>

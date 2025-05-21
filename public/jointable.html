@@ -5,37 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BridgeCircle - Join Table</title>
     <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/multiplayer.css">
     <meta name="description" content="Join an existing bridge table">
 </head>
 <body>
     <div class="container">
         <h1>BridgeCircle - Join Table</h1>
         
-        <div id="error-container" class="error-message" style="display:none;"></div>
+        <!-- ARIA Live area for announcements -->
+        <div id="announcement-area" aria-live="polite" class="sr-only"></div>
+        
+        <!-- Error message container -->
+        <div id="error-area" class="error-message" style="display: none;"></div>
         
         <div class="section">
             <h2>Join Existing Table</h2>
             
             <form id="join-table-form" action="javascript:void(0);">
                 <div class="form-group">
-                    <label for="join-name-input">Your Name:</label>
-                    <input type="text" id="join-name-input" class="form-input" placeholder="Enter your name" required>
+                    <label for="name-input">Your Name:</label>
+                    <input type="text" id="name-input" class="form-input" 
+                           placeholder="Enter your name" required 
+                           aria-required="true">
                 </div>
                 
                 <div class="form-group">
                     <label for="table-code-input">Table Code:</label>
-                    <input type="text" id="table-code-input" class="form-input" placeholder="Enter 4-digit code" required maxlength="4" pattern="[0-9]{4}">
+                    <input type="text" id="table-code-input" class="form-input" 
+                           placeholder="Enter 4-digit code" required 
+                           maxlength="4" pattern="[0-9]{4}"
+                           aria-required="true">
                 </div>
                 
                 <div class="action-buttons">
-                    <button type="submit" id="join-submit-button" class="button">
+                    <button type="submit" onclick="joinTable()" class="button">
                         Join Table
                     </button>
                     
-                    <a href="/" class="button button-secondary">
+                    <button type="button" onclick="navigate('/')" class="button button-secondary">
                         Back to Lobby
-                    </a>
+                    </button>
                 </div>
             </form>
         </div>
@@ -43,33 +51,138 @@
         <!-- Position Selection (hidden initially) -->
         <div class="section" id="position-selection" style="display:none;">
             <h2>Select Position</h2>
-            <p>Table Code: <span id="position-table-code"></span></p>
+            <p>Table Code: <span id="table-code-display"></span></p>
             
-            <div class="player-positions" id="positions-container">
-                <!-- Positions will be populated by JavaScript -->
+            <div id="available-positions-container" class="player-positions">
+                <!-- Positions will be added here with JavaScript -->
             </div>
             
             <div class="action-buttons">
-                <a href="/" class="button button-secondary">
+                <button type="button" onclick="navigate('/')" class="button button-secondary">
                     Cancel
-                </a>
+                </button>
             </div>
         </div>
     </div>
     
+    <!-- JavaScript files -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="scripts/socket-handler.js"></script>
-    <script src="scripts/client-bridge.js"></script>
+    <script src="js/bridge.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Specifics for join table page
-            window.isJoinTablePage = true;
+        // Direct function for navigation
+        function navigate(page) {
+            window.location.href = page;
+        }
+        
+        // Join table function
+        function joinTable() {
+            const name = document.getElementById('name-input').value.trim();
+            const tableCode = document.getElementById('table-code-input').value.trim();
             
-            // If table code is in URL parameters, fill it in
+            if (!name) {
+                showError('Please enter your name');
+                return;
+            }
+            
+            if (!tableCode || !/^\d{4}$/.test(tableCode)) {
+                showError('Please enter a valid 4-digit table code');
+                return;
+            }
+            
+            // Save name for later use
+            localStorage.setItem('playerName', name);
+            localStorage.setItem('tableCode', tableCode);
+            
+            // Send join request to server
+            socket.emit('joinTable', {
+                playerName: name,
+                tableCode: tableCode
+            });
+        }
+        
+        // Position selection
+        function selectPosition(position) {
+            const name = document.getElementById('name-input').value.trim();
+            const tableCode = document.getElementById('table-code-input').value.trim();
+            
+            // Send position selection request to server
+            socket.emit('selectPosition', {
+                tableCode: tableCode,
+                position: position,
+                playerName: name
+            });
+        }
+        
+        // Show available positions
+        function showAvailablePositions(tableCode, positions) {
+            // Show position selection view
+            document.getElementById('join-table-form').style.display = 'none';
+            document.getElementById('position-selection').style.display = 'block';
+            
+            // Show table code
+            document.getElementById('table-code-display').textContent = tableCode;
+            
+            // Clear previous positions
+            const positionElements = document.getElementById('available-positions-container');
+            positionElements.innerHTML = '';
+            
+            // Create position selections
+            positions.forEach(position => {
+                const div = document.createElement('div');
+                div.className = 'position-info';
+                div.innerHTML = `
+                    <h3>${positionName(position)}</h3>
+                    <p>Available</p>
+                    <button type="button" class="select-position-button" onclick="selectPosition('${position}')">Select</button>
+                `;
+                positionElements.appendChild(div);
+            });
+            
+            // Focus on first position for accessibility
+            setTimeout(() => {
+                const firstButton = document.querySelector('.select-position-button');
+                if (firstButton) {
+                    firstButton.focus();
+                }
+            }, 100);
+        }
+        
+        // Initialize page when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Connect to server
+            connectToServer();
+            
+            // Listen for socket events
+            socket.on('selectPosition', (data) => {
+                showAvailablePositions(data.tableCode, data.positions);
+            });
+            
+            // Get saved name
+            const savedName = localStorage.getItem('playerName');
+            if (savedName) {
+                document.getElementById('name-input').value = savedName;
+            }
+            
+            // Check for table code in URL
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('code')) {
                 document.getElementById('table-code-input').value = urlParams.get('code');
             }
+            
+            // Form submission with Enter
+            document.getElementById('table-code-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    joinTable();
+                }
+            });
+            
+            document.getElementById('name-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    document.getElementById('table-code-input').focus();
+                }
+            });
         });
     </script>
 </body>

@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BridgeCircle - Waiting Room</title>
     <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/multiplayer.css">
-    <meta name="description" content="Waiting room for bridge game">
+    <meta name="description" content="Bridge game waiting room">
 </head>
 <body>
     <div class="container" id="waiting-room-view">
-        <h1>BridgeCircle - Table <span id="waiting-table-code"></span></h1>
+        <h1>BridgeCircle - Table <span id="table-code-title"></span></h1>
         
-        <div id="error-container" class="error-message" style="display:none;"></div>
+        <!-- ARIA Live area for announcements -->
+        <div id="announcement-area" aria-live="polite" class="sr-only"></div>
         
-        <!-- ARIA Live area for waiting room announcements -->
-        <div id="waiting-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        <!-- Error message container -->
+        <div id="error-area" class="error-message" style="display: none;"></div>
         
         <div class="section">
             <h2>Waiting for Players</h2>
@@ -23,22 +23,22 @@
             
             <div class="player-status">
                 <div class="player-positions">
-                    <div class="position-card" id="waiting-north">
+                    <div class="position-card" id="position-north">
                         <h3>North</h3>
                         <p class="player-name">Waiting...</p>
                     </div>
                     
-                    <div class="position-card" id="waiting-east">
+                    <div class="position-card" id="position-east">
                         <h3>East</h3>
                         <p class="player-name">Waiting...</p>
                     </div>
                     
-                    <div class="position-card" id="waiting-south">
+                    <div class="position-card" id="position-south">
                         <h3>South</h3>
                         <p class="player-name">Waiting...</p>
                     </div>
                     
-                    <div class="position-card" id="waiting-west">
+                    <div class="position-card" id="position-west">
                         <h3>West</h3>
                         <p class="player-name">Waiting...</p>
                     </div>
@@ -46,11 +46,11 @@
             </div>
             
             <div class="action-buttons">
-                <button id="start-game-button" class="button">
-                    Start Game (with GIB for missing players)
+                <button onclick="startGame()" id="start-game-button" class="button">
+                    Start Game (GIB for missing players)
                 </button>
                 
-                <button id="leave-table-button" class="button button-secondary">
+                <button onclick="leaveTable()" class="button button-secondary">
                     Leave Table
                 </button>
             </div>
@@ -62,29 +62,188 @@
             <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
             <div class="chat-input-container">
                 <input type="text" id="chat-input" class="chat-input" placeholder="Type a message...">
-                <button id="send-chat-button" class="button">Send</button>
+                <button onclick="sendChatMessage()" class="button">Send</button>
             </div>
         </div>
     </div>
     
+    <!-- JavaScript files -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="scripts/socket-handler.js"></script>
-    <script src="scripts/client-bridge.js"></script>
+    <script src="js/bridge.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Specifics for waiting room page
-            window.isWaitingRoomPage = true;
+        let tableCode = null;
+        
+        // Start the game
+        function startGame() {
+            if (!tableCode) return;
             
-            // Get table code from URL
+            socket.emit('startGame', {
+                tableCode: tableCode
+            });
+        }
+        
+        // Leave the table
+        function leaveTable() {
+            socket.emit('leaveTable');
+            navigate('/');
+        }
+        
+        // Send chat message
+        function sendChatMessage() {
+            const message = document.getElementById('chat-input').value.trim();
+            if (!message) return;
+            
+            socket.emit('sendChatMessage', {
+                tableCode: tableCode,
+                message: message
+            });
+            
+            // Clear input
+            document.getElementById('chat-input').value = '';
+        }
+        
+        // Update waiting room positions
+        function updateWaitingRoomPositions(table) {
+            const positions = ['north', 'east', 'south', 'west'];
+            
+            for (const position of positions) {
+                const element = document.getElementById(`position-${position}`);
+                const player = table.players[position];
+                
+                if (player) {
+                    element.classList.add('occupied');
+                    
+                    // Check if this is the current player
+                    if (player.id === socket.id) {
+                        element.classList.add('you');
+                        
+                        const nameElement = element.querySelector('.player-name');
+                        if (nameElement) {
+                            nameElement.textContent = `${player.name} (You)`;
+                        }
+                    } else {
+                        element.classList.remove('you');
+                        
+                        const nameElement = element.querySelector('.player-name');
+                        if (nameElement) {
+                            nameElement.textContent = player.name;
+                        }
+                    }
+                } else {
+                    element.classList.remove('occupied', 'you');
+                    
+                    const nameElement = element.querySelector('.player-name');
+                    if (nameElement) {
+                        nameElement.textContent = 'Waiting...';
+                    }
+                }
+            }
+            
+            // Enable/disable start button based on player count
+            const activePlayerCount = Object.values(table.players).filter(p => p !== null).length;
+            document.getElementById('start-game-button').disabled = activePlayerCount === 0;
+        }
+        
+        // Add chat message
+        function addChatMessage(sender, position, message) {
+            const chatArea = document.getElementById('chat-messages');
+            if (!chatArea) return;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message';
+            
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageElement.innerHTML = `
+                <span class="chat-sender">${sender} (${positionName(position)}):</span>
+                <span class="chat-time">[${timestamp}]</span>
+                <div class="chat-text">${message}</div>
+            `;
+            
+            chatArea.appendChild(messageElement);
+            
+            // Scroll to bottom
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        
+        // Add system message to chat
+        function addSystemMessage(message) {
+            const chatArea = document.getElementById('chat-messages');
+            if (!chatArea) return;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message system-message';
+            
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageElement.innerHTML = `
+                <span class="chat-time">[${timestamp}]</span>
+                <div class="chat-text">${message}</div>
+            `;
+            
+            chatArea.appendChild(messageElement);
+            
+            // Scroll to bottom
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        
+        // Direct function for navigation
+        function navigate(page) {
+            window.location.href = page;
+        }
+        
+        // Initialize page when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Connect to server
+            connectToServer();
+            
+            // Check URL parameters
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('code')) {
-                // Setup waiting room with the table code
-                clientState.tableCode = urlParams.get('code');
-                setupWaitingRoom();
+                tableCode = urlParams.get('code');
+                
+                // Display code
+                document.getElementById('table-code-title').textContent = tableCode;
+                document.getElementById('share-table-code').textContent = tableCode;
+                
+                // Get table info
+                socket.emit('getTableInfo', { tableCode: tableCode });
             } else {
-                // Redirect to home page if no code provided
-                window.location.href = '/';
+                // Redirect to home page if no code
+                navigate('/');
             }
+            
+            // Socket events
+            socket.on('tableInfo', (data) => {
+                updateWaitingRoomPositions(data.table);
+            });
+            
+            socket.on('playerJoined', (data) => {
+                updateWaitingRoomPositions(data.table);
+                addSystemMessage(`${data.playerName} joined as ${positionName(data.position)}.`);
+            });
+            
+            socket.on('playerLeft', (data) => {
+                updateWaitingRoomPositions(data.table);
+                addSystemMessage(`Player left from ${positionName(data.position)}.`);
+            });
+            
+            socket.on('gameStarted', (data) => {
+                // Redirect to game view
+                navigate(`/game.html?code=${tableCode}`);
+            });
+            
+            socket.on('chatMessage', (data) => {
+                addChatMessage(data.sender, data.position, data.message);
+            });
+            
+            // Enter key for chat message
+            document.getElementById('chat-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    sendChatMessage();
+                }
+            });
         });
     </script>
 </body>
