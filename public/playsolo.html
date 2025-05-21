@@ -11,14 +11,17 @@
     <div class="container" id="game-view">
         <h1>BridgeCircle - Play Solo</h1>
         
-        <!-- ARIA Live area for announcements -->
-        <div id="announcement-area" aria-live="polite" class="sr-only"></div>
-        
-        <!-- ARIA Live area for card plays -->
-        <div id="card-announcement" aria-live="assertive" class="sr-only"></div>
-        
         <!-- Error message container -->
         <div id="error-area" class="error-message" style="display: none;"></div>
+        
+        <!-- ARIA Live area for announcements - improved for better screen reader support -->
+        <div id="status-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        
+        <!-- ARIA Live area specifically for card plays -->
+        <div id="card-announcer" class="sr-only" aria-live="assertive" aria-atomic="false"></div>
+        
+        <!-- Invisible focus target to help with screen reader issues -->
+        <span id="card-focus-target" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px"></span>
         
         <!-- Player management -->
         <section class="section">
@@ -134,6 +137,7 @@
         let gameState = null;
         let biddingState = null;
         let myPosition = 'south';
+        let lastAnnouncement = '';
         
         // Show help
         function showHelp() {
@@ -141,6 +145,7 @@
             helpArea.style.display = 'block';
             document.getElementById('show-help-button').textContent = 'Hide Help';
             document.getElementById('show-help-button').onclick = closeHelp;
+            announce("Help section opened. Keyboard shortcuts are displayed.");
         }
         
         // Close help
@@ -149,6 +154,7 @@
             helpArea.style.display = 'none';
             document.getElementById('show-help-button').textContent = 'Show Help';
             document.getElementById('show-help-button').onclick = showHelp;
+            announce("Help section closed.");
         }
         
         // Deal new cards
@@ -162,13 +168,12 @@
                 socket.emit('resetSoloGame', {
                     tableCode: tableCode
                 });
+                announce('Resetting game and dealing new cards...');
             } else {
                 // Otherwise initialize a new solo game
                 initializeSoloGame();
+                announce('Creating new game and dealing cards...');
             }
-            
-            // Announce new deal
-            announce('Dealing new cards...');
         }
         
         // Fullscreen mode
@@ -176,11 +181,14 @@
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => {
                     console.error(`Error entering fullscreen mode: ${err.message}`);
+                    announce("Could not enter fullscreen mode.");
                 });
                 document.getElementById('fullscreen-button').textContent = 'Exit Fullscreen';
+                announce("Entered fullscreen mode.");
             } else {
                 document.exitFullscreen();
                 document.getElementById('fullscreen-button').textContent = 'Full Screen';
+                announce("Exited fullscreen mode.");
             }
         }
         
@@ -200,13 +208,13 @@
             window.location.href = page;
         }
         
-        // Render hand
+        // Render hand - improved for screen reader compatibility
         function renderHand(position, hand, isPlayable = false) {
             // Get element for this position
             const element = position === 'north' ? document.getElementById('north-hand') :
-                          position === 'south' ? document.getElementById('south-hand') :
-                          position === 'east' ? document.getElementById('east-hand') :
-                          document.getElementById('west-hand');
+                           position === 'south' ? document.getElementById('south-hand') :
+                           position === 'east' ? document.getElementById('east-hand') :
+                           document.getElementById('west-hand');
             
             if (!element || !hand) return;
             
@@ -215,16 +223,16 @@
             
             // Check if this hand is played by a human
             const isPlayableByHuman = position === 'south' || 
-                                  (position === 'north' && isNSTeamWon && 
-                                  gameState.players && gameState.players[position].type === 'human');
+                                   (position === 'north' && isNSTeamWon && 
+                                    gameState.players && gameState.players[position].type === 'human');
             
             let html = `<h3>${position === 'south' ? 'Your Hand (South)' : positionName(position)} 
                       ${gameState && gameState.players && gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
             
             // Show cards?
             const showCards = position === 'south' || 
-                          (position === 'north' && 
-                          (gameState && gameState.gamePhase === 'play' && isNSTeamWon));
+                           (position === 'north' && 
+                            (gameState.gamePhase === 'play' && isNSTeamWon));
             
             if (!showCards && position === 'north') {
                 // Hide north's cards until conditions are met
@@ -251,12 +259,13 @@
                         const cardClass = `card-${suit}`;
                         
                         // Playable cards as buttons, if playable
-                        if (gameState && gameState.gamePhase === 'play' && isPlayableByHuman) {
-                            // HTML buttons with direct onclick event handlers
+                        if (gameState.gamePhase === 'play' && isPlayableByHuman) {
+                            // HTML buttons using data attributes instead of inline onclick
                             html += `
                                 <button 
                                     class="card-button ${cardClass}"
-                                    onclick="playCard('${suit}', '${card}')"
+                                    data-suit="${suit}"
+                                    data-card="${card}"
                                     ${!isCurrentPlayer ? 'disabled' : ''}
                                     aria-label="Play ${suitName(suit)} ${card}"
                                 >
@@ -283,9 +292,27 @@
             });
             
             element.innerHTML = html;
+            
+            // Add event listeners to card buttons for better screen reader compatibility
+            if (gameState.gamePhase === 'play' && isPlayableByHuman) {
+                const cardButtons = element.querySelectorAll('.card-button');
+                cardButtons.forEach(button => {
+                    button.addEventListener('click', function(e) {
+                        const suit = this.getAttribute('data-suit');
+                        const card = this.getAttribute('data-card');
+                        playCard(suit, card);
+                        
+                        // Add focus to hidden element to better handle screen reader behavior
+                        const focusTarget = document.getElementById('card-focus-target');
+                        if (focusTarget) {
+                            focusTarget.focus();
+                        }
+                    });
+                });
+            }
         }
         
-        // Update game UI
+        // Update game UI - improved with announcements for game phase changes
         function updateGameUI() {
             if (!gameState) return;
             
@@ -313,16 +340,37 @@
                 playersArea.innerHTML = html;
             }
             
-            // Update status bar
+            // Update status bar and announce game phase changes
             const statusArea = document.getElementById('status-area');
             if (statusArea) {
+                let statusText = '';
+                
                 if (gameState.gamePhase === 'bidding') {
-                    statusArea.textContent = 'Bidding phase';
+                    statusText = 'Bidding phase';
+                    // Announce only if this is a new phase
+                    if (!gameState._lastAnnouncedPhase || gameState._lastAnnouncedPhase !== 'bidding') {
+                        announce('Bidding phase started. Make your bids.');
+                        gameState._lastAnnouncedPhase = 'bidding';
+                    }
                 } else if (gameState.gamePhase === 'play') {
-                    statusArea.textContent = `Playing: ${formatContract(gameState.contract)}`;
+                    statusText = `Playing: ${formatContract(gameState.contract)}`;
+                    // Announce only if this is a new phase
+                    if (!gameState._lastAnnouncedPhase || gameState._lastAnnouncedPhase !== 'play') {
+                        announce(`Play phase. Contract is ${formatContract(gameState.contract)}.`);
+                        gameState._lastAnnouncedPhase = 'play';
+                    }
+                } else if (gameState.gamePhase === 'end') {
+                    statusText = 'Game over';
+                    // Announce only if this is a new phase
+                    if (!gameState._lastAnnouncedPhase || gameState._lastAnnouncedPhase !== 'end') {
+                        announce('Game has ended.');
+                        gameState._lastAnnouncedPhase = 'end';
+                    }
                 } else {
-                    statusArea.textContent = 'BridgeCircle Game';
+                    statusText = 'BridgeCircle Game';
                 }
+                
+                statusArea.textContent = statusText;
             }
         }
         
@@ -340,6 +388,8 @@
             // Render bidding controls if it's our turn
             if (biddingState.currentBidder === myPosition) {
                 renderBiddingControls();
+                // Announce to screen reader that it's our turn to bid
+                announce(`It's your turn to bid.`);
             } else {
                 // Hide controls if not our turn
                 const biddingControls = document.getElementById('bidding-controls');
@@ -364,13 +414,13 @@
             } else {
                 // Create table for bidding history
                 html += `
-                    <table class="bidding-table">
+                    <table class="bidding-table" aria-label="Bidding history table">
                         <thead>
                             <tr>
-                                <th>West</th>
-                                <th>North</th>
-                                <th>East</th>
-                                <th>South</th>
+                                <th scope="col">West</th>
+                                <th scope="col">North</th>
+                                <th scope="col">East</th>
+                                <th scope="col">South</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -403,8 +453,9 @@
                 }
                 
                 // Render each round
-                for (const round of rounds) {
-                    html += '<tr>';
+                for (let roundIndex = 0; roundIndex < rounds.length; roundIndex++) {
+                    const round = rounds[roundIndex];
+                    html += `<tr aria-label="Bidding round ${roundIndex + 1}">`;
                     
                     for (let i = 0; i < 4; i++) {
                         const bid = round[i];
@@ -421,6 +472,18 @@
                 }
                 
                 html += '</tbody></table>';
+                
+                // Add summary for screen readers
+                html += '<div class="sr-only" aria-live="off">';
+                html += '<p>Bidding summary: ';
+                const summaryBids = biddingState.bidHistory.map(b => 
+                    `${positionName(b.player)} ${b.bid === 'P' ? 'passes' : 
+                      b.bid === 'X' ? 'doubles' : 
+                      b.bid === 'XX' ? 'redoubles' : 
+                      `bids ${formatBidForDisplay(b.bid)}`}`
+                ).join(', ');
+                html += summaryBids;
+                html += '</p></div>';
             }
             
             biddingHistory.innerHTML = html;
@@ -446,7 +509,7 @@
                                   specialBid === 'X' ? 'Double (X)' : 'Redouble (XX)';
                     
                     html += `
-                        <button class="bid-button" onclick="makeBid('${specialBid}')">
+                        <button class="bid-button" data-bid="${specialBid}">
                             ${bidText}
                         </button>
                     `;
@@ -498,7 +561,7 @@
                     }
                     
                     html += `
-                        <button class="bid-button ${suitClass}" onclick="makeBid('${bid}')">
+                        <button class="bid-button ${suitClass}" data-bid="${bid}" aria-label="Bid ${level} ${suitNameFromSymbol(suit)}">
                             ${level}${suitSymbol}
                         </button>
                     `;
@@ -515,6 +578,20 @@
             html += '</div>';
             
             biddingControls.innerHTML = html;
+            
+            // Add event listeners to bid buttons
+            biddingControls.querySelectorAll('.bid-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const bid = this.getAttribute('data-bid');
+                    makeBid(bid);
+                    
+                    // Add focus to hidden element for better screen reader support
+                    const focusTarget = document.getElementById('card-focus-target');
+                    if (focusTarget) {
+                        focusTarget.focus();
+                    }
+                });
+            });
         }
         
         // Get possible bids
@@ -576,6 +653,18 @@
             return `${level}${suitSymbol}`;
         }
         
+        // Get suit name from symbol for improved screen reader experience
+        function suitNameFromSymbol(symbol) {
+            switch (symbol) {
+                case 'C': return 'Clubs';
+                case 'D': return 'Diamonds';
+                case 'H': return 'Hearts';
+                case 'S': return 'Spades';
+                case 'N': return 'No Trump';
+                default: return symbol;
+            }
+        }
+        
         // Make bid
         function makeBid(bid) {
             if (!tableCode) return;
@@ -613,6 +702,7 @@
             // Add card
             const cardElement = document.createElement('div');
             cardElement.className = `played-card ${suit === 'hearts' || suit === 'diamonds' ? 'red-card' : ''}`;
+            cardElement.setAttribute('aria-label', `${positionName(position)} played ${suitName(suit)} ${card}`);
             cardElement.innerHTML = `<span class="player-name">${positionName(position)}:</span> ${suitSymbol(suit)} ${card}`;
             
             centerArea.appendChild(cardElement);
@@ -688,6 +778,7 @@
             if (gameState.gamePhase === 'bidding' && biddingState.currentBidder === 'south') {
                 // Default to pass as a bid
                 makeBid('P');
+                announce("Auto-played Pass bid.");
             } else if (gameState.gamePhase === 'play' && gameState.currentPlayer === 'south') {
                 // Play first possible card
                 const hand = gameState.hands['south'];
@@ -721,26 +812,33 @@
                 
                 if (playableCard) {
                     playCard(playableCard.suit, playableCard.card);
+                    announce(`Auto-played ${suitName(playableCard.suit)} ${playableCard.card}.`);
                 }
+            } else {
+                announce("It's not your turn to make a move.");
             }
         }
         
-        // Announce to screen reader
+        // Improved announce function for screen readers
         function announce(message, isCardPlay = false) {
+            lastAnnouncement = message;
+            
             if (isCardPlay) {
-                const cardAnnouncement = document.getElementById('card-announcement');
-                if (cardAnnouncement) {
-                    cardAnnouncement.textContent = message;
+                const cardAnnouncer = document.getElementById('card-announcer');
+                if (cardAnnouncer) {
+                    // Clear then add to ensure it's announced
+                    cardAnnouncer.textContent = '';
+                    setTimeout(() => {
+                        cardAnnouncer.textContent = message;
+                    }, 50);
                 }
             } else {
-                const announcementArea = document.getElementById('announcement-area');
-                if (announcementArea) {
-                    announcementArea._lastMessage = message;
-                    
-                    // Clear first then add, to ensure screen reader announces
-                    announcementArea.textContent = '';
+                const statusAnnouncer = document.getElementById('status-announcer');
+                if (statusAnnouncer) {
+                    // Clear then add to ensure it's announced
+                    statusAnnouncer.textContent = '';
                     setTimeout(() => {
-                        announcementArea.textContent = message;
+                        statusAnnouncer.textContent = message;
                     }, 50);
                 }
             }
@@ -748,13 +846,13 @@
         
         // Repeat last announcement
         function repeatLastAnnouncement() {
-            const announcementArea = document.getElementById('announcement-area');
-            if (announcementArea && announcementArea._lastMessage) {
-                // Clear and refill to make screen reader announce again
-                const message = announcementArea._lastMessage;
-                announcementArea.textContent = '';
+            if (!lastAnnouncement) return;
+            
+            const statusAnnouncer = document.getElementById('status-announcer');
+            if (statusAnnouncer) {
+                statusAnnouncer.textContent = '';
                 setTimeout(() => {
-                    announcementArea.textContent = message;
+                    statusAnnouncer.textContent = lastAnnouncement;
                 }, 50);
             }
         }
@@ -785,7 +883,47 @@
             const buttons = document.querySelectorAll(selector);
             if (buttons.length > index) {
                 buttons[index].click();
-                setTimeout(() => buttons[index].focus(), 100);
+                
+                // Focus the target for better screen reader experience
+                const focusTarget = document.getElementById('card-focus-target');
+                if (focusTarget) {
+                    setTimeout(() => focusTarget.focus(), 100);
+                } else {
+                    setTimeout(() => buttons[index].focus(), 100);
+                }
+            }
+        }
+        
+        // Suit symbol
+        function suitSymbol(suit) {
+            const symbols = { 
+                spades: '♠', 
+                hearts: '♥', 
+                diamonds: '♦', 
+                clubs: '♣' 
+            };
+            return symbols[suit] || suit;
+        }
+        
+        // Suit name
+        function suitName(suit) {
+            const names = {
+                spades: 'spades',
+                hearts: 'hearts',
+                diamonds: 'diamonds',
+                clubs: 'clubs'
+            };
+            return names[suit] || suit;
+        }
+        
+        // Position name
+        function positionName(position) {
+            switch(position) {
+                case 'north': return 'North';
+                case 'east': return 'East';
+                case 'south': return 'South';
+                case 'west': return 'West';
+                default: return position;
             }
         }
         
@@ -793,8 +931,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Set solo mode flag
             window.isSoloMode = true;
-            // Set default player position
-            window.myPosition = 'south';
             
             // Connect to server
             connectToServer();
@@ -805,10 +941,10 @@
             // Socket events
             socket.on('soloGameCreated', (data) => {
                 tableCode = data.tableCode;
-                // Solo game created, wait for other events
+                console.log('Solo game created with code:', tableCode);
+                announce('Solo game created. Waiting for cards to be dealt.');
             });
             
-            // Add missing event handlers from game.html
             socket.on('yourCards', (data) => {
                 myPosition = data.position;
                 if (!gameState) gameState = {};
@@ -818,6 +954,10 @@
                 
                 // Render hand
                 renderHand(data.position, data.cards);
+                
+                // Announce cards to screen reader
+                announce(`Cards dealt. ${data.position === 'south' ? 'Your' : positionName(data.position) + "'s"} turn.`);
+                readCards();
             });
             
             socket.on('bidMade', (data) => {
@@ -867,7 +1007,7 @@
                 if (data.dummyCards) {
                     gameState.hands[gameState.dummy] = data.dummyCards;
                     renderHand(gameState.dummy, data.dummyCards);
-                    announce(`Dummy's cards are now visible.`);
+                    announce(`Dummy's cards are now visible. ${suitName('spades')}: ${data.dummyCards.spades.join(', ')}. ${suitName('hearts')}: ${data.dummyCards.hearts.join(', ')}. ${suitName('diamonds')}: ${data.dummyCards.diamonds.join(', ')}. ${suitName('clubs')}: ${data.dummyCards.clubs.join(', ')}.`);
                 }
                 
                 // Update UI
@@ -930,7 +1070,7 @@
                 updateCenterArea();
                 
                 // Announce winner
-                announce(`${positionName(data.winner)} won the trick!`);
+                announce(`${positionName(data.winner)} won the trick! Score is now: North-South ${gameState.tricks.ns}, East-West ${gameState.tricks.ew}. ${positionName(data.nextPlayer)} leads next.`);
                 
                 // Update current player
                 updateGameUI();
@@ -945,7 +1085,7 @@
                 showGameOver(data.message);
                 
                 // Announce result
-                announce(data.message);
+                announce(`Game over! ${data.message} Final score: North-South ${gameState.tricks.ns}, East-West ${gameState.tricks.ew}. Press Alt+N to deal new cards.`);
             });
             
             // Initialize keyboard listeners
@@ -991,6 +1131,9 @@
                     }
                 }
             });
+            
+            // Announce initial page load
+            announce('BridgeCircle Solo Play page loaded. Press Alt+N to deal new cards or use the Deal New Cards button.');
         });
     </script>
 </body>
