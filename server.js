@@ -1,33 +1,36 @@
 /**
- * BridgeCircle - Palvelinkoodi
- * Yksinkertaistettu palvelinkoodi, jossa kaikki toiminnallisuus on yhdessä tiedostossa
+ * BridgeCircle - Server Code
+ * Socket.io implementation for the bridge application
  */
 
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
-const WebSocket = require('ws');
+const socketIO = require('socket.io');
 const path = require('path');
-const fs = require('fs/promises');
+const cors = require('cors');
+const fs = require('fs');
 
-// Alusta Express-sovellus ja palvelin
+// Initialize Express app and server
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const io = socketIO(server);
 
-// Palvelimen tilat
-const pöydät = new Map(); // Aktiiviset pöydät koodin mukaan
-const pelaajat = new Map(); // Pelaajat WebSocket-ID:n mukaan
+// Server state
+const tables = new Map(); // Active tables by code
+const players = new Map(); // Players by Socket ID
 
-// Vakiot
-const KORTTIMAAT = ["♠", "♥", "♦", "♣"];
-const KORTTIARVOT = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
-const MAX_IDLE_AIKA = 3600000; // 1 tunti millisekunteina
+// Constants
+const CARD_SUITS = ["spades", "hearts", "diamonds", "clubs"];
+const CARD_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const MAX_IDLE_TIME = 3600000; // 1 hour in milliseconds
 
-// Staattiset tiedostot
+// Static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
+app.use(cors());
 
-// Health check -endpoint
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
@@ -36,1828 +39,1753 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Taustaprosessit
-setInterval(siivousProsessi, 300000); // Siivous 5 minuutin välein
+// Background processes
+setInterval(cleanupProcess, 300000); // Cleanup every 5 minutes
 
-// WebSocket-yhteyden käsittely
-wss.on('connection', (ws) => {
-  console.log('Uusi asiakas yhdistetty');
-  let pelaajaTunnus = null;
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
+  let playerId = socket.id;
   
-  // Luo pelaajatunnus
-  pelaajaTunnus = generateId();
-  pelaajat.set(pelaajaTunnus, {
-    ws,
-    pöytä: null,
-    nimi: null,
-    paikka: null,
-    yhdistetty: Date.now()
+  // Create player record
+  players.set(playerId, {
+    socket,
+    table: null,
+    name: null,
+    position: null,
+    connected: Date.now()
   });
   
-  // Rekisteröi pelaajan ping-vastaaja
-  startPingPong(ws);
-  
-  // Viestin käsittely
-  ws.on('message', async (viesti) => {
-    try {
-      const data = JSON.parse(viesti);
-      console.log('Vastaanotettu viesti:', data.type);
-      
-      switch (data.type) {
-        case 'ping':
-          // Vastaa pongilla
-          lähetäViesti(ws, { type: 'pong' });
-          break;
-          
-        case 'haeAktiivisetPöydät':
-          // Lähetä lista aktiivisista pöydistä
-          lähetäAktiivisetPöydät(ws);
-          break;
-          
-        case 'luoPöytä':
-          // Luo uusi pöytä
-          luoPöytä(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'liityPöytään':
-          // Liity olemassa olevaan pöytään
-          liityPöytään(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'valitsePaikka':
-          // Valitse paikka pöydässä
-          valitsePaikka(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'haePöydänTiedot':
-          // Hae tietyn pöydän tiedot
-          haePöydänTiedot(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'poistaPöydästä':
-          // Poista pelaaja pöydästä
-          poistaPöydästä(ws, pelaajaTunnus);
-          break;
-          
-        case 'aloitaPeli':
-          // Aloita peli
-          aloitaPeli(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'lähetäChatViesti':
-          // Lähetä chat-viesti
-          lähetäChatViesti(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'teeTarjous':
-          // Tee tarjous
-          teeTarjous(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'pelaaKortti':
-          // Pelaa kortti
-          pelaaKortti(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'aloitaUusiPeli':
-          // Aloita uusi peli
-          aloitaUusiPeli(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'luoYksinpeli':
-          // Luo yksinpeli GIB-tekoälyä vastaan
-          luoYksinpeli(ws, pelaajaTunnus, data);
-          break;
-          
-        case 'resetoiYksinpeli':
-          // Resetoi yksinpeli
-          resetoiYksinpeli(ws, pelaajaTunnus, data);
-          break;
-      }
-    } catch (error) {
-      console.error('Virhe viestin käsittelyssä:', error);
-      lähetäVirhe(ws, 'Virhe viestin käsittelyssä');
-    }
+  // Message handling
+  socket.on('getActiveTables', () => {
+    sendActiveTables(socket);
   });
   
-  // Yhteyden katkeamisen käsittely
-  ws.on('close', () => {
-    console.log('Asiakas katkaisee yhteyden');
-    käsitteleYhteydenKatkeaminen(pelaajaTunnus);
+  socket.on('createTable', (data) => {
+    createTable(socket, playerId, data);
   });
   
-  // Yhteysvirheen käsittely
-  ws.on('error', (error) => {
-    console.error('WebSocket-virhe:', error);
-    käsitteleYhteydenKatkeaminen(pelaajaTunnus);
+  socket.on('joinTable', (data) => {
+    joinTable(socket, playerId, data);
+  });
+  
+  socket.on('selectPosition', (data) => {
+    selectPosition(socket, playerId, data);
+  });
+  
+  socket.on('getTableInfo', (data) => {
+    getTableInfo(socket, playerId, data);
+  });
+  
+  socket.on('leaveTable', () => {
+    removeFromTable(socket, playerId);
+  });
+  
+  socket.on('startGame', (data) => {
+    startGame(socket, playerId, data);
+  });
+  
+  socket.on('sendChatMessage', (data) => {
+    sendChatMessage(socket, playerId, data);
+  });
+  
+  socket.on('makeBid', (data) => {
+    makeBid(socket, playerId, data);
+  });
+  
+  socket.on('playCard', (data) => {
+    playCard(socket, playerId, data);
+  });
+  
+  socket.on('startNewGame', (data) => {
+    startNewGame(socket, playerId, data);
+  });
+  
+  socket.on('createSoloGame', (data) => {
+    createSoloGame(socket, playerId, data);
+  });
+  
+  socket.on('resetSoloGame', (data) => {
+    resetSoloGame(socket, playerId, data);
+  });
+  
+  // Disconnect handling
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', playerId);
+    handleDisconnect(playerId);
+  });
+  
+  // Error handling
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
+    handleDisconnect(playerId);
   });
 });
 
 /**
- * Käsittele pelaajan yhteyden katkeaminen
- * @param {string} pelaajaTunnus - Pelaajan tunnus
+ * Handle player disconnection
+ * @param {string} playerId - Player's ID
  */
-function käsitteleYhteydenKatkeaminen(pelaajaTunnus) {
-  const pelaaja = pelaajat.get(pelaajaTunnus);
-  if (!pelaaja) return;
+function handleDisconnect(playerId) {
+  const player = players.get(playerId);
+  if (!player) return;
   
-  // Jos pelaaja oli jossain pöydässä, poista siitä
-  if (pelaaja.pöytä) {
-    const pöytä = pöydät.get(pelaaja.pöytä);
-    if (pöytä) {
-      // Jos peli on käynnissä, korvaa pelaaja GIB:llä
-      if (pöytä.tila === 'pelaamassa') {
-        korvaaPelaaja(pöytä, pelaaja.paikka);
+  // If player was in a table, remove from it
+  if (player.table) {
+    const table = tables.get(player.table);
+    if (table) {
+      // If game is in progress, replace player with GIB AI
+      if (table.state === 'playing') {
+        replacePlayer(table, player.position);
       } else {
-        // Muuten poista pelaaja pöydästä
-        poistaPelaajaPoydasta(pelaaja, pöytä);
+        // Otherwise just remove player from table
+        removePlayerFromTable(player, table);
       }
     }
   }
   
-  // Poista pelaaja
-  pelaajat.delete(pelaajaTunnus);
+  // Remove player
+  players.delete(playerId);
 }
 
 /**
- * Luo uusi pöytä
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Pöydän luontiin liittyvä data
+ * Create a new table
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Table creation data
  */
-function luoPöytä(ws, pelaajaTunnus, data) {
-  const { pelaajanNimi, paikka } = data;
+function createTable(socket, playerId, data) {
+  const { playerName, position } = data;
   
-  if (!pelaajanNimi || !paikka) {
-    lähetäVirhe(ws, 'Nimi tai paikka puuttuu');
+  if (!playerName || !position) {
+    sendError(socket, 'Name or position missing');
     return;
   }
   
-  const pelaaja = pelaajat.get(pelaajaTunnus);
+  const player = players.get(playerId);
   
-  // Tarkista onko pelaaja jo jossain pöydässä
-  if (pelaaja.pöytä) {
-    lähetäVirhe(ws, 'Olet jo liittynyt pöytään');
+  // Check if player is already in a table
+  if (player.table) {
+    sendError(socket, 'You are already in a table');
     return;
   }
   
-  // Luo pöytäkoodi
-  const pöytäkoodi = luoPöytäkoodi();
+  // Create table code
+  const tableCode = createTableCode();
   
-  // Luo pöytäobjekti
-  const pöytä = {
-    koodi: pöytäkoodi,
-    pelaajat: {
+  // Create table object
+  const table = {
+    code: tableCode,
+    players: {
       north: null,
       east: null,
       south: null,
       west: null
     },
-    tila: 'odottaa', // 'odottaa', 'pelaamassa', 'päättynyt'
-    peliTila: null,
-    tarjousTila: null,
-    luotu: Date.now(),
-    viimeisinAktiviteetti: Date.now(),
-    luoja: pelaajaTunnus,
-    onYksinpeli: false
+    state: 'waiting', // 'waiting', 'playing', 'ended'
+    gameState: null,
+    biddingState: null,
+    created: Date.now(),
+    lastActivity: Date.now(),
+    creator: playerId,
+    isSoloGame: false
   };
   
-  // Aseta pelaaja pöytään
-  pöytä.pelaajat[paikka] = {
-    nimi: pelaajanNimi,
-    tunnus: pelaajaTunnus,
-    tyyppi: 'human'
+  // Add player to table
+  table.players[position] = {
+    name: playerName,
+    id: playerId,
+    type: 'human'
   };
   
-  // Tallenna pöytä ja päivitä pelaajan tiedot
-  pöydät.set(pöytäkoodi, pöytä);
-  pelaaja.pöytä = pöytäkoodi;
-  pelaaja.nimi = pelaajanNimi;
-  pelaaja.paikka = paikka;
+  // Save table and update player info
+  tables.set(tableCode, table);
+  player.table = tableCode;
+  player.name = playerName;
+  player.position = position;
   
-  // Ilmoita onnistuneesta pöydän luomisesta
-  lähetäViesti(ws, {
-    type: 'pöytäLuotu',
-    pöytäkoodi,
-    pöytä: suodataPöytä(pöytä)
+  // Send successful table creation message
+  socket.emit('tableCreated', {
+    tableCode,
+    table: filterTable(table)
   });
   
-  console.log(`Pöytä ${pöytäkoodi} luotu, pelaaja ${pelaajanNimi} (${paikka})`);
+  console.log(`Table ${tableCode} created, player ${playerName} (${position})`);
 }
 
 /**
- * Liity olemassa olevaan pöytään
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Pöytään liittymiseen liittyvä data
+ * Join an existing table
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Table join data
  */
-function liityPöytään(ws, pelaajaTunnus, data) {
-  const { pelaajanNimi, pöytäkoodi } = data;
+function joinTable(socket, playerId, data) {
+  const { playerName, tableCode } = data;
   
-  if (!pelaajanNimi || !pöytäkoodi) {
-    lähetäVirhe(ws, 'Nimi tai pöytäkoodi puuttuu');
+  if (!playerName || !tableCode) {
+    sendError(socket, 'Name or table code missing');
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
-    lähetäVirhe(ws, 'Pöytää ei löydy');
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
     return;
   }
   
-  if (pöytä.tila !== 'odottaa') {
-    lähetäVirhe(ws, 'Peli on jo käynnissä');
+  if (table.state !== 'waiting') {
+    sendError(socket, 'Game is already in progress');
     return;
   }
   
-  const pelaaja = pelaajat.get(pelaajaTunnus);
+  const player = players.get(playerId);
   
-  // Tarkista onko pelaaja jo jossain pöydässä
-  if (pelaaja.pöytä) {
-    lähetäVirhe(ws, 'Olet jo liittynyt pöytään');
+  // Check if player is already in a table
+  if (player.table) {
+    sendError(socket, 'You are already in a table');
     return;
   }
   
-  // Hae vapaat paikat
-  const vapaatPaikat = Object.entries(pöytä.pelaajat)
-    .filter(([pos, pelaaja]) => pelaaja === null)
+  // Get available positions
+  const availablePositions = Object.entries(table.players)
+    .filter(([pos, player]) => player === null)
     .map(([pos]) => pos);
     
-  if (vapaatPaikat.length === 0) {
-    lähetäVirhe(ws, 'Pöytä on täynnä');
+  if (availablePositions.length === 0) {
+    sendError(socket, 'Table is full');
     return;
   }
   
-  // Päivitä pelaajan tiedot
-  pelaaja.nimi = pelaajanNimi;
+  // Update player info
+  player.name = playerName;
   
-  // Lähetä vapaat paikat
-  lähetäViesti(ws, {
-    type: 'valitsePaikka',
-    pöytäkoodi,
-    paikat: vapaatPaikat,
-    nykyisetPelaajat: suodataPöydänPelaajat(pöytä.pelaajat)
+  // Send available positions
+  socket.emit('selectPosition', {
+    tableCode,
+    positions: availablePositions,
+    currentPlayers: filterTablePlayers(table.players)
   });
 }
 
 /**
- * Valitse paikka pöydässä
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Paikan valintaan liittyvä data
+ * Select a position in table
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Position selection data
  */
-function valitsePaikka(ws, pelaajaTunnus, data) {
-  const { pöytäkoodi, paikka, pelaajanNimi } = data;
+function selectPosition(socket, playerId, data) {
+  const { tableCode, position, playerName } = data;
   
-  if (!pöytäkoodi || !paikka || !pelaajanNimi) {
-    lähetäVirhe(ws, 'Puutteelliset tiedot');
+  if (!tableCode || !position || !playerName) {
+    sendError(socket, 'Incomplete information');
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
-    lähetäVirhe(ws, 'Pöytää ei löydy');
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
     return;
   }
   
-  if (pöytä.pelaajat[paikka]) {
-    lähetäVirhe(ws, 'Paikka on jo varattu');
+  if (table.players[position]) {
+    sendError(socket, 'Position is already taken');
     return;
   }
   
-  const pelaaja = pelaajat.get(pelaajaTunnus);
+  const player = players.get(playerId);
   
-  // Aseta pelaaja pöytään
-  pöytä.pelaajat[paikka] = {
-    nimi: pelaajanNimi,
-    tunnus: pelaajaTunnus,
-    tyyppi: 'human'
+  // Add player to table
+  table.players[position] = {
+    name: playerName,
+    id: playerId,
+    type: 'human'
   };
   
-  // Päivitä pelaajan tiedot
-  pelaaja.pöytä = pöytäkoodi;
-  pelaaja.paikka = paikka;
+  // Update player info
+  player.table = tableCode;
+  player.position = position;
   
-  // Ilmoita kaikille pöydän pelaajille
-  lähetäPöydänPelaajille(pöytä, {
-    type: 'pelaajaLiittyi',
-    paikka,
-    pelaajanNimi,
-    pöytä: suodataPöytä(pöytä)
+  // Notify all players in the table
+  sendToTablePlayers(table, {
+    type: 'playerJoined',
+    position,
+    playerName,
+    table: filterTable(table)
   });
   
-  console.log(`Pelaaja ${pelaajanNimi} liittyi pöytään ${pöytäkoodi} paikalle ${paikka}`);
+  console.log(`Player ${playerName} joined table ${tableCode} at position ${position}`);
 }
 
 /**
- * Hae pöydän tiedot
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Pöydän tietojen hakuun liittyvä data
+ * Get table information
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Table info request data
  */
-function haePöydänTiedot(ws, pelaajaTunnus, data) {
-  const { pöytäkoodi } = data;
+function getTableInfo(socket, playerId, data) {
+  const { tableCode } = data;
   
-  if (!pöytäkoodi) {
-    lähetäVirhe(ws, 'Pöytäkoodi puuttuu');
+  if (!tableCode) {
+    sendError(socket, 'Table code missing');
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
-    lähetäVirhe(ws, 'Pöytää ei löydy');
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
     return;
   }
   
-  lähetäViesti(ws, {
-    type: 'pöydänTiedot',
-    pöytä: suodataPöytä(pöytä)
+  socket.emit('tableInfo', {
+    table: filterTable(table)
   });
 }
 
 /**
- * Poista pelaaja pöydästä
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
+ * Remove player from table
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
  */
-function poistaPöydästä(ws, pelaajaTunnus) {
-  const pelaaja = pelaajat.get(pelaajaTunnus);
-  if (!pelaaja || !pelaaja.pöytä) {
-    lähetäVirhe(ws, 'Et ole liittynyt mihinkään pöytään');
+function removeFromTable(socket, playerId) {
+  const player = players.get(playerId);
+  if (!player || !player.table) {
+    sendError(socket, 'You are not in any table');
     return;
   }
   
-  const pöytä = pöydät.get(pelaaja.pöytä);
-  if (!pöytä) {
-    // Pöytää ei löydy, puhdista pelaajan tiedot
-    pelaaja.pöytä = null;
-    pelaaja.paikka = null;
+  const table = tables.get(player.table);
+  if (!table) {
+    // Table not found, clean player info
+    player.table = null;
+    player.position = null;
     return;
   }
   
-  poistaPelaajaPoydasta(pelaaja, pöytä);
+  removePlayerFromTable(player, table);
 }
 
 /**
- * Poista pelaaja pöydästä (apufunktio)
- * @param {Object} pelaaja - Pelaajan tiedot
- * @param {Object} pöytä - Pöytäobjekti
+ * Remove player from table (helper function)
+ * @param {Object} player - Player object
+ * @param {Object} table - Table object
  */
-function poistaPelaajaPoydasta(pelaaja, pöytä) {
-  const paikka = pelaaja.paikka;
+function removePlayerFromTable(player, table) {
+  const position = player.position;
   
-  // Jos peli on käynnissä, korvaa pelaaja GIB:llä
-  if (pöytä.tila === 'pelaamassa') {
-    korvaaPelaaja(pöytä, paikka);
+  // If game is in progress, replace player with GIB
+  if (table.state === 'playing') {
+    replacePlayer(table, position);
   } else {
-    // Muuten poista pelaaja pöydästä
-    pöytä.pelaajat[paikka] = null;
+    // Otherwise remove player from table
+    table.players[position] = null;
     
-    // Ilmoita muille pelaajille
-    lähetäPöydänPelaajille(pöytä, {
-      type: 'pelaajaPoistui',
-      paikka,
-      pöytä: suodataPöytä(pöytä)
+    // Notify other players
+    sendToTablePlayers(table, {
+      type: 'playerLeft',
+      position,
+      table: filterTable(table)
     });
   }
   
-  // Puhdista pelaajan tiedot
-  pelaaja.pöytä = null;
-  pelaaja.paikka = null;
+  // Clean player info
+  player.table = null;
+  player.position = null;
   
-  // Jos pöytä on tyhjä, poista se
-  const aktiivisetPelaajat = Object.values(pöytä.pelaajat).filter(p => p !== null);
-  if (aktiivisetPelaajat.length === 0) {
-    pöydät.delete(pöytä.koodi);
-    console.log(`Pöytä ${pöytä.koodi} poistettu (tyhjä)`);
+  // If table is empty, remove it
+  const activePlayers = Object.values(table.players).filter(p => p !== null);
+  if (activePlayers.length === 0) {
+    tables.delete(table.code);
+    console.log(`Table ${table.code} removed (empty)`);
   }
 }
 
 /**
- * Korvaa pelaaja GIB-tekoälyllä
- * @param {Object} pöytä - Pöytäobjekti
- * @param {string} paikka - Korvattavan pelaajan paikka
+ * Replace player with GIB AI
+ * @param {Object} table - Table object
+ * @param {string} position - Player's position
  */
-function korvaaPelaaja(pöytä, paikka) {
-  const vanhanimi = pöytä.pelaajat[paikka] ? pöytä.pelaajat[paikka].nimi : null;
+function replacePlayer(table, position) {
+  const oldName = table.players[position] ? table.players[position].name : null;
   
-  // Korvaa pelaaja GIB:llä
-  pöytä.pelaajat[paikka] = {
-    nimi: `GIB ${paikka}`,
-    tunnus: null,
-    tyyppi: 'gib'
+  // Replace player with GIB
+  table.players[position] = {
+    name: `GIB ${position}`,
+    id: null,
+    type: 'gib'
   };
   
-  // Ilmoita muille pelaajille
-  lähetäPöydänPelaajille(pöytä, {
-    type: 'pelaajiaVaihdettu',
-    paikka,
-    vanhanimi,
-    pöytä: suodataPöytä(pöytä)
+  // Notify other players
+  sendToTablePlayers(table, {
+    type: 'playerReplaced',
+    position,
+    oldName,
+    table: filterTable(table)
   });
   
-  // Jos korvattu pelaaja oli vuorossa, GIB:n vuoro
-  if (pöytä.peliTila && pöytä.peliTila.nykyinenPelaaja === paikka) {
+  // If replaced player was current player, GIB's turn
+  if (table.gameState && table.gameState.currentPlayer === position) {
     setTimeout(() => {
-      teeGIBsiirto(pöytä, paikka);
+      makeGIBMove(table, position);
     }, 1500);
-  } else if (pöytä.tarjousTila && pöytä.tarjousTila.nykyinenTarjoaja === paikka) {
+  } else if (table.biddingState && table.biddingState.currentBidder === position) {
     setTimeout(() => {
-      teeGIBtarjous(pöytä, paikka);
+      makeGIBBid(table, position);
     }, 1500);
   }
 }
 
 /**
- * Aloita peli
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Pelin aloitukseen liittyvä data
+ * Start game
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Game start data
  */
-function aloitaPeli(ws, pelaajaTunnus, data) {
-  const { pöytäkoodi } = data;
+function startGame(socket, playerId, data) {
+  const { tableCode } = data;
   
-  if (!pöytäkoodi) {
-    lähetäVirhe(ws, 'Pöytäkoodi puuttuu');
+  if (!tableCode) {
+    sendError(socket, 'Table code missing');
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
-    lähetäVirhe(ws, 'Pöytää ei löydy');
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
     return;
   }
   
-  const pelaaja = pelaajat.get(pelaajaTunnus);
+  const player = players.get(playerId);
   
-  // Tarkista onko oikeus aloittaa peli
-  if (!pelaaja || pelaaja.pöytä !== pöytäkoodi) {
-    lähetäVirhe(ws, 'Sinulla ei ole oikeutta aloittaa peliä');
+  // Check if player has right to start game
+  if (!player || player.table !== tableCode) {
+    sendError(socket, 'You do not have permission to start the game');
     return;
   }
   
-  pöytä.tila = 'pelaamassa';
-  pöytä.viimeisinAktiviteetti = Date.now();
+  table.state = 'playing';
+  table.lastActivity = Date.now();
   
-  // Korvaa puuttuvat pelaajat GIB-tekoälyllä
-  for (const paikka of ['north', 'east', 'south', 'west']) {
-    if (!pöytä.pelaajat[paikka]) {
-      pöytä.pelaajat[paikka] = {
-        nimi: `GIB ${paikka}`,
-        tunnus: null,
-        tyyppi: 'gib'
+  // Replace missing players with GIB AI
+  for (const position of ['north', 'east', 'south', 'west']) {
+    if (!table.players[position]) {
+      table.players[position] = {
+        name: `GIB ${position}`,
+        id: null,
+        type: 'gib'
       };
     }
   }
   
   try {
-    // Jaa kortit
-    pöytä.peliTila = luoPeliTila(pöytä);
-    pöytä.tarjousTila = luoTarjousTila(pöytä);
+    // Deal cards
+    table.gameState = createGameState(table);
+    table.biddingState = createBiddingState(table);
     
-    // Lähetä pelin tila kaikille pelaajille
-    lähetäPöydänPelaajille(pöytä, {
-      type: 'peliAlkoi',
-      peliTila: suodataPeliTila(pöytä.peliTila, null),
-      tarjousTila: pöytä.tarjousTila,
-      pelaajat: suodataPöydänPelaajat(pöytä.pelaajat)
+    // Send game state to all players
+    sendToTablePlayers(table, {
+      type: 'gameStarted',
+      gameState: filterGameState(table.gameState, null),
+      biddingState: table.biddingState,
+      players: filterTablePlayers(table.players)
     });
     
-    // Lähetä kunkin pelaajan omat kortit yksityisesti
-    for (const [paikka, pelaajaTiedot] of Object.entries(pöytä.pelaajat)) {
-      if (pelaajaTiedot.tyyppi === 'human' && pelaajaTiedot.tunnus) {
-        const pelaaja = pelaajat.get(pelaajaTiedot.tunnus);
-        if (pelaaja && pelaaja.ws) {
-          lähetäViesti(pelaaja.ws, {
-            type: 'omatKortit',
-            asema: paikka,
-            kortit: pöytä.peliTila.kädet[paikka]
+    // Send each player their own cards privately
+    for (const [position, playerData] of Object.entries(table.players)) {
+      if (playerData.type === 'human' && playerData.id) {
+        const player = players.get(playerData.id);
+        if (player && player.socket) {
+          player.socket.emit('yourCards', {
+            position,
+            cards: table.gameState.hands[position]
           });
         }
       }
     }
     
-    console.log(`Peli aloitettu pöydässä ${pöytäkoodi}`);
+    console.log(`Game started in table ${tableCode}`);
     
-    // Jos ensimmäinen tarjoaja on GIB, käsittele GIB:n vuoro
-    if (pöytä.pelaajat[pöytä.tarjousTila.nykyinenTarjoaja].tyyppi === 'gib') {
+    // If first bidder is GIB, handle GIB's turn
+    if (table.players[table.biddingState.currentBidder].type === 'gib') {
       setTimeout(() => {
-        teeGIBtarjous(pöytä, pöytä.tarjousTila.nykyinenTarjoaja);
+        makeGIBBid(table, table.biddingState.currentBidder);
       }, 1500);
     }
   } catch (error) {
-    console.error('Virhe pelin aloittamisessa:', error);
-    lähetäVirhe(ws, 'Virhe pelin aloittamisessa');
-    pöytä.tila = 'odottaa';
+    console.error('Error starting game:', error);
+    sendError(socket, 'Error starting game');
+    table.state = 'waiting';
   }
 }
 
 /**
- * Lähetä chat-viesti
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Chat-viestiin liittyvä data
+ * Send chat message
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Chat message data
  */
-function lähetäChatViesti(ws, pelaajaTunnus, data) {
-  const { pöytäkoodi, viesti } = data;
+function sendChatMessage(socket, playerId, data) {
+  const { tableCode, message } = data;
   
-  if (!pöytäkoodi || !viesti) {
+  if (!tableCode || !message) {
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
+  const table = tables.get(tableCode);
+  if (!table) {
     return;
   }
   
-  const pelaaja = pelaajat.get(pelaajaTunnus);
-  if (!pelaaja || !pelaaja.paikka) {
+  const player = players.get(playerId);
+  if (!player || !player.position) {
     return;
   }
   
-  // Lähetä chat-viesti kaikille pöydässä
-  lähetäPöydänPelaajille(pöytä, {
-    type: 'chatViesti',
-    lähettäjä: pelaaja.nimi,
-    paikka: pelaaja.paikka,
-    viesti,
-    aikaleima: Date.now()
+  // Send chat message to all players in table
+  sendToTablePlayers(table, {
+    type: 'chatMessage',
+    sender: player.name,
+    position: player.position,
+    message,
+    timestamp: Date.now()
   });
 }
 
 /**
- * Tee tarjous
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Tarjoukseen liittyvä data
+ * Make a bid
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Bid data
  */
-function teeTarjous(ws, pelaajaTunnus, data) {
-  const { pöytäkoodi, asema, tarjous } = data;
+function makeBid(socket, playerId, data) {
+  const { tableCode, position, bid } = data;
   
-  if (!pöytäkoodi || !asema || !tarjous) {
-    lähetäVirhe(ws, 'Puutteelliset tarjoustiedot');
+  if (!tableCode || !position || !bid) {
+    sendError(socket, 'Incomplete bid information');
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
-    lähetäVirhe(ws, 'Pöytää ei löydy');
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
     return;
   }
   
-  if (pöytä.tila !== 'pelaamassa') {
-    lähetäVirhe(ws, 'Peli ei ole käynnissä');
+  if (table.state !== 'playing') {
+    sendError(socket, 'Game is not in progress');
     return;
   }
   
-  if (!pöytä.tarjousTila || pöytä.tarjousTila.tarjousVaiheValmis) {
-    lähetäVirhe(ws, 'Tarjousvaihe on jo päättynyt');
+  if (!table.biddingState || table.biddingState.biddingComplete) {
+    sendError(socket, 'Bidding phase is already complete');
     return;
   }
   
-  // Tarkista että pelaaja on vuorossa
-  if (pöytä.tarjousTila.nykyinenTarjoaja !== asema) {
-    lähetäVirhe(ws, 'Ei ole sinun vuorosi tarjota');
+  // Check if it's player's turn
+  if (table.biddingState.currentBidder !== position) {
+    sendError(socket, 'It is not your turn to bid');
     return;
   }
   
-  // Tarkista että tämä pelaaja hallitsee tätä paikkaa
-  const pelaaja = pelaajat.get(pelaajaTunnus);
-  if (!pelaaja || pelaaja.paikka !== asema) {
-    lähetäVirhe(ws, 'Et voi tarjota tästä paikasta');
+  // Check if this player controls this position
+  const player = players.get(playerId);
+  if (!player || player.position !== position) {
+    sendError(socket, 'You cannot bid from this position');
     return;
   }
   
-  // Tarkista tarjouksen validius
-  if (!onkoTarjousValidi(tarjous, pöytä.tarjousTila.korkeinTarjous)) {
-    lähetäVirhe(ws, 'Epäkelpo tarjous');
+  // Check if bid is valid
+  if (!isBidValid(bid, table.biddingState.highestBid)) {
+    sendError(socket, 'Invalid bid');
     return;
   }
   
-  // Käsittele tarjous
-  käsitteleTarjous(pöytä, asema, tarjous);
+  // Process bid
+  processBid(table, position, bid);
 }
 
 /**
- * Käsittele tarjous
- * @param {Object} pöytä - Pöytäobjekti
- * @param {string} asema - Tarjoajan paikka
- * @param {string} tarjous - Tehty tarjous
+ * Process a bid
+ * @param {Object} table - Table object
+ * @param {string} position - Bidder's position
+ * @param {string} bid - The bid made
  */
-function käsitteleTarjous(pöytä, asema, tarjous) {
-  pöytä.viimeisinAktiviteetti = Date.now();
+function processBid(table, position, bid) {
+  table.lastActivity = Date.now();
   
-  // Lisää tarjous historiaan
-  const tarjousInfo = {
-    pelaaja: asema,
-    tarjous: tarjous,
-    kierros: pöytä.tarjousTila.nykyinenKierros
+  // Add bid to history
+  const bidInfo = {
+    player: position,
+    bid: bid,
+    round: table.biddingState.currentRound
   };
   
-  pöytä.tarjousTila.tarjousHistoria.push(tarjousInfo);
+  table.biddingState.bidHistory.push(bidInfo);
   
-  // Päivitä peräkkäiset passit
-  if (tarjous === 'P') {
-    pöytä.tarjousTila.peräkkäisetPassit++;
+  // Update consecutive passes
+  if (bid === 'P') {
+    table.biddingState.consecutivePasses++;
   } else {
-    pöytä.tarjousTila.peräkkäisetPassit = 0;
+    table.biddingState.consecutivePasses = 0;
     
-    // Päivitä korkein tarjous jos ei pass, double tai redouble
-    if (!['P', 'X', 'XX'].includes(tarjous)) {
-      pöytä.tarjousTila.korkeinTarjous = tarjous;
+    // Update highest bid if not pass, double or redouble
+    if (!['P', 'X', 'XX'].includes(bid)) {
+      table.biddingState.highestBid = bid;
     }
   }
   
-  // Tarkista onko tarjousvaihe päättynyt
-  if (onkoTarjousvaihePäättynyt(pöytä.tarjousTila)) {
-    viimeisteleTarjousvaihe(pöytä);
+  // Check if bidding phase is complete
+  if (isBiddingPhaseComplete(table.biddingState)) {
+    finalizeBiddingPhase(table);
   } else {
-    // Siirry seuraavaan tarjoajaan
-    siirräSeuraavaanTarjoajaan(pöytä.tarjousTila);
+    // Move to next bidder
+    moveToNextBidder(table.biddingState);
     
-    // Ilmoita kaikille pelaajille tarjouksesta ja uudesta vuorosta
-    lähetäPöydänPelaajille(pöytä, {
-      type: 'tarjousTehty',
-      asema,
-      tarjous,
-      seuraavaTarjoaja: pöytä.tarjousTila.nykyinenTarjoaja,
-      tarjousTila: pöytä.tarjousTila
+    // Notify all players of bid and new turn
+    sendToTablePlayers(table, {
+      type: 'bidMade',
+      position,
+      bid,
+      nextBidder: table.biddingState.currentBidder,
+      biddingState: table.biddingState
     });
     
-    // Jos seuraava tarjoaja on GIB, tee GIB:n tarjous
-    if (pöytä.pelaajat[pöytä.tarjousTila.nykyinenTarjoaja].tyyppi === 'gib') {
+    // If next bidder is GIB, make GIB's bid
+    if (table.players[table.biddingState.currentBidder].type === 'gib') {
       setTimeout(() => {
-        teeGIBtarjous(pöytä, pöytä.tarjousTila.nykyinenTarjoaja);
+        makeGIBBid(table, table.biddingState.currentBidder);
       }, 1500);
     }
   }
 }
 
 /**
- * Tarkista onko tarjousvaihe päättynyt
- * @param {Object} tarjousTila - Tarjousvaiheen tila
- * @return {boolean} Onko tarjousvaihe päättynyt
+ * Check if bidding phase is complete
+ * @param {Object} biddingState - Bidding state
+ * @return {boolean} Is bidding phase complete
  */
-function onkoTarjousvaihePäättynyt(tarjousTila) {
-  const tarjoukset = tarjousTila.tarjousHistoria;
+function isBiddingPhaseComplete(biddingState) {
+  const bids = biddingState.bidHistory;
   
-  // Jos neljä passia alussa
-  if (tarjoukset.length >= 4 && 
-      tarjoukset[0].tarjous === 'P' && 
-      tarjoukset[1].tarjous === 'P' && 
-      tarjoukset[2].tarjous === 'P' && 
-      tarjoukset[3].tarjous === 'P') {
+  // If four passes at beginning
+  if (bids.length >= 4 && 
+      bids[0].bid === 'P' && 
+      bids[1].bid === 'P' && 
+      bids[2].bid === 'P' && 
+      bids[3].bid === 'P') {
     return true;
   }
   
-  // Jos kolme passia sen jälkeen kun joku on tarjonnut
-  if (tarjousTila.peräkkäisetPassit === 3 && tarjoukset.length >= 4) {
-    // Tarkista että on ainakin yksi tarjous joka ei ole passi
-    const onEiPassi = tarjoukset.some(t => t.tarjous !== 'P');
-    return onEiPassi;
+  // If three passes after someone has bid
+  if (biddingState.consecutivePasses === 3 && bids.length >= 4) {
+    // Check that there is at least one non-pass bid
+    const hasNonPass = bids.some(b => b.bid !== 'P');
+    return hasNonPass;
   }
   
   return false;
 }
 
 /**
- * Siirry seuraavaan tarjoajaan
- * @param {Object} tarjousTila - Tarjousvaiheen tila
+ * Move to next bidder
+ * @param {Object} biddingState - Bidding state
  */
-function siirräSeuraavaanTarjoajaan(tarjousTila) {
-  const paikat = ['north', 'east', 'south', 'west'];
-  const nykyinenIndeksi = paikat.indexOf(tarjousTila.nykyinenTarjoaja);
-  tarjousTila.nykyinenTarjoaja = paikat[(nykyinenIndeksi + 1) % 4];
+function moveToNextBidder(biddingState) {
+  const positions = ['north', 'east', 'south', 'west'];
+  const currentIndex = positions.indexOf(biddingState.currentBidder);
+  biddingState.currentBidder = positions[(currentIndex + 1) % 4];
 }
 
 /**
- * Viimeistele tarjousvaihe
- * @param {Object} pöytä - Pöytäobjekti
+ * Finalize bidding phase
+ * @param {Object} table - Table object
  */
-function viimeisteleTarjousvaihe(pöytä) {
-  pöytä.tarjousTila.tarjousVaiheValmis = true;
+function finalizeBiddingPhase(table) {
+  table.biddingState.biddingComplete = true;
   
-  // Jos kaikki passasivat, ei sopimusta
-  if (pöytä.tarjousTila.tarjousHistoria.length === 4 && 
-      pöytä.tarjousTila.tarjousHistoria.every(tarjous => tarjous.tarjous === 'P')) {
+  // If all passed, no contract
+  if (table.biddingState.bidHistory.length === 4 && 
+      table.biddingState.bidHistory.every(bid => bid.bid === 'P')) {
     
-    // Resetoi peli
-    pöytä.peliTila.pelivaihe = 'setup';
+    // Reset game
+    table.gameState.gamePhase = 'setup';
     
-    // Ilmoita pelaajille
-    lähetäPöydänPelaajille(pöytä, {
-      type: 'kaikkiPassasivat',
-      viesti: "Kaikki pelaajat passasivat. Jaa uudelleen."
+    // Notify players
+    sendToTablePlayers(table, {
+      type: 'allPassed',
+      message: "All players passed. Deal again."
     });
     
-    pöytä.tila = 'odottaa';
+    table.state = 'waiting';
     return;
   }
   
-  // Määritä lopullinen sopimus
-  määritäSopimus(pöytä);
+  // Determine final contract
+  determineContract(table);
   
-  // Määritä pelinviejä ja lepääjä
-  määritäPelinviejäJaLepääjä(pöytä);
+  // Determine declarer and dummy
+  determineDeclarerAndDummy(table);
   
-  // Aseta valttimaa
-  if (pöytä.tarjousTila.sopimus.charAt(1) === 'N') {
-    pöytä.tarjousTila.valttimaa = null; // Ei valttia
+  // Set trump suit
+  if (table.biddingState.contract.charAt(1) === 'N') {
+    table.biddingState.trumpSuit = null; // No trump
   } else {
-    switch(pöytä.tarjousTila.sopimus.charAt(1)) {
-      case 'C': pöytä.tarjousTila.valttimaa = 'clubs'; break;
-      case 'D': pöytä.tarjousTila.valttimaa = 'diamonds'; break;
-      case 'H': pöytä.tarjousTila.valttimaa = 'hearts'; break;
-      case 'S': pöytä.tarjousTila.valttimaa = 'spades'; break;
+    switch(table.biddingState.contract.charAt(1)) {
+      case 'C': table.biddingState.trumpSuit = 'clubs'; break;
+      case 'D': table.biddingState.trumpSuit = 'diamonds'; break;
+      case 'H': table.biddingState.trumpSuit = 'hearts'; break;
+      case 'S': table.biddingState.trumpSuit = 'spades'; break;
     }
   }
   
-  // Siirry pelivaiheeseen
-  siirryPelivaiheeseen(pöytä);
+  // Move to play phase
+  moveToPlayPhase(table);
 }
 
 /**
- * Määritä lopullinen sopimus
- * @param {Object} pöytä - Pöytäobjekti
+ * Determine the final contract
+ * @param {Object} table - Table object
  */
-function määritäSopimus(pöytä) {
-  // Etsi korkein tarjous
-  let korkeinTarjous = null;
-  let kahdennettu = false;
-  let vastaKahdennettu = false;
+function determineContract(table) {
+  // Find highest bid
+  let highestBid = null;
+  let doubled = false;
+  let redoubled = false;
   
-  for (const tarjousInfo of pöytä.tarjousTila.tarjousHistoria) {
-    if (!['P', 'X', 'XX'].includes(tarjousInfo.tarjous)) {
-      korkeinTarjous = tarjousInfo.tarjous;
-    } else if (tarjousInfo.tarjous === 'X' && korkeinTarjous) {
-      kahdennettu = true;
-      vastaKahdennettu = false;
-    } else if (tarjousInfo.tarjous === 'XX' && kahdennettu) {
-      vastaKahdennettu = true;
-      kahdennettu = false;
+  for (const bidInfo of table.biddingState.bidHistory) {
+    if (!['P', 'X', 'XX'].includes(bidInfo.bid)) {
+      highestBid = bidInfo.bid;
+    } else if (bidInfo.bid === 'X' && highestBid) {
+      doubled = true;
+      redoubled = false;
+    } else if (bidInfo.bid === 'XX' && doubled) {
+      redoubled = true;
+      doubled = false;
     }
   }
   
-  if (!korkeinTarjous) {
-    return null; // Kaikki passasivat
+  if (!highestBid) {
+    return null; // All passed
   }
   
-  // Muodosta sopimus
-  let sopimus = korkeinTarjous;
-  if (kahdennettu) sopimus += 'X';
-  if (vastaKahdennettu) sopimus += 'XX';
+  // Form contract
+  let contract = highestBid;
+  if (doubled) contract += 'X';
+  if (redoubled) contract += 'XX';
   
-  pöytä.tarjousTila.sopimus = sopimus;
+  table.biddingState.contract = contract;
   
-  return sopimus;
+  return contract;
 }
 
 /**
- * Määritä pelinviejä ja lepääjä
- * @param {Object} pöytä - Pöytäobjekti
+ * Determine declarer and dummy
+ * @param {Object} table - Table object
  */
-function määritäPelinviejäJaLepääjä(pöytä) {
-  const sopimusMaa = pöytä.tarjousTila.sopimus.charAt(1);
+function determineDeclarerAndDummy(table) {
+  const contractSuit = table.biddingState.contract.charAt(1);
   
-  // Etsi partnershippi joka ensimmäisenä tarjosi tätä maata
-  const parit = {
+  // Find partnership that first bid this suit
+  const partnerships = {
     'north-south': ['north', 'south'],
     'east-west': ['east', 'west']
   };
   
-  let pelinviejänPari = null;
-  let ensimmäinenPelaaja = null;
+  let declarerPartnership = null;
+  let firstPlayer = null;
   
-  for (const tarjousInfo of pöytä.tarjousTila.tarjousHistoria) {
-    if (tarjousInfo.tarjous.charAt(1) === sopimusMaa && !['P', 'X', 'XX'].includes(tarjousInfo.tarjous)) {
-      const pelaaja = tarjousInfo.pelaaja;
+  for (const bidInfo of table.biddingState.bidHistory) {
+    if (bidInfo.bid.charAt(1) === contractSuit && !['P', 'X', 'XX'].includes(bidInfo.bid)) {
+      const player = bidInfo.player;
       
-      // Määritä mihin pariin tämä pelaaja kuuluu
-      for (const [pari, pelaajat] of Object.entries(parit)) {
-        if (pelaajat.includes(pelaaja)) {
-          pelinviejänPari = pari;
+      // Determine which partnership this player belongs to
+      for (const [partnership, players] of Object.entries(partnerships)) {
+        if (players.includes(player)) {
+          declarerPartnership = partnership;
           
-          // Tarkista oliko tämä pelaaja parin ensimmäinen tätä maata tarjoava
-          if (!ensimmäinenPelaaja || !pelaajat.includes(ensimmäinenPelaaja)) {
-            ensimmäinenPelaaja = pelaaja;
+          // Check if this player was the first to bid this suit
+          if (!firstPlayer || !players.includes(firstPlayer)) {
+            firstPlayer = player;
           }
           break;
         }
       }
       
-      if (pelinviejänPari && ensimmäinenPelaaja) {
+      if (declarerPartnership && firstPlayer) {
         break;
       }
     }
   }
   
-  // Aseta pelinviejä ja lepääjä
-  if (pelinviejänPari && ensimmäinenPelaaja) {
-    pöytä.tarjousTila.pelinviejä = ensimmäinenPelaaja;
-    const lepääjänIndeksi = (parit[pelinviejänPari].indexOf(ensimmäinenPelaaja) + 1) % 2;
-    pöytä.tarjousTila.lepääjä = parit[pelinviejänPari][lepääjänIndeksi];
+  // Set declarer and dummy
+  if (declarerPartnership && firstPlayer) {
+    table.biddingState.declarer = firstPlayer;
+    const dummyIndex = (partnerships[declarerPartnership].indexOf(firstPlayer) + 1) % 2;
+    table.biddingState.dummy = partnerships[declarerPartnership][dummyIndex];
   } else {
     // Fallback
-    pöytä.tarjousTila.pelinviejä = 'south';
-    pöytä.tarjousTila.lepääjä = 'north';
+    table.biddingState.declarer = 'south';
+    table.biddingState.dummy = 'north';
   }
 }
 
 /**
- * Siirry pelivaiheeseen
- * @param {Object} pöytä - Pöytäobjekti
+ * Move to play phase
+ * @param {Object} table - Table object
  */
-function siirryPelivaiheeseen(pöytä) {
-  // Siirrä tarjouksen tila pelitilaan
-  pöytä.peliTila.sopimus = pöytä.tarjousTila.sopimus;
-  pöytä.peliTila.valttimaa = pöytä.tarjousTila.valttimaa;
-  pöytä.peliTila.pelinviejä = pöytä.tarjousTila.pelinviejä;
-  pöytä.peliTila.lepääjä = pöytä.tarjousTila.lepääjä;
+function moveToPlayPhase(table) {
+  // Transfer bidding info to game state
+  table.gameState.contract = table.biddingState.contract;
+  table.gameState.trumpSuit = table.biddingState.trumpSuit;
+  table.gameState.declarer = table.biddingState.declarer;
+  table.gameState.dummy = table.biddingState.dummy;
   
-  // Päivitä pelivaihe
-  pöytä.peliTila.pelivaihe = 'play';
+  // Update game phase
+  table.gameState.gamePhase = 'play';
   
-  // Aseta ensimmäinen pelaaja (pelinviejän vasemmalla puolella)
-  const paikat = ['north', 'east', 'south', 'west'];
-  const pelinviejänIndeksi = paikat.indexOf(pöytä.tarjousTila.pelinviejä);
-  pöytä.peliTila.nykyinenPelaaja = paikat[(pelinviejänIndeksi + 1) % 4];
-  pöytä.peliTila.johtajaPeraalaaja = pöytä.peliTila.nykyinenPelaaja;
+  // Set first player (left of declarer)
+  const positions = ['north', 'east', 'south', 'west'];
+  const declarerIndex = positions.indexOf(table.biddingState.declarer);
+  table.gameState.currentPlayer = positions[(declarerIndex + 1) % 4];
+  table.gameState.leadingPlayer = table.gameState.currentPlayer;
   
-  // Ilmoita pelaajille
-  lähetäPöydänPelaajille(pöytä, {
-    type: 'tarjousvaiheValmis',
-    sopimus: pöytä.peliTila.sopimus,
-    pelinviejä: pöytä.peliTila.pelinviejä,
-    lepääjä: pöytä.peliTila.lepääjä,
-    valttimaa: pöytä.peliTila.valttimaa,
-    nykyinenPelaaja: pöytä.peliTila.nykyinenPelaaja,
-    peliTila: suodataPeliTila(pöytä.peliTila, null)
+  // Notify players
+  sendToTablePlayers(table, {
+    type: 'biddingComplete',
+    contract: table.gameState.contract,
+    declarer: table.gameState.declarer,
+    dummy: table.gameState.dummy,
+    trumpSuit: table.gameState.trumpSuit,
+    currentPlayer: table.gameState.currentPlayer,
+    gameState: filterGameState(table.gameState, null)
   });
   
-  // Lähetä pelaajille heidän omat korttinsa
-  for (const [paikka, pelaajaTiedot] of Object.entries(pöytä.pelaajat)) {
-    if (pelaajaTiedot.tyyppi === 'human' && pelaajaTiedot.tunnus) {
-      const pelaaja = pelaajat.get(pelaajaTiedot.tunnus);
-      if (pelaaja && pelaaja.ws) {
-        lähetäViesti(pelaaja.ws, {
-          type: 'pelivaiheenKortit',
-          asema: paikka,
-          kortit: pöytä.peliTila.kädet[paikka],
-          // Lähetä lepääjän kortit pelinviejälle
-          lepääjänKortit: paikka === pöytä.peliTila.pelinviejä ? 
-                            pöytä.peliTila.kädet[pöytä.peliTila.lepääjä] : null
+  // Send players their cards
+  for (const [position, playerData] of Object.entries(table.players)) {
+    if (playerData.type === 'human' && playerData.id) {
+      const player = players.get(playerData.id);
+      if (player && player.socket) {
+        player.socket.emit('playPhaseCards', {
+          position,
+          cards: table.gameState.hands[position],
+          // Send dummy's cards to declarer
+          dummyCards: position === table.gameState.declarer ? 
+                        table.gameState.hands[table.gameState.dummy] : null
         });
       }
     }
   }
   
-  // Jos ensimmäinen pelaaja on GIB, tee GIB:n siirto
-  if (pöytä.pelaajat[pöytä.peliTila.nykyinenPelaaja].tyyppi === 'gib') {
+  // If first player is GIB, make GIB's move
+  if (table.players[table.gameState.currentPlayer].type === 'gib') {
     setTimeout(() => {
-      teeGIBsiirto(pöytä, pöytä.peliTila.nykyinenPelaaja);
+      makeGIBMove(table, table.gameState.currentPlayer);
     }, 1500);
   }
 }
 
 /**
- * Tee GIB-tekoälyn tarjous
- * @param {Object} pöytä - Pöytäobjekti
- * @param {string} asema - GIB:n paikka
+ * Play a card
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Card play data
  */
-function teeGIBtarjous(pöytä, asema) {
-  // Yksinkertainen logiikka GIB-tarjoukselle
+function playCard(socket, playerId, data) {
+  const { tableCode, position, suit, card } = data;
   
-  // Hae validit tarjoukset
-  const mahdollisetTarjoukset = haeMahdollisetTarjoukset(pöytä.tarjousTila.korkeinTarjous);
-  
-  // Käytä strategiaa tarjouksen valintaan
-  const tarjous = laskeTarjous(pöytä, asema, mahdollisetTarjoukset);
-  
-  // Tee valittu tarjous
-  käsitteleTarjous(pöytä, asema, tarjous);
-}
-
-/**
- * Laske GIB-tekoälyn tarjous
- * @param {Object} pöytä - Pöytäobjekti
- * @param {string} asema - GIB:n paikka
- * @param {Array<string>} mahdollisetTarjoukset - Mahdolliset tarjoukset
- * @return {string} Valittu tarjous
- */
-function laskeTarjous(pöytä, asema, mahdollisetTarjoukset) {
-  // Hae tiedot pelaajan kädestä
-  const käsi = pöytä.peliTila.kädet[asema];
-  
-  // Yksinkertainen GIB-logiikka
-  // Pass on oletusarvo
-  let tarjous = 'P';
-  
-  // 15+ pistettä -> 1NT
-  if (laskePisteet(käsi) >= 15 && laskePisteet(käsi) <= 17) {
-    tarjous = mahdollisetTarjoukset.includes('1N') ? '1N' : 'P';
-  }
-  // 12+ pistettä -> 1 pisin maa
-  else if (laskePisteet(käsi) >= 12) {
-    const maat = ['spades', 'hearts', 'diamonds', 'clubs'];
-    const pisinMaa = maat.reduce((pisin, maa) => 
-      käsi[maa].length > käsi[pisin].length ? maa : pisin, maat[0]);
-    
-    if (pisinMaa === 'spades' && käsi[pisinMaa].length >= 5) {
-      tarjous = mahdollisetTarjoukset.includes('1S') ? '1S' : 'P';
-    } else if (pisinMaa === 'hearts' && käsi[pisinMaa].length >= 5) {
-      tarjous = mahdollisetTarjoukset.includes('1H') ? '1H' : 'P';
-    } else if (pisinMaa === 'diamonds') {
-      tarjous = mahdollisetTarjoukset.includes('1D') ? '1D' : 'P';
-    } else if (pisinMaa === 'clubs') {
-      tarjous = mahdollisetTarjoukset.includes('1C') ? '1C' : 'P';
-    }
-  }
-  
-  // Varmista että tarjous on mahdollinen
-  return mahdollisetTarjoukset.includes(tarjous) ? tarjous : 'P';
-}
-
-/**
- * Hae mahdolliset tarjoukset
- * @param {string|null} korkeinTarjous - Korkein tarjous tähän asti
- * @return {Array<string>} Mahdolliset tarjoukset
- */
-function haeMahdollisetTarjoukset(korkeinTarjous) {
-  const mahdollisetTarjoukset = ['P']; // Pass on aina mahdollinen
-  
-  // Double/redouble-logiikka
-  if (korkeinTarjous) {
-    mahdollisetTarjoukset.push('X');
-  }
-  
-  // Luo normaalit tarjoukset
-  const tasot = ['1', '2', '3', '4', '5', '6', '7'];
-  const maat = ['C', 'D', 'H', 'S', 'N'];
-  
-  if (!korkeinTarjous) {
-    // Jos ei ole aiempia tarjouksia, kaikki tarjoukset 1C-7N ovat mahdollisia
-    for (const taso of tasot) {
-      for (const maa of maat) {
-        mahdollisetTarjoukset.push(`${taso}${maa}`);
-      }
-    }
-  } else {
-    // Luo kaikki korkeinta tarjousta korkeammat tarjoukset
-    const korkeinTaso = parseInt(korkeinTarjous.charAt(0));
-    const korkeinMaa = korkeinTarjous.charAt(1);
-    const korkeinMaaIndeksi = maat.indexOf(korkeinMaa);
-    
-    for (let taso = korkeinTaso; taso <= 7; taso++) {
-      for (let maaIndeksi = 0; maaIndeksi < maat.length; maaIndeksi++) {
-        if (taso === korkeinTaso && maaIndeksi <= korkeinMaaIndeksi) continue;
-        mahdollisetTarjoukset.push(`${taso}${maat[maaIndeksi]}`);
-      }
-    }
-  }
-  
-  return mahdollisetTarjoukset;
-}
-
-/**
- * Tarkista onko tarjous validi
- * @param {string} tarjous - Tarkastettava tarjous
- * @param {string|null} korkeinTarjous - Korkein tarjous tähän asti
- * @return {boolean} Onko tarjous validi
- */
-function onkoTarjousValidi(tarjous, korkeinTarjous) {
-  // Pass on aina validi
-  if (tarjous === 'P') return true;
-  
-  // Double ja Redouble
-  if (tarjous === 'X' || tarjous === 'XX') return true;
-  
-  // Tavallinen tarjous - täytyy olla korkeampi kuin nykyinen korkein
-  if (!korkeinTarjous) return true; // Ensimmäinen tarjous on aina validi
-  
-  const tarjousTaso = parseInt(tarjous.charAt(0));
-  const tarjousMaa = tarjous.charAt(1);
-  const korkeinTaso = parseInt(korkeinTarjous.charAt(0));
-  const korkeinMaa = korkeinTarjous.charAt(1);
-  
-  const maat = ['C', 'D', 'H', 'S', 'N'];
-  const tarjousMaaIndeksi = maat.indexOf(tarjousMaa);
-  const korkeinMaaIndeksi = maat.indexOf(korkeinMaa);
-  
-  if (tarjousTaso > korkeinTaso) return true;
-  if (tarjousTaso === korkeinTaso && tarjousMaaIndeksi > korkeinMaaIndeksi) return true;
-  
-  return false;
-}
-
-/**
- * Pelaa kortti
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Kortin pelaamiseen liittyvä data
- */
-function pelaaKortti(ws, pelaajaTunnus, data) {
-  const { pöytäkoodi, asema, maa, kortti } = data;
-  
-  if (!pöytäkoodi || !asema || !maa || !kortti) {
-    lähetäVirhe(ws, 'Puutteelliset tiedot kortin pelaamiseen');
+  if (!tableCode || !position || !suit || !card) {
+    sendError(socket, 'Incomplete information for playing a card');
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
-    lähetäVirhe(ws, 'Pöytää ei löydy');
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
     return;
   }
   
-  if (pöytä.tila !== 'pelaamassa') {
-    lähetäVirhe(ws, 'Peli ei ole käynnissä');
+  if (table.state !== 'playing') {
+    sendError(socket, 'Game is not in progress');
     return;
   }
   
-  if (!pöytä.tarjousTila.tarjousVaiheValmis) {
-    lähetäVirhe(ws, 'Tarjousvaihe on vielä kesken');
+  if (!table.biddingState.biddingComplete) {
+    sendError(socket, 'Bidding phase is still in progress');
     return;
   }
   
-  // Tarkista että pelaaja on vuorossa
-  if (pöytä.peliTila.nykyinenPelaaja !== asema) {
-    lähetäVirhe(ws, 'Ei ole sinun vuorosi pelata');
+  // Check if it's player's turn
+  if (table.gameState.currentPlayer !== position) {
+    sendError(socket, 'It is not your turn to play');
     return;
   }
   
-  // Tarkista että tämä pelaaja hallitsee tätä paikkaa tai pelaaja on lepääjä
-  const onLepääjä = asema === pöytä.peliTila.lepääjä;
-  const onKontrolleri = onLepääjä ? 
-                    (pöytä.pelaajat[pöytä.peliTila.pelinviejä].tunnus === pelaajaTunnus) : 
-                    (pöytä.pelaajat[asema].tunnus === pelaajaTunnus);
+  // Check if this player controls this position or player is dummy controller
+  const isDummy = position === table.gameState.dummy;
+  const isController = isDummy ? 
+                    (table.players[table.gameState.declarer].id === playerId) : 
+                    (table.players[position].id === playerId);
   
-  if (!onKontrolleri) {
-    lähetäVirhe(ws, 'Et voi pelata tästä paikasta');
+  if (!isController) {
+    sendError(socket, 'You cannot play from this position');
     return;
   }
   
-  // Tarkista että kortti on pelaajan kädessä
-  const käsi = pöytä.peliTila.kädet[asema];
-  if (!käsi[maa] || !käsi[maa].includes(kortti)) {
-    lähetäVirhe(ws, 'Sinulla ei ole tätä korttia');
+  // Check if card is in player's hand
+  const hand = table.gameState.hands[position];
+  if (!hand[suit] || !hand[suit].includes(card)) {
+    sendError(socket, 'You do not have this card');
     return;
   }
   
-  // Tarkista väriin tunnustaminen
-  if (pöytä.peliTila.nykyinenTikki.length > 0) {
-    const johtavaMaa = pöytä.peliTila.nykyinenTikki[0].maa;
-    if (maa !== johtavaMaa && käsi[johtavaMaa] && käsi[johtavaMaa].length > 0) {
-      lähetäVirhe(ws, 'Sinun täytyy tunnustaa väriä');
+  // Check following suit
+  if (table.gameState.currentTrick.length > 0) {
+    const leadingSuit = table.gameState.currentTrick[0].suit;
+    if (suit !== leadingSuit && hand[leadingSuit] && hand[leadingSuit].length > 0) {
+      sendError(socket, 'You must follow suit');
       return;
     }
   }
   
-  // Käsittele kortin pelaaminen
-  käsitteleKortinPelaaminen(pöytä, asema, maa, kortti);
+  // Process card play
+  processCardPlay(table, position, suit, card);
 }
 
 /**
- * Käsittele kortin pelaaminen
- * @param {Object} pöytä - Pöytäobjekti
- * @param {string} asema - Pelaajan paikka
- * @param {string} maa - Kortin maa
- * @param {string} kortti - Kortin arvo
+ * Process card play
+ * @param {Object} table - Table object
+ * @param {string} position - Player's position
+ * @param {string} suit - Card suit
+ * @param {string} card - Card value
  */
-function käsitteleKortinPelaaminen(pöytä, asema, maa, kortti) {
-  pöytä.viimeisinAktiviteetti = Date.now();
+function processCardPlay(table, position, suit, card) {
+  table.lastActivity = Date.now();
   
-  // Lisää kortti tikkiin ja pelattuihin kortteihin
-  const pelattuKortti = { pelaaja: asema, maa, kortti };
-  pöytä.peliTila.nykyinenTikki.push(pelattuKortti);
-  pöytä.peliTila.pelatutKortit.push(pelattuKortti);
+  // Add card to trick and played cards
+  const playedCard = { player: position, suit, card };
+  table.gameState.currentTrick.push(playedCard);
+  table.gameState.playedCards.push(playedCard);
   
-  // Poista kortti pelaajan kädestä
-  pöytä.peliTila.kädet[asema][maa] = 
-    pöytä.peliTila.kädet[asema][maa].filter(k => k !== kortti);
+  // Remove card from player's hand
+  table.gameState.hands[position][suit] = 
+    table.gameState.hands[position][suit].filter(c => c !== card);
   
-  // Ilmoita kaikille pelaajille
-  lähetäPöydänPelaajille(pöytä, {
-    type: 'korttiPelattu',
-    asema,
-    maa,
-    kortti,
-    nykyinenTikki: pöytä.peliTila.nykyinenTikki
+  // Notify all players
+  sendToTablePlayers(table, {
+    type: 'cardPlayed',
+    position,
+    suit,
+    card,
+    currentTrick: table.gameState.currentTrick
   });
   
-  // Tarkista onko tikki täynnä (4 korttia)
-  if (pöytä.peliTila.nykyinenTikki.length === 4) {
+  // Check if trick is complete (4 cards)
+  if (table.gameState.currentTrick.length === 4) {
     setTimeout(() => {
-      käsitteleTikki(pöytä);
+      processTrick(table);
     }, 1000);
   } else {
-    // Siirry seuraavaan pelaajaan
-    pöytä.peliTila.nykyinenPelaaja = haeSeuraaavaPelaaja(pöytä.peliTila.nykyinenPelaaja);
+    // Move to next player
+    table.gameState.currentPlayer = getNextPlayer(table.gameState.currentPlayer);
     
-    // Ilmoita seuraavasta vuorosta
-    lähetäPöydänPelaajille(pöytä, {
-      type: 'seuraavaPelaaja',
-      nykyinenPelaaja: pöytä.peliTila.nykyinenPelaaja
+    // Notify about next turn
+    sendToTablePlayers(table, {
+      type: 'nextPlayer',
+      currentPlayer: table.gameState.currentPlayer
     });
     
-    // Jos seuraava pelaaja on GIB, tee GIB:n siirto
-    if (pöytä.pelaajat[pöytä.peliTila.nykyinenPelaaja].tyyppi === 'gib') {
+    // If next player is GIB, make GIB's move
+    if (table.players[table.gameState.currentPlayer].type === 'gib') {
       setTimeout(() => {
-        teeGIBsiirto(pöytä, pöytä.peliTila.nykyinenPelaaja);
+        makeGIBMove(table, table.gameState.currentPlayer);
       }, 1500);
     }
   }
 }
 
 /**
- * Tee GIB-tekoälyn siirto
- * @param {Object} pöytä - Pöytäobjekti
- * @param {string} asema - GIB:n paikka
+ * Make GIB AI bid
+ * @param {Object} table - Table object
+ * @param {string} position - GIB's position
  */
-function teeGIBsiirto(pöytä, asema) {
-  // Valitse pelattava kortti
-  const käsi = pöytä.peliTila.kädet[asema];
-  let pelattavatKortit = [];
+function makeGIBBid(table, position) {
+  // Simple logic for GIB bidding
   
-  // Jos tämä on ensimmäinen kortti tikkiin, käytä johtamisstrategiaa
-  if (pöytä.peliTila.nykyinenTikki.length === 0) {
-    // Yksinkertaisuuden vuoksi, pelaa satunnainen kortti
-    for (const maa of ['spades', 'hearts', 'diamonds', 'clubs']) {
-      for (const kortti of käsi[maa] || []) {
-        pelattavatKortit.push({ maa, kortti });
+  // Get valid bids
+  const possibleBids = getPossibleBids(table.biddingState.highestBid);
+  
+  // Use strategy to choose bid
+  const bid = calculateBid(table, position, possibleBids);
+  
+  // Make the chosen bid
+  processBid(table, position, bid);
+}
+
+/**
+ * Calculate GIB AI bid
+ * @param {Object} table - Table object
+ * @param {string} position - GIB's position
+ * @param {Array<string>} possibleBids - Possible bids
+ * @return {string} Chosen bid
+ */
+function calculateBid(table, position, possibleBids) {
+  // Get info about player's hand
+  const hand = table.gameState.hands[position];
+  
+  // Simple GIB logic
+  // Default to pass
+  let bid = 'P';
+  
+  // 15+ points -> 1NT
+  if (calculatePoints(hand) >= 15 && calculatePoints(hand) <= 17) {
+    bid = possibleBids.includes('1N') ? '1N' : 'P';
+  }
+  // 12+ points -> 1 longest suit
+  else if (calculatePoints(hand) >= 12) {
+    const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
+    const longestSuit = suits.reduce((longest, suit) => 
+      hand[suit].length > hand[longest].length ? suit : longest, suits[0]);
+    
+    if (longestSuit === 'spades' && hand[longestSuit].length >= 5) {
+      bid = possibleBids.includes('1S') ? '1S' : 'P';
+    } else if (longestSuit === 'hearts' && hand[longestSuit].length >= 5) {
+      bid = possibleBids.includes('1H') ? '1H' : 'P';
+    } else if (longestSuit === 'diamonds') {
+      bid = possibleBids.includes('1D') ? '1D' : 'P';
+    } else if (longestSuit === 'clubs') {
+      bid = possibleBids.includes('1C') ? '1C' : 'P';
+    }
+  }
+  
+  // Ensure bid is possible
+  return possibleBids.includes(bid) ? bid : 'P';
+}
+
+/**
+ * Get possible bids
+ * @param {string|null} highestBid - Highest bid so far
+ * @return {Array<string>} Possible bids
+ */
+function getPossibleBids(highestBid) {
+  const possibleBids = ['P']; // Pass is always possible
+  
+  // Double/redouble logic
+  if (highestBid) {
+    possibleBids.push('X');
+  }
+  
+  // Create normal bids
+  const levels = ['1', '2', '3', '4', '5', '6', '7'];
+  const suits = ['C', 'D', 'H', 'S', 'N'];
+  
+  if (!highestBid) {
+    // If no previous bids, all bids 1C-7N are possible
+    for (const level of levels) {
+      for (const suit of suits) {
+        possibleBids.push(`${level}${suit}`);
       }
     }
   } else {
-    // Muuten tunnusta väriin jos mahdollista
-    const johtavaMaa = pöytä.peliTila.nykyinenTikki[0].maa;
+    // Create all bids higher than current highest
+    const highestLevel = parseInt(highestBid.charAt(0));
+    const highestSuit = highestBid.charAt(1);
+    const highestSuitIndex = suits.indexOf(highestSuit);
     
-    if (käsi[johtavaMaa] && käsi[johtavaMaa].length > 0) {
-      // Pitää tunnustaa väriin
-      for (const kortti of käsi[johtavaMaa]) {
-        pelattavatKortit.push({ maa: johtavaMaa, kortti });
+    for (let level = highestLevel; level <= 7; level++) {
+      for (let suitIndex = 0; suitIndex < suits.length; suitIndex++) {
+        if (level === highestLevel && suitIndex <= highestSuitIndex) continue;
+        possibleBids.push(`${level}${suits[suitIndex]}`);
+      }
+    }
+  }
+  
+  return possibleBids;
+}
+
+/**
+ * Check if bid is valid
+ * @param {string} bid - Bid to check
+ * @param {string|null} highestBid - Highest bid so far
+ * @return {boolean} Is bid valid
+ */
+function isBidValid(bid, highestBid) {
+  // Pass is always valid
+  if (bid === 'P') return true;
+  
+  // Double and Redouble
+  if (bid === 'X' || bid === 'XX') return true;
+  
+  // Regular bid - must be higher than current highest
+  if (!highestBid) return true; // First bid is always valid
+  
+  const bidLevel = parseInt(bid.charAt(0));
+  const bidSuit = bid.charAt(1);
+  const highestLevel = parseInt(highestBid.charAt(0));
+  const highestSuit = highestBid.charAt(1);
+  
+  const suits = ['C', 'D', 'H', 'S', 'N'];
+  const bidSuitIndex = suits.indexOf(bidSuit);
+  const highestSuitIndex = suits.indexOf(highestSuit);
+  
+  if (bidLevel > highestLevel) return true;
+  if (bidLevel === highestLevel && bidSuitIndex > highestSuitIndex) return true;
+  
+  return false;
+}
+
+/**
+ * Make GIB AI move
+ * @param {Object} table - Table object
+ * @param {string} position - GIB's position
+ */
+function makeGIBMove(table, position) {
+  // Choose card to play
+  const hand = table.gameState.hands[position];
+  let playableCards = [];
+  
+  // If this is first card in trick, use leading strategy
+  if (table.gameState.currentTrick.length === 0) {
+    // For simplicity, play a random card
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+      for (const card of hand[suit] || []) {
+        playableCards.push({ suit, card });
+      }
+    }
+  } else {
+    // Otherwise follow suit if possible
+    const leadingSuit = table.gameState.currentTrick[0].suit;
+    
+    if (hand[leadingSuit] && hand[leadingSuit].length > 0) {
+      // Must follow suit
+      for (const card of hand[leadingSuit]) {
+        playableCards.push({ suit: leadingSuit, card });
       }
     } else {
-      // Voi pelata minkä tahansa kortin
-      for (const maa of ['spades', 'hearts', 'diamonds', 'clubs']) {
-        for (const kortti of käsi[maa] || []) {
-          pelattavatKortit.push({ maa, kortti });
+      // Can play any card
+      for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+        for (const card of hand[suit] || []) {
+          playableCards.push({ suit, card });
         }
       }
     }
   }
   
-  if (pelattavatKortit.length === 0) {
-    console.error(`GIB-pelaajalla ${asema} ei ole laillisia kortteja pelattavaksi!`);
+  if (playableCards.length === 0) {
+    console.error(`GIB player ${position} has no legal cards to play!`);
     return;
   }
   
-  // Valitse satunnainen kortti
-  const valittuKorttiIndeksi = Math.floor(Math.random() * pelattavatKortit.length);
-  const valittuKortti = pelattavatKortit[valittuKorttiIndeksi];
+  // Choose random card
+  const chosenCardIndex = Math.floor(Math.random() * playableCards.length);
+  const chosenCard = playableCards[chosenCardIndex];
   
-  // Pelaa valittu kortti
-  käsitteleKortinPelaaminen(pöytä, asema, valittuKortti.maa, valittuKortti.kortti);
+  // Play chosen card
+  processCardPlay(table, position, chosenCard.suit, chosenCard.card);
 }
 
 /**
- * Hae seuraava pelaaja
- * @param {string} nykyinenPelaaja - Nykyinen pelaaja
- * @return {string} Seuraava pelaaja
+ * Get next player
+ * @param {string} currentPlayer - Current player
+ * @return {string} Next player
  */
-function haeSeuraaavaPelaaja(nykyinenPelaaja) {
-  const paikat = ['north', 'east', 'south', 'west'];
-  const nykyinenIndeksi = paikat.indexOf(nykyinenPelaaja);
-  return paikat[(nykyinenIndeksi + 1) % 4];
+function getNextPlayer(currentPlayer) {
+  const positions = ['north', 'east', 'south', 'west'];
+  const currentIndex = positions.indexOf(currentPlayer);
+  return positions[(currentIndex + 1) % 4];
 }
 
 /**
- * Käsittele täysi tikki
- * @param {Object} pöytä - Pöytäobjekti
+ * Process completed trick
+ * @param {Object} table - Table object
  */
-function käsitteleTikki(pöytä) {
-  // Määritä tikin voittaja
-  const voittaja = määritäTikinVoittaja(pöytä);
+function processTrick(table) {
+  // Determine trick winner
+  const winner = determineTrickWinner(table);
   
-  // Päivitä tikit
-  if (voittaja === 'north' || voittaja === 'south') {
-    pöytä.peliTila.tikit.ns += 1;
+  // Update tricks
+  if (winner === 'north' || winner === 'south') {
+    table.gameState.tricks.ns += 1;
   } else {
-    pöytä.peliTila.tikit.ew += 1;
+    table.gameState.tricks.ew += 1;
   }
   
-  pöytä.peliTila.kokonaisTikit += 1;
+  table.gameState.totalTricks += 1;
   
-  // Tyhjennä nykyinen tikki
-  const valmisTikki = [...pöytä.peliTila.nykyinenTikki];
-  pöytä.peliTila.nykyinenTikki = [];
+  // Clear current trick
+  const completedTrick = [...table.gameState.currentTrick];
+  table.gameState.currentTrick = [];
   
-  // Aseta voittaja seuraavaksi johtajaksi
-  pöytä.peliTila.johtajaPelaaja = voittaja;
-  pöytä.peliTila.nykyinenPelaaja = voittaja;
+  // Set winner as next leader
+  table.gameState.leadingPlayer = winner;
+  table.gameState.currentPlayer = winner;
   
-  // Tarkista onko peli päättynyt (13 tikkiä pelattu)
-  if (pöytä.peliTila.kokonaisTikit >= 13) {
-    // Peli päättyy
-    päätäPeli(pöytä);
+  // Check if game is over (13 tricks played)
+  if (table.gameState.totalTricks >= 13) {
+    // Game ends
+    endGame(table);
     return;
   }
   
-  // Ilmoita tikin voittajasta
-  lähetäPöydänPelaajille(pöytä, {
-    type: 'tikkiValmis',
-    voittaja,
-    tikki: valmisTikki,
-    tikit: pöytä.peliTila.tikit,
-    seuraavaPelaaja: voittaja
+  // Notify about trick winner
+  sendToTablePlayers(table, {
+    type: 'trickComplete',
+    winner,
+    trick: completedTrick,
+    tricks: table.gameState.tricks,
+    nextPlayer: winner
   });
   
-  // Jos seuraava pelaaja on GIB, tee GIB:n siirto
-  if (pöytä.pelaajat[pöytä.peliTila.nykyinenPelaaja].tyyppi === 'gib') {
+  // If next player is GIB, make GIB's move
+  if (table.players[table.gameState.currentPlayer].type === 'gib') {
     setTimeout(() => {
-      teeGIBsiirto(pöytä, pöytä.peliTila.nykyinenPelaaja);
+      makeGIBMove(table, table.gameState.currentPlayer);
     }, 1500);
   }
 }
 
 /**
- * Määritä tikin voittaja
- * @param {Object} pöytä - Pöytäobjekti
- * @return {string} Voittajan paikka
+ * Determine trick winner
+ * @param {Object} table - Table object
+ * @return {string} Winner's position
  */
-function määritäTikinVoittaja(pöytä) {
-  const arvot = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-  const johtavaMaa = pöytä.peliTila.nykyinenTikki[0].maa;
-  const valttimaa = pöytä.peliTila.valttimaa;
+function determineTrickWinner(table) {
+  const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  const leadingSuit = table.gameState.currentTrick[0].suit;
+  const trumpSuit = table.gameState.trumpSuit;
   
-  let korkeinKortti = pöytä.peliTila.nykyinenTikki[0];
-  let voittajaPelaaja = pöytä.peliTila.nykyinenTikki[0].pelaaja;
+  let highestCard = table.gameState.currentTrick[0];
+  let winnerPlayer = table.gameState.currentTrick[0].player;
   
-  for (let i = 1; i < pöytä.peliTila.nykyinenTikki.length; i++) {
-    const nykyinenKortti = pöytä.peliTila.nykyinenTikki[i];
+  for (let i = 1; i < table.gameState.currentTrick.length; i++) {
+    const currentCard = table.gameState.currentTrick[i];
     
-    // Tarkista onko tämä kortti valtti kun korkein ei ole
-    if (valttimaa && nykyinenKortti.maa === valttimaa && korkeinKortti.maa !== valttimaa) {
-      korkeinKortti = nykyinenKortti;
-      voittajaPelaaja = nykyinenKortti.pelaaja;
+    // Check if this card is trump when highest is not
+    if (trumpSuit && currentCard.suit === trumpSuit && highestCard.suit !== trumpSuit) {
+      highestCard = currentCard;
+      winnerPlayer = currentCard.player;
     }
-    // Tarkista ovatko molemmat kortit valtteja
-    else if (valttimaa && nykyinenKortti.maa === valttimaa && korkeinKortti.maa === valttimaa) {
-      if (arvot.indexOf(nykyinenKortti.kortti) > arvot.indexOf(korkeinKortti.kortti)) {
-        korkeinKortti = nykyinenKortti;
-        voittajaPelaaja = nykyinenKortti.pelaaja;
+    // Check if both cards are trump
+    else if (trumpSuit && currentCard.suit === trumpSuit && highestCard.suit === trumpSuit) {
+      if (values.indexOf(currentCard.card) > values.indexOf(highestCard.card)) {
+        highestCard = currentCard;
+        winnerPlayer = currentCard.player;
       }
     }
-    // Tarkista onko nykyinen kortti johtavaa maata ja korkein myös
-    else if (nykyinenKortti.maa === johtavaMaa && korkeinKortti.maa === johtavaMaa) {
-      if (arvot.indexOf(nykyinenKortti.kortti) > arvot.indexOf(korkeinKortti.kortti)) {
-        korkeinKortti = nykyinenKortti;
-        voittajaPelaaja = nykyinenKortti.pelaaja;
+    // Check if current card is leading suit and highest also
+    else if (currentCard.suit === leadingSuit && highestCard.suit === leadingSuit) {
+      if (values.indexOf(currentCard.card) > values.indexOf(highestCard.card)) {
+        highestCard = currentCard;
+        winnerPlayer = currentCard.player;
       }
     }
-    // Jos nykyinen kortti on johtavaa maata mutta korkein ei (eikä valtti)
-    else if (nykyinenKortti.maa === johtavaMaa && korkeinKortti.maa !== johtavaMaa && 
-            (!valttimaa || korkeinKortti.maa !== valttimaa)) {
-      korkeinKortti = nykyinenKortti;
-      voittajaPelaaja = nykyinenKortti.pelaaja;
+    // If current card is leading suit but highest is not (and not trump)
+    else if (currentCard.suit === leadingSuit && highestCard.suit !== leadingSuit && 
+            (!trumpSuit || highestCard.suit !== trumpSuit)) {
+      highestCard = currentCard;
+      winnerPlayer = currentCard.player;
     }
   }
   
-  return voittajaPelaaja;
+  return winnerPlayer;
 }
 
 /**
- * Päätä peli
- * @param {Object} pöytä - Pöytäobjekti
+ * End game
+ * @param {Object} table - Table object
  */
-function päätäPeli(pöytä) {
-  pöytä.peliTila.pelivaihe = 'end';
+function endGame(table) {
+  table.gameState.gamePhase = 'end';
   
-  // Laske tulos sopimuksen perusteella
-  let tulosViesti = '';
+  // Calculate result based on contract
+  let resultMessage = '';
   
-  if (pöytä.peliTila.sopimus) {
-    const taso = parseInt(pöytä.peliTila.sopimus.charAt(0));
-    const tarvitutTikit = taso + 6; // Sopimustaso + 6
+  if (table.gameState.contract) {
+    const level = parseInt(table.gameState.contract.charAt(0));
+    const requiredTricks = level + 6; // Contract level + 6
     
-    // Määritä tehtiinkö sopimus
-    const pelinviejänPuoli = pöytä.peliTila.pelinviejä === 'north' || pöytä.peliTila.pelinviejä === 'south' ? 'ns' : 'ew';
-    const tehdytTikit = pöytä.peliTila.tikit[pelinviejänPuoli];
+    // Determine if contract was made
+    const declarerSide = table.gameState.declarer === 'north' || table.gameState.declarer === 'south' ? 'ns' : 'ew';
+    const madeTricts = table.gameState.tricks[declarerSide];
     
-    if (tehdytTikit >= tarvitutTikit) {
-      // Sopimus tehty
-      tulosViesti = `Sopimus ${formatoiSopimus(pöytä.peliTila.sopimus)} tehty! ${paikanNimi(pöytä.peliTila.pelinviejä)}-${paikanNimi(pöytä.peliTila.lepääjä)} sai ${tehdytTikit} tikkiä.`;
+    if (madeTricts >= requiredTricks) {
+      // Contract made
+      resultMessage = `Contract ${formatContract(table.gameState.contract)} made! ${positionName(table.gameState.declarer)}-${positionName(table.gameState.dummy)} got ${madeTricts} tricks.`;
     } else {
-      // Sopimus pieti
-      tulosViesti = `Sopimus ${formatoiSopimus(pöytä.peliTila.sopimus)} pietiin ${tarvitutTikit - tehdytTikit} tikillä. ${paikanNimi(pöytä.peliTila.pelinviejä)}-${paikanNimi(pöytä.peliTila.lepääjä)} sai ${tehdytTikit} tikkiä.`;
+      // Contract down
+      resultMessage = `Contract ${formatContract(table.gameState.contract)} went down ${requiredTricks - madeTricts} trick(s). ${positionName(table.gameState.declarer)}-${positionName(table.gameState.dummy)} got ${madeTricts} tricks.`;
     }
   } else {
-    // Ei sopimusta - raportoi vain tikit
-    if (pöytä.peliTila.tikit.ns > pöytä.peliTila.tikit.ew) {
-      tulosViesti = `Peli päättyi! Pohjoinen-Etelä voitti ${pöytä.peliTila.tikit.ns} tikkiä vs. ${pöytä.peliTila.tikit.ew}.`;
-    } else if (pöytä.peliTila.tikit.ew > pöytä.peliTila.tikit.ns) {
-      tulosViesti = `Peli päättyi! Itä-Länsi voitti ${pöytä.peliTila.tikit.ew} tikkiä vs. ${pöytä.peliTila.tikit.ns}.`;
+    // No contract - just report tricks
+    if (table.gameState.tricks.ns > table.gameState.tricks.ew) {
+      resultMessage = `Game over! North-South won ${table.gameState.tricks.ns} tricks vs. ${table.gameState.tricks.ew}.`;
+    } else if (table.gameState.tricks.ew > table.gameState.tricks.ns) {
+      resultMessage = `Game over! East-West won ${table.gameState.tricks.ew} tricks vs. ${table.gameState.tricks.ns}.`;
     } else {
-      tulosViesti = `Peli päättyi! Tasapeli, molemmat joukkueet saivat ${pöytä.peliTila.tikit.ns} tikkiä.`;
+      resultMessage = `Game over! Tie, both teams got ${table.gameState.tricks.ns} tricks.`;
     }
   }
   
-  // Ilmoita pelaajille pelin päättymisestä
-  lähetäPöydänPelaajille(pöytä, {
-    type: 'peliLoppui',
-    viesti: tulosViesti,
-    tikit: pöytä.peliTila.tikit,
-    sopimus: pöytä.peliTila.sopimus
+  // Notify players about game end
+  sendToTablePlayers(table, {
+    type: 'gameOver',
+    message: resultMessage,
+    tricks: table.gameState.tricks,
+    contract: table.gameState.contract
   });
   
-  // Resetoi pöytä uutta peliä varten
-  pöytä.tila = 'odottaa';
-  pöytä.peliTila = null;
-  pöytä.tarjousTila = null;
+  // Reset table for new game
+  table.state = 'waiting';
+  table.gameState = null;
+  table.biddingState = null;
 }
 
 /**
- * Aloita uusi peli
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Pelin aloitukseen liittyvä data
+ * Start new game
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - New game data
  */
-function aloitaUusiPeli(ws, pelaajaTunnus, data) {
-  const { pöytäkoodi } = data;
+function startNewGame(socket, playerId, data) {
+  const { tableCode } = data;
   
-  if (!pöytäkoodi) {
-    lähetäVirhe(ws, 'Pöytäkoodi puuttuu');
+  if (!tableCode) {
+    sendError(socket, 'Table code missing');
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
-    lähetäVirhe(ws, 'Pöytää ei löydy');
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
     return;
   }
   
-  const pelaaja = pelaajat.get(pelaajaTunnus);
+  const player = players.get(playerId);
   
-  // Tarkista onko oikeus aloittaa peli
-  if (!pelaaja || pelaaja.pöytä !== pöytäkoodi) {
-    lähetäVirhe(ws, 'Sinulla ei ole oikeutta aloittaa peliä');
+  // Check if player has right to start game
+  if (!player || player.table !== tableCode) {
+    sendError(socket, 'You do not have permission to start the game');
     return;
   }
   
-  // Aloita peli
-  aloitaPeli(ws, pelaajaTunnus, data);
+  // Start game
+  startGame(socket, playerId, data);
 }
 
 /**
- * Luo yksinpeli GIB-tekoälyä vastaan
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Yksinpelin luontiin liittyvä data
+ * Create solo game against GIB AI
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Solo game creation data
  */
-function luoYksinpeli(ws, pelaajaTunnus, data) {
-  const { pelaajanNimi } = data;
+function createSoloGame(socket, playerId, data) {
+  const { playerName } = data;
   
-  if (!pelaajanNimi) {
-    lähetäVirhe(ws, 'Pelaajan nimi puuttuu');
+  if (!playerName) {
+    sendError(socket, 'Player name missing');
     return;
   }
   
-  const pelaaja = pelaajat.get(pelaajaTunnus);
+  const player = players.get(playerId);
   
-  // Tarkista onko pelaaja jo jossain pöydässä
-  if (pelaaja.pöytä) {
-    lähetäVirhe(ws, 'Olet jo liittynyt pöytään');
+  // Check if player is already in a table
+  if (player.table) {
+    sendError(socket, 'You are already in a table');
     return;
   }
   
-  // Luo pöytäkoodi
-  const pöytäkoodi = luoPöytäkoodi();
+  // Create table code
+  const tableCode = createTableCode();
   
-  // Luo pöytäobjekti
-  const pöytä = {
-    koodi: pöytäkoodi,
-    pelaajat: {
-      north: { nimi: 'GIB North', tunnus: null, tyyppi: 'gib' },
-      east: { nimi: 'GIB East', tunnus: null, tyyppi: 'gib' },
-      south: { nimi: pelaajanNimi, tunnus: pelaajaTunnus, tyyppi: 'human' },
-      west: { nimi: 'GIB West', tunnus: null, tyyppi: 'gib' }
+  // Create table object
+  const table = {
+    code: tableCode,
+    players: {
+      north: { name: 'GIB North', id: null, type: 'gib' },
+      east: { name: 'GIB East', id: null, type: 'gib' },
+      south: { name: playerName, id: playerId, type: 'human' },
+      west: { name: 'GIB West', id: null, type: 'gib' }
     },
-    tila: 'odottaa',
-    peliTila: null,
-    tarjousTila: null,
-    luotu: Date.now(),
-    viimeisinAktiviteetti: Date.now(),
-    luoja: pelaajaTunnus,
-    onYksinpeli: true
+    state: 'waiting',
+    gameState: null,
+    biddingState: null,
+    created: Date.now(),
+    lastActivity: Date.now(),
+    creator: playerId,
+    isSoloGame: true
   };
   
-  // Tallenna pöytä ja päivitä pelaajan tiedot
-  pöydät.set(pöytäkoodi, pöytä);
-  pelaaja.pöytä = pöytäkoodi;
-  pelaaja.nimi = pelaajanNimi;
-  pelaaja.paikka = 'south';
+  // Save table and update player info
+  tables.set(tableCode, table);
+  player.table = tableCode;
+  player.name = playerName;
+  player.position = 'south';
   
-  // Ilmoita onnistuneesta yksinpelin luomisesta
-  lähetäViesti(ws, {
-    type: 'yksinpeliLuotu',
-    pöytäkoodi
+  // Send successful solo game creation message
+  socket.emit('soloGameCreated', {
+    tableCode
   });
   
-  // Aloita peli heti
-  aloitaPeli(ws, pelaajaTunnus, { pöytäkoodi });
+  // Start game immediately
+  startGame(socket, playerId, { tableCode });
   
-  console.log(`Yksinpeli ${pöytäkoodi} luotu, pelaaja ${pelaajanNimi}`);
+  console.log(`Solo game ${tableCode} created, player ${playerName}`);
 }
 
 /**
- * Resetoi yksinpeli
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} pelaajaTunnus - Pelaajan tunnus
- * @param {Object} data - Yksinpelin resetointiin liittyvä data
+ * Reset solo game
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} playerId - Player's ID
+ * @param {Object} data - Solo game reset data
  */
-function resetoiYksinpeli(ws, pelaajaTunnus, data) {
-  const { pöytäkoodi } = data;
+function resetSoloGame(socket, playerId, data) {
+  const { tableCode } = data;
   
-  if (!pöytäkoodi) {
-    lähetäVirhe(ws, 'Pöytäkoodi puuttuu');
+  if (!tableCode) {
+    sendError(socket, 'Table code missing');
     return;
   }
   
-  const pöytä = pöydät.get(pöytäkoodi);
-  if (!pöytä) {
-    lähetäVirhe(ws, 'Pöytää ei löydy');
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
     return;
   }
   
-  if (!pöytä.onYksinpeli) {
-    lähetäVirhe(ws, 'Tämä ei ole yksinpeli');
+  if (!table.isSoloGame) {
+    sendError(socket, 'This is not a solo game');
     return;
   }
   
-  const pelaaja = pelaajat.get(pelaajaTunnus);
+  const player = players.get(playerId);
   
-  // Tarkista onko oikeus resetoida peli
-  if (!pelaaja || pelaaja.pöytä !== pöytäkoodi) {
-    lähetäVirhe(ws, 'Sinulla ei ole oikeutta resetoida peliä');
+  // Check if player has right to reset game
+  if (!player || player.table !== tableCode) {
+    sendError(socket, 'You do not have permission to reset the game');
     return;
   }
   
-  // Resetoi pöytä
-  pöytä.tila = 'odottaa';
-  pöytä.peliTila = null;
-  pöytä.tarjousTila = null;
-  pöytä.viimeisinAktiviteetti = Date.now();
+  // Reset table
+  table.state = 'waiting';
+  table.gameState = null;
+  table.biddingState = null;
+  table.lastActivity = Date.now();
   
-  // Aloita peli uudelleen
-  aloitaPeli(ws, pelaajaTunnus, { pöytäkoodi });
+  // Start game again
+  startGame(socket, playerId, { tableCode });
 }
 
 /**
- * Lähetä aktiiviset pöydät pelaajalle
- * @param {WebSocket} ws - WebSocket-yhteys
+ * Send active tables to player
+ * @param {Object} socket - Socket.IO socket
  */
-function lähetäAktiivisetPöydät(ws) {
-  const aktiivisetPöydätInfo = Array.from(pöydät.entries())
-    .filter(([_, pöytä]) => pöytä.tila === 'odottaa' && !pöytä.onYksinpeli)
-    .map(([koodi, pöytä]) => {
-      const pelaajaMäärä = Object.values(pöytä.pelaajat).filter(p => p !== null).length;
+function sendActiveTables(socket) {
+  const activeTablesInfo = Array.from(tables.entries())
+    .filter(([_, table]) => table.state === 'waiting' && !table.isSoloGame)
+    .map(([code, table]) => {
+      const playerCount = Object.values(table.players).filter(p => p !== null).length;
       return {
-        koodi,
-        pelaajat: pelaajaMäärä,
-        luotu: pöytä.luotu
+        code,
+        players: playerCount,
+        created: table.created
       };
     });
   
-  lähetäViesti(ws, { 
-    type: 'aktiivisetPöydät', 
-    pöydät: aktiivisetPöydätInfo 
+  socket.emit('activeTablesList', { 
+    tables: activeTablesInfo 
   });
 }
 
 /**
- * Laske käden pisteet (HCP)
- * @param {Object} käsi - Käsiobjekti
- * @return {number} Pisteet
+ * Calculate hand points (HCP)
+ * @param {Object} hand - Hand object
+ * @return {number} Points
  */
-function laskePisteet(käsi) {
-  const pistearvot = {
+function calculatePoints(hand) {
+  const pointValues = {
     'A': 4, 'K': 3, 'Q': 2, 'J': 1
   };
   
-  let yhteensä = 0;
+  let total = 0;
   
-  for (const maa of ['spades', 'hearts', 'diamonds', 'clubs']) {
-    for (const kortti of käsi[maa] || []) {
-      if (pistearvot[kortti]) {
-        yhteensä += pistearvot[kortti];
+  for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+    for (const card of hand[suit] || []) {
+      if (pointValues[card]) {
+        total += pointValues[card];
       }
     }
   }
   
-  return yhteensä;
+  return total;
 }
 
 /**
- * Lähetä viesti WebSocket-yhteyden kautta
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {Object} viesti - Lähetettävä viesti
+ * Send error message to socket
+ * @param {Object} socket - Socket.IO socket
+ * @param {string} message - Error message
  */
-function lähetäViesti(ws, viesti) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(viesti));
-  }
+function sendError(socket, message) {
+  socket.emit('error', { message });
 }
 
 /**
- * Lähetä viesti kaikille pöydän pelaajille
- * @param {Object} pöytä - Pöytäobjekti
- * @param {Object} viesti - Lähetettävä viesti
+ * Send message to all players in table
+ * @param {Object} table - Table object
+ * @param {Object} message - Message to send
  */
-function lähetäPöydänPelaajille(pöytä, viesti) {
-  for (const pelaajaTiedot of Object.values(pöytä.pelaajat)) {
-    if (pelaajaTiedot && pelaajaTiedot.tunnus) {
-      const pelaaja = pelaajat.get(pelaajaTiedot.tunnus);
-      if (pelaaja && pelaaja.ws) {
-        lähetäViesti(pelaaja.ws, viesti);
+function sendToTablePlayers(table, message) {
+  for (const playerData of Object.values(table.players)) {
+    if (playerData && playerData.id) {
+      const player = players.get(playerData.id);
+      if (player && player.socket) {
+        player.socket.emit(message.type, message);
       }
     }
   }
 }
 
 /**
- * Lähetä virheilmoitus WebSocket-yhteyden kautta
- * @param {WebSocket} ws - WebSocket-yhteys
- * @param {string} viesti - Virheilmoitus
+ * Create new table code
+ * @return {string} Table code
  */
-function lähetäVirhe(ws, viesti) {
-  lähetäViesti(ws, { type: 'error', viesti });
-}
-
-/**
- * Luo uusi pöytäkoodi
- * @return {string} Pöytäkoodi
- */
-function luoPöytäkoodi() {
-  // Luo 4-numeroinen pöytäkoodi
-  let koodi;
+function createTableCode() {
+  // Create 4-digit table code
+  let code;
   do {
-    koodi = Math.floor(1000 + Math.random() * 9000).toString();
-  } while (pöydät.has(koodi));
+    code = Math.floor(1000 + Math.random() * 9000).toString();
+  } while (tables.has(code));
   
-  return koodi;
+  return code;
 }
 
 /**
- * Luo uusi pelitila
- * @param {Object} pöytä - Pöytäobjekti
- * @return {Object} Pelitilaobjekti
+ * Create new game state
+ * @param {Object} table - Table object
+ * @return {Object} Game state object
  */
-function luoPeliTila(pöytä) {
-  // Jaa kortit
-  const kortit = jaaKortit();
+function createGameState(table) {
+  // Deal cards
+  const cards = dealCards();
   
   return {
-    pelaajat: pöytä.pelaajat,
-    nykyinenPelaaja: 'south', // Tarjousvaiheessa south aloittaa
-    pelivaihe: 'bidding',
-    kädet: kortit,
-    pelatutKortit: [],
-    nykyinenTikki: [],
-    sopimus: null,
-    valttimaa: null,
-    pelinviejä: null,
-    lepääjä: null,
-    tikit: { ns: 0, ew: 0 },
-    kokonaisTikit: 0,
-    johtajaPelaaja: 'south'
+    players: table.players,
+    currentPlayer: 'south', // South starts in bidding phase
+    gamePhase: 'bidding',
+    hands: cards,
+    playedCards: [],
+    currentTrick: [],
+    contract: null,
+    trumpSuit: null,
+    declarer: null,
+    dummy: null,
+    tricks: { ns: 0, ew: 0 },
+    totalTricks: 0,
+    leadingPlayer: 'south'
   };
 }
 
 /**
- * Luo uusi tarjoustila
- * @param {Object} pöytä - Pöytäobjekti
- * @return {Object} Tarjoustilaobjekti
+ * Create new bidding state
+ * @param {Object} table - Table object
+ * @return {Object} Bidding state object
  */
-function luoTarjousTila(pöytä) {
+function createBiddingState(table) {
   return {
-    nykyinenTarjoaja: 'south',
-    tarjousHistoria: [],
-    nykyinenKierros: 1,
-    peräkkäisetPassit: 0,
-    tarjousVaiheValmis: false,
-    korkeinTarjous: null,
-    sopimus: null,
-    pelinviejä: null,
-    lepääjä: null,
-    valttimaa: null,
-    jakaja: 'south'
+    currentBidder: 'south',
+    bidHistory: [],
+    currentRound: 1,
+    consecutivePasses: 0,
+    biddingComplete: false,
+    highestBid: null,
+    contract: null,
+    declarer: null,
+    dummy: null,
+    trumpSuit: null,
+    dealer: 'south'
   };
 }
 
 /**
- * Jaa kortit
- * @return {Object} Käsiobjekti
+ * Deal cards
+ * @return {Object} Hands object
  */
-function jaaKortit() {
-  // Luo pakka
-  const pakka = [];
-  const maat = ['spades', 'hearts', 'diamonds', 'clubs'];
-  const arvot = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+function dealCards() {
+  // Create deck
+  const deck = [];
+  const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
+  const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   
-  for (const maa of maat) {
-    for (const arvo of arvot) {
-      pakka.push({ maa, arvo });
+  for (const suit of suits) {
+    for (const value of values) {
+      deck.push({ suit, value });
     }
   }
   
-  // Sekoita pakka
-  for (let i = pakka.length - 1; i > 0; i--) {
+  // Shuffle deck
+  for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [pakka[i], pakka[j]] = [pakka[j], pakka[i]];
+    [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   
-  // Jaa kortit
-  const kädet = {
+  // Deal cards
+  const hands = {
     north: { spades: [], hearts: [], diamonds: [], clubs: [] },
     east: { spades: [], hearts: [], diamonds: [], clubs: [] },
     south: { spades: [], hearts: [], diamonds: [], clubs: [] },
     west: { spades: [], hearts: [], diamonds: [], clubs: [] }
   };
   
-  const paikat = ['north', 'east', 'south', 'west'];
-  for (let i = 0; i < pakka.length; i++) {
-    const paikka = paikat[Math.floor(i / 13)];
-    const kortti = pakka[i];
-    kädet[paikka][kortti.maa].push(kortti.arvo);
+  const positions = ['north', 'east', 'south', 'west'];
+  for (let i = 0; i < deck.length; i++) {
+    const position = positions[Math.floor(i / 13)];
+    const card = deck[i];
+    hands[position][card.suit].push(card.value);
   }
   
-  // Järjestä kortit
-  for (const paikka of paikat) {
-    for (const maa of maat) {
-      kädet[paikka][maa].sort((a, b) => arvot.indexOf(b) - arvot.indexOf(a));
+  // Sort cards
+  for (const position of positions) {
+    for (const suit of suits) {
+      hands[position][suit].sort((a, b) => values.indexOf(b) - values.indexOf(a));
     }
   }
   
-  return kädet;
+  return hands;
 }
 
 /**
- * Generoi uniikki ID
- * @return {string} Uniikki ID
+ * Filter table for client
+ * @param {Object} table - Table object
+ * @return {Object} Filtered table object
  */
-function generateId() {
-  return Math.random().toString(36).substring(2, 15) + 
-         Math.random().toString(36).substring(2, 15);
-}
-
-/**
- * Suodata pöytä asiakkaalle sopivaksi
- * @param {Object} pöytä - Pöytäobjekti
- * @return {Object} Suodatettu pöytäobjekti
- */
-function suodataPöytä(pöytä) {
+function filterTable(table) {
   return {
-    koodi: pöytä.koodi,
-    pelaajat: suodataPöydänPelaajat(pöytä.pelaajat),
-    tila: pöytä.tila,
-    luotu: pöytä.luotu
+    code: table.code,
+    players: filterTablePlayers(table.players),
+    state: table.state,
+    created: table.created
   };
 }
 
 /**
- * Suodata pöydän pelaajat asiakkaalle sopivaksi
- * @param {Object} pelaajat - Pelaajat
- * @return {Object} Suodatetut pelaajat
+ * Filter table players for client
+ * @param {Object} tablePlayers - Table players
+ * @return {Object} Filtered players
  */
-function suodataPöydänPelaajat(pelaajat) {
-  const suodatetutPelaajat = {};
+function filterTablePlayers(tablePlayers) {
+  const filteredPlayers = {};
   
-  for (const [paikka, pelaaja] of Object.entries(pelaajat)) {
-    if (pelaaja) {
-      suodatetutPelaajat[paikka] = {
-        nimi: pelaaja.nimi,
-        tyyppi: pelaaja.tyyppi
+  for (const [position, player] of Object.entries(tablePlayers)) {
+    if (player) {
+      filteredPlayers[position] = {
+        name: player.name,
+        type: player.type
       };
     } else {
-      suodatetutPelaajat[paikka] = null;
+      filteredPlayers[position] = null;
     }
   }
   
-  return suodatetutPelaajat;
+  return filteredPlayers;
 }
 
 /**
- * Suodata pelitila asiakkaalle sopivaksi
- * @param {Object} peliTila - Pelitila
- * @param {string|null} paikka - Pelaajan paikka
- * @return {Object} Suodatettu pelitila
+ * Filter game state for client
+ * @param {Object} gameState - Game state
+ * @param {string|null} position - Player's position
+ * @return {Object} Filtered game state
  */
-function suodataPeliTila(peliTila, paikka) {
-  // Jos pelitilaa ei ole tai paikka on null/undefined, palautetaan yleinen versio
-  if (!peliTila) return null;
+function filterGameState(gameState, position) {
+  // If gameState doesn't exist or position is null/undefined, return general version
+  if (!gameState) return null;
   
-  // Kopioi perustiedot
-  const suodatettuTila = { ...peliTila };
+  // Copy basic info
+  const filteredState = { ...gameState };
   
-  // Poista kätitiedot (lähetetään erikseen)
-  delete suodatettuTila.kädet;
+  // Remove hands info (sent separately)
+  delete filteredState.hands;
   
-  return suodatettuTila;
+  return filteredState;
 }
 
 /**
- * Aloita ping-pong-yhteys WebSocket-yhteyden kanssa
- * @param {WebSocket} ws - WebSocket-yhteys
+ * Cleanup old tables
  */
-function startPingPong(ws) {
-  ws._pingInterval = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) {
-      lähetäViesti(ws, { type: 'ping' });
-    } else {
-      clearInterval(ws._pingInterval);
-    }
-  }, 30000);
-}
-
-/**
- * Siivoa vanhat pöydät
- */
-function siivousProsessi() {
-  const nyt = Date.now();
+function cleanupProcess() {
+  const now = Date.now();
   
-  for (const [koodi, pöytä] of pöydät.entries()) {
-    if (nyt - pöytä.viimeisinAktiviteetti > MAX_IDLE_AIKA) {
-      // Ilmoita kaikille pöydän pelaajille
-      lähetäPöydänPelaajille(pöytä, {
-        type: 'pöytäPoistettu',
-        viesti: 'Pöytä suljettu passiivisuuden vuoksi'
+  for (const [code, table] of tables.entries()) {
+    if (now - table.lastActivity > MAX_IDLE_TIME) {
+      // Notify all players in table
+      sendToTablePlayers(table, {
+        type: 'tableRemoved',
+        message: 'Table closed due to inactivity'
       });
       
-      // Siivoa pöytä
-      for (const pelaajaTiedot of Object.values(pöytä.pelaajat)) {
-        if (pelaajaTiedot && pelaajaTiedot.tunnus) {
-          const pelaaja = pelaajat.get(pelaajaTiedot.tunnus);
-          if (pelaaja) {
-            pelaaja.pöytä = null;
-            pelaaja.paikka = null;
+      // Clean up table
+      for (const playerData of Object.values(table.players)) {
+        if (playerData && playerData.id) {
+          const player = players.get(playerData.id);
+          if (player) {
+            player.table = null;
+            player.position = null;
           }
         }
       }
       
-      pöydät.delete(koodi);
-      console.log(`Pöytä ${koodi} poistettu passiivisuuden vuoksi`);
+      tables.delete(code);
+      console.log(`Table ${code} removed due to inactivity`);
     }
   }
 }
 
 /**
- * Paikan nimen formatointi
- * @param {string} paikka - Paikan tunniste (north, east, south, west)
- * @return {string} Paikan nimi
+ * Format position name
+ * @param {string} position - Position identifier
+ * @return {string} Position name
  */
-function paikanNimi(paikka) {
-  switch(paikka) {
-    case 'north': return 'Pohjoinen';
-    case 'east': return 'Itä';
-    case 'south': return 'Etelä';
-    case 'west': return 'Länsi';
-    default: return paikka;
+function positionName(position) {
+  switch(position) {
+    case 'north': return 'North';
+    case 'east': return 'East';
+    case 'south': return 'South';
+    case 'west': return 'West';
+    default: return position;
   }
 }
 
 /**
- * Formatoi sopimus
- * @param {string} sopimus - Sopimus
- * @return {string} Formatoitu sopimus
+ * Format contract
+ * @param {string} contract - Contract
+ * @return {string} Formatted contract
  */
-function formatoiSopimus(sopimus) {
-  if (!sopimus) return "Ei sopimusta";
+function formatContract(contract) {
+  if (!contract) return "No contract";
   
-  const taso = sopimus.charAt(0);
-  const maa = sopimus.charAt(1);
-  let maasSymboli;
+  const level = contract.charAt(0);
+  const suit = contract.charAt(1);
+  let suitSymbol;
   
-  switch(maa) {
-    case 'C': maasSymboli = '♣'; break;
-    case 'D': maasSymboli = '♦'; break;
-    case 'H': maasSymboli = '♥'; break;
-    case 'S': maasSymboli = '♠'; break;
-    case 'N': maasSymboli = 'NT'; break;
-    default: maasSymboli = maa;
+  switch(suit) {
+    case 'C': suitSymbol = '♣'; break;
+    case 'D': suitSymbol = '♦'; break;
+    case 'H': suitSymbol = '♥'; break;
+    case 'S': suitSymbol = '♠'; break;
+    case 'N': suitSymbol = 'NT'; break;
+    default: suitSymbol = suit;
   }
   
-  let tulos = `${taso}${maasSymboli}`;
+  let result = `${level}${suitSymbol}`;
   
-  // Lisää kahdennus/vastakahdennus
-  if (sopimus.includes('XX')) {
-    tulos += ' XX';
-  } else if (sopimus.includes('X')) {
-    tulos += ' X';
+  // Add doubling info
+  if (contract.includes('XX')) {
+    result += ' XX';
+  } else if (contract.includes('X')) {
+    result += ' X';
   }
   
-  return tulos;
+  return result;
 }
 
-// Käynnistä palvelin
+// Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Palvelin käynnissä portissa ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

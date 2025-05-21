@@ -13,7 +13,8 @@
     "accessibility",
     "gib",
     "multiplayer",
-    "websocket"
+    "socket.io",
+    "realtime"
   ],
   "author": "",
   "license": "MIT",
@@ -22,11 +23,14 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "path": "^0.12.7",
-    "ws": "^8.14.2",
+    "socket.io": "^4.7.2",
     "http": "^0.0.1-security",
     "fs": "^0.0.1-security"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
