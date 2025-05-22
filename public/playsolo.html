@@ -12,7 +12,7 @@
         <h1>BridgeCircle - Play Solo</h1>
         
         <!-- ARIA Live area for announcements -->
-        <div id="announcement-area" aria-live="polite" class="sr-only"></div>
+        <div id="status-announcer" aria-live="polite" class="sr-only"></div>
         
         <!-- ARIA Live area for card plays -->
         <div id="card-announcement" aria-live="assertive" class="sr-only"></div>
@@ -35,11 +35,11 @@
         
         <!-- Action buttons -->
         <div class="action-buttons">
-            <button onclick="showHelp()" id="show-help-button" class="button button-secondary">
+            <button onclick="toggleHelp()" id="toggle-help-button" class="button button-secondary" aria-expanded="false">
                 Show Help
             </button>
             
-            <button onclick="dealNewCards()" id="deal-cards-button" class="button">
+            <button onclick="dealNewCards()" id="deal-button" class="button">
                 Deal New Cards
             </button>
             
@@ -53,20 +53,12 @@
         </div>
         
         <!-- Help section (hidden initially) -->
-        <section class="help-section" id="help-area" style="display: none;" role="dialog" aria-labelledby="help-title">
+        <section class="help-section" id="help-section" style="display: none;" role="dialog" aria-labelledby="help-title">
             <h2 id="help-title">Keyboard Shortcuts</h2>
             <ul class="help-list" id="help-list">
-                <li><kbd>Alt + H</kbd> - Read cards</li>
-                <li><kbd>Alt + J</kbd> - Select card 1 (from left)</li>
-                <li><kbd>Alt + K</kbd> - Select card 2</li>
-                <li><kbd>Alt + L</kbd> - Select card 3</li>
-                <li><kbd>Alt + Ö</kbd> - Select card 4</li>
-                <li><kbd>Alt + Ä</kbd> - Select card 5</li>
-                <li><kbd>Alt + I</kbd> - Repeat last announcement</li>
-                <li><kbd>Alt + N</kbd> - Deal new cards</li>
-                <li><kbd>Alt + P</kbd> - Bid/Make a move</li>
+                <!-- Will be populated by JavaScript -->
             </ul>
-            <button onclick="closeHelp()" class="button">
+            <button onclick="closeHelp()" id="close-help-button" class="button">
                 Close Help
             </button>
         </section>
@@ -135,20 +127,688 @@
         let biddingState = null;
         let myPosition = 'south'; // Always south in solo play
         
+        // UI state for keyboard shortcuts
+        const uiState = {
+            showHelp: false,
+            lastAnnouncement: '',
+            bidLevel: null, // For bidding shortcuts
+        };
+
+        // DOM references
+        const elements = {
+            statusAnnouncer: document.getElementById('status-announcer'),
+            helpSection: document.getElementById('help-section'),
+            helpList: document.getElementById('help-list'),
+            toggleHelpButton: document.getElementById('toggle-help-button'),
+            closeHelpButton: document.getElementById('close-help-button'),
+            dealButton: document.getElementById('deal-button'),
+            biddingArea: document.getElementById('bidding-area'),
+            biddingHistory: document.getElementById('bidding-history'),
+            biddingControls: document.getElementById('bidding-controls'),
+            northHand: document.getElementById('north-hand'),
+            eastHand: document.getElementById('east-hand'),
+            westHand: document.getElementById('west-hand'),
+            southHand: document.getElementById('south-hand'),
+            centerArea: document.getElementById('center-area'),
+            playedCardsContainer: document.getElementById('played-cards-container')
+        };
+
+        // Keyboard shortcuts configuration
+        const keyboardShortcuts = [
+            // Card viewing shortcuts (Own cards)
+            { key: '1', alt: true, description: 'Read your spades', action: () => announceHandSuit('south', 'spades') },
+            { key: '2', alt: true, description: 'Read your hearts', action: () => announceHandSuit('south', 'hearts') },
+            { key: '3', alt: true, description: 'Read your diamonds', action: () => announceHandSuit('south', 'diamonds') },
+            { key: '4', alt: true, description: 'Read your clubs', action: () => announceHandSuit('south', 'clubs') },
+            { key: '5', alt: true, description: 'Read all your cards', action: () => announceEntireHand('south') },
+            
+            // Card viewing shortcuts (Dummy's cards)
+            { key: '6', alt: true, description: 'Read dummy spades', action: () => announceHandSuit('north', 'spades') },
+            { key: '7', alt: true, description: 'Read dummy hearts', action: () => announceHandSuit('north', 'hearts') },
+            { key: '8', alt: true, description: 'Read dummy diamonds', action: () => announceHandSuit('north', 'diamonds') },
+            { key: '9', alt: true, description: 'Read dummy clubs', action: () => announceHandSuit('north', 'clubs') },
+            { key: '0', alt: true, description: 'Read all dummy cards', action: () => announceEntireHand('north') },
+            
+            // Game state shortcuts
+            { key: 'z', alt: true, description: 'Read current trick', action: () => announceCurrentTrick() },
+            { key: 'x', alt: true, description: 'Read game state', action: () => announceGameState() },
+            { key: 'c', alt: true, description: 'Announce current player', action: () => announceCurrentPlayer() },
+            { key: 'v', alt: true, description: 'Read last played trick', action: () => announceLastTrick() },
+            
+            // Bidding shortcuts
+            { key: 'p', alt: true, description: 'Bid Pass', action: () => makeBidShortcut('P') },
+            { key: 'd', alt: true, description: 'Bid Double', action: () => makeBidShortcut('X') },
+            { key: 'f', alt: true, description: 'Bid Redouble', action: () => makeBidShortcut('XX') },
+            
+            // Card playing shortcuts - high cards only
+            { key: '1', ctrl: true, description: 'Play highest spade', action: () => playHighestCard('spades') },
+            { key: '2', ctrl: true, description: 'Play highest heart', action: () => playHighestCard('hearts') },
+            { key: '3', ctrl: true, description: 'Play highest diamond', action: () => playHighestCard('diamonds') },
+            { key: '4', ctrl: true, description: 'Play highest club', action: () => playHighestCard('clubs') },
+            
+            // Direct suit keys - dual purpose in bidding and play
+            { key: 's', description: 'Bidding: Spades | Play: Focus lowest spade', action: null }, // Handled separately
+            { key: 'h', description: 'Bidding: Hearts | Play: Focus lowest heart', action: null }, // Handled separately
+            { key: 'd', description: 'Bidding: Diamonds | Play: Focus lowest diamond', action: null }, // Handled separately
+            { key: 'c', description: 'Bidding: Clubs | Play: Focus lowest club', action: null }, // Handled separately
+            { key: 'n', description: 'Bidding: No Trump', action: null }, // Handled separately
+            
+            // General shortcuts
+            { key: 'h', alt: true, description: 'Show/hide help', action: () => toggleHelp() },
+            { key: 'n', alt: true, description: 'Deal new cards', action: () => dealNewCards() },
+            { key: 'i', alt: true, description: 'Repeat last announcement', action: () => repeatLastAnnouncement() },
+            { key: 'o', alt: true, description: 'Announce score', action: () => announceScore() },
+            { key: 'm', alt: true, description: 'Restart game', action: () => restartGame() }
+        ];
+
+        // Simple number keys for bidding levels
+        const bidLevelKeys = ['1', '2', '3', '4', '5', '6', '7'];
+        // Simple suit keys for bidding
+        const bidSuitKeys = {
+            's': 'S', // Spades
+            'h': 'H', // Hearts
+            'd': 'D', // Diamonds
+            'c': 'C', // Clubs
+            'n': 'N'  // No Trump
+        };
+
+        /**
+         * Renders the help list
+         */
+        function renderHelpList() {
+            elements.helpList.innerHTML = '';
+            
+            keyboardShortcuts.forEach(shortcut => {
+                // Skip shortcuts with no action (they're handled separately)
+                if (!shortcut.action) return;
+                
+                const modifiers = [];
+                if (shortcut.alt) modifiers.push('Alt');
+                if (shortcut.shift) modifiers.push('Shift');
+                if (shortcut.ctrl) modifiers.push('Ctrl');
+                
+                const keyCombo = modifiers.length > 0 
+                    ? `${modifiers.join('+')} + ${shortcut.key.toUpperCase()}`
+                    : shortcut.key.toUpperCase();
+                    
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${keyCombo}</strong>: ${shortcut.description}`;
+                elements.helpList.appendChild(li);
+            });
+            
+            // Add the dual-purpose keys
+            const gamePhase = gameState ? gameState.gamePhase : 'setup';
+            const phaseText = gamePhase === 'bidding' ? 'Select suit for bidding' : 
+                             gamePhase === 'play' ? 'Focus on lowest card of suit' : 
+                             'Depends on game phase';
+            
+            const dualPurposeKeys = [
+                { key: 'S', desc: 'Spades' },
+                { key: 'H', desc: 'Hearts' },
+                { key: 'D', desc: 'Diamonds' },
+                { key: 'C', desc: 'Clubs' }
+            ];
+            
+            dualPurposeKeys.forEach(key => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${key.key}</strong>: ${phaseText} (${key.desc})`;
+                elements.helpList.appendChild(li);
+            });
+            
+            // Add the No Trump key for bidding
+            if (gamePhase === 'bidding') {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>N</strong>: Select No Trump for bidding`;
+                elements.helpList.appendChild(li);
+            }
+        }
+
+        /**
+         * Announces cards in a specific suit from a hand and focuses on the lowest card
+         */
+        function announceHandSuit(position, suit) {
+            // Check if we can view these cards
+            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
+            const canViewCards = position === 'south' || 
+                                (position === 'north' && gameState && gameState.gamePhase === 'play' && isNSTeamWon);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${getPositionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${getPositionName(position)}.`);
+                return;
+            }
+            
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                const message = `${getPositionName(position)} has no ${getSuitName(suit)}s.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const message = `${getPositionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
+            announceToScreenReader(message);
+            
+            // Add a delay before focusing to allow screen reader to finish
+            // Only focus if it's the current player's turn and game is in play phase
+            const isCurrentPlayer = position === (gameState ? gameState.currentPlayer : null);
+            const isPlayable = gameState && gameState.gamePhase === 'play' && isCurrentPlayer;
+            
+            if (isPlayable) {
+                // Estimate a delay based on message length - approximately 100ms per character
+                // with a minimum of 2 seconds
+                const estimatedReadTime = Math.max(2000, message.length * 100);
+                
+                setTimeout(() => {
+                    focusLowestCardOfSuit(position, suit);
+                }, estimatedReadTime);
+            }
+        }
+
+        /**
+         * Focuses on the lowest card of a specific suit
+         */
+        function focusLowestCardOfSuit(position, suit) {
+            // Check if the current player can play cards
+            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
+            const isPlayersTurn = gameState && (gameState.currentPlayer === position) && 
+                                 (position === 'south' || 
+                                  (position === 'north' && isNSTeamWon));
+            
+            if (!isPlayersTurn || !gameState || gameState.gamePhase !== 'play') {
+                return; // Don't focus if not player's turn or not in play phase
+            }
+            
+            // Get the cards of the suit
+            const hand = gameState.hands[position];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                return; // No cards of this suit
+            }
+            
+            // Check if the player must follow suit
+            let canPlayThisSuit = true;
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    canPlayThisSuit = false; // Must follow lead suit
+                }
+            }
+            
+            if (!canPlayThisSuit) {
+                // Announce that player must follow lead suit
+                const leadSuit = gameState.currentTrick[0].suit;
+                announceToScreenReader(`You must follow the lead suit (${getSuitName(leadSuit)}).`);
+                return;
+            }
+            
+            // Find the lowest card button for this suit
+            const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b));
+            const lowestCard = sortedCards[0];
+            
+            // Get the hand element
+            const handElement = position === 'south' ? elements.southHand : elements.northHand;
+            
+            // Find the button for this card
+            const cardButton = handElement.querySelector(`button[data-suit="${suit}"][data-card="${lowestCard}"]`);
+            
+            if (cardButton) {
+                // Focus the button
+                cardButton.focus();
+                
+                // Announce that focus has moved
+                announceToScreenReader(`Focused on ${getSuitName(suit)} ${lowestCard}.`);
+            }
+        }
+
+        /**
+         * Announces all cards in a hand
+         */
+        function announceEntireHand(position) {
+            // Check if we can view these cards
+            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
+            const canViewCards = position === 'south' || 
+                                (position === 'north' && gameState && gameState.gamePhase === 'play' && isNSTeamWon);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${getPositionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${getPositionName(position)}.`);
+                return;
+            }
+            
+            let message = `${getPositionName(position)}'s hand: `;
+            
+            for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+                const cards = hand[suit] || [];
+                if (cards.length > 0) {
+                    message += `${getSuitName(suit)}s: ${cards.join(', ')}. `;
+                } else {
+                    message += `No ${getSuitName(suit)}s. `;
+                }
+            }
+            
+            // For "read all cards" commands, we don't focus on any specific card
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the current trick
+         */
+        function announceCurrentTrick() {
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader('The game is not in play phase yet.');
+                return;
+            }
+            
+            if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                announceToScreenReader('No cards played in the current trick yet.');
+                return;
+            }
+            
+            let message = 'Current trick: ';
+            
+            for (const card of gameState.currentTrick) {
+                message += `${getPositionName(card.player)} played ${getSuitName(card.suit)} ${card.card}. `;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the game state
+         */
+        function announceGameState() {
+            if (!gameState) {
+                announceToScreenReader('No game in progress.');
+                return;
+            }
+            
+            let message = `Game phase: ${gameState.gamePhase}. `;
+            
+            if (gameState.gamePhase === 'play' || gameState.gamePhase === 'end') {
+                message += `Contract: ${formatContract(gameState.contract)} by ${getPositionName(gameState.declarer)}. `;
+                message += `North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}. `;
+                message += `Current player: ${getPositionName(gameState.currentPlayer)}.`;
+            } else if (gameState.gamePhase === 'bidding') {
+                message += `Current bidder: ${getPositionName(biddingState ? biddingState.currentBidder : 'unknown')}.`;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the current player
+         */
+        function announceCurrentPlayer() {
+            if (!gameState) {
+                announceToScreenReader('No game in progress.');
+                return;
+            }
+            
+            if (gameState.gamePhase === 'play') {
+                announceToScreenReader(`Current player: ${getPositionName(gameState.currentPlayer)}.`);
+            } else if (gameState.gamePhase === 'bidding') {
+                announceToScreenReader(`Current bidder: ${getPositionName(biddingState ? biddingState.currentBidder : 'unknown')}.`);
+            } else {
+                announceToScreenReader(`Game phase: ${gameState.gamePhase}. No current player.`);
+            }
+        }
+
+        /**
+         * Announces the last completed trick
+         */
+        function announceLastTrick() {
+            if (!gameState || !gameState.playedCards || gameState.playedCards.length === 0) {
+                announceToScreenReader('No tricks have been played yet.');
+                return;
+            }
+            
+            // Find the last 4 cards that don't belong to the current trick
+            const currentTrickIds = gameState.currentTrick ? gameState.currentTrick.map(card => `${card.player}:${card.suit}:${card.card}`) : [];
+            const pastCards = gameState.playedCards.filter(card => 
+                !currentTrickIds.includes(`${card.player}:${card.suit}:${card.card}`)
+            );
+            
+            if (pastCards.length === 0) {
+                announceToScreenReader('No previous tricks to announce.');
+                return;
+            }
+            
+            // Get the last complete trick (4 cards)
+            const startIndex = Math.max(0, pastCards.length - (pastCards.length % 4 === 0 ? 4 : pastCards.length % 4));
+            const lastTrick = pastCards.slice(startIndex);
+            
+            let message = 'Last played trick: ';
+            
+            for (const card of lastTrick) {
+                message += `${getPositionName(card.player)} played ${getSuitName(card.suit)} ${card.card}. `;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Makes a bid using keyboard shortcut
+         */
+        function makeBidShortcut(bid) {
+            if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== 'south') {
+                announceToScreenReader("It's not your turn to bid.");
+                return;
+            }
+            
+            // For regular bids, we need both level and suit
+            if (!['P', 'X', 'XX'].includes(bid)) {
+                announceToScreenReader('Invalid bid format.');
+                return;
+            }
+            
+            makeBid(bid);
+        }
+
+        /**
+         * Handles bid level selection for two-step bidding
+         */
+        function handleBidLevelKey(level) {
+            if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== 'south') {
+                announceToScreenReader("It's not your turn to bid.");
+                return;
+            }
+            
+            uiState.bidLevel = level;
+            announceToScreenReader(`Bid level ${level} selected. Press S, H, D, C, or N to select suit.`);
+        }
+
+        /**
+         * Handles bid suit selection to complete a bid
+         */
+        function handleBidSuitKey(suit) {
+            if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== 'south' || !uiState.bidLevel) {
+                if (!uiState.bidLevel) {
+                    announceToScreenReader("Please select a bid level (1-7) first.");
+                } else {
+                    announceToScreenReader("It's not your turn to bid.");
+                }
+                return;
+            }
+            
+            const bid = `${uiState.bidLevel}${suit}`;
+            
+            // Check if bid is valid
+            if (!isValidBid(bid, biddingState.highestBid)) {
+                announceToScreenReader(`Invalid bid: ${uiState.bidLevel}${getSuitNameForBid(suit)}.`);
+                uiState.bidLevel = null; // Reset bid level
+                return;
+            }
+            
+            makeBid(bid);
+            uiState.bidLevel = null; // Reset bid level
+        }
+
+        /**
+         * Check if bid is valid
+         */
+        function isValidBid(bid, highestBid) {
+            // Pass is always valid
+            if (bid === 'P') return true;
+            
+            // Double and Redouble
+            if (bid === 'X' || bid === 'XX') return true;
+            
+            // Regular bid - must be higher than current highest
+            if (!highestBid) return true; // First bid is always valid
+            
+            const bidLevel = parseInt(bid.charAt(0));
+            const bidSuit = bid.charAt(1);
+            const highestLevel = parseInt(highestBid.charAt(0));
+            const highestSuit = highestBid.charAt(1);
+            
+            const suits = ['C', 'D', 'H', 'S', 'N'];
+            const bidSuitIndex = suits.indexOf(bidSuit);
+            const highestSuitIndex = suits.indexOf(highestSuit);
+            
+            if (bidLevel > highestLevel) return true;
+            if (bidLevel === highestLevel && bidSuitIndex > highestSuitIndex) return true;
+            
+            return false;
+        }
+
+        /**
+         * Gets a suit name for bid announcement
+         */
+        function getSuitNameForBid(suit) {
+            switch(suit) {
+                case 'C': return 'Clubs';
+                case 'D': return 'Diamonds';
+                case 'H': return 'Hearts';
+                case 'S': return 'Spades';
+                case 'N': return 'No Trump';
+                default: return suit;
+            }
+        }
+
+        /**
+         * Handles suit key press during play phase
+         */
+        function handleSuitKeyInPlayPhase(suitKey) {
+            // Map key to suit
+            const suitMap = {
+                's': 'spades',
+                'h': 'hearts',
+                'd': 'diamonds',
+                'c': 'clubs'
+            };
+            
+            const suit = suitMap[suitKey];
+            if (!suit) return;
+            
+            // Determine current player
+            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
+            const isCurrentPlayerHuman = gameState && ((gameState.currentPlayer === 'south') || 
+                                       (isNSTeamWon && gameState.currentPlayer === 'north'));
+            
+            if (!isCurrentPlayerHuman) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            // Get current player's hand
+            const hand = gameState.hands[gameState.currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s.`);
+                return;
+            }
+            
+            // Check if player must follow suit
+            let canPlayThisSuit = true;
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    // Notify player but still focus on the card
+                    announceToScreenReader(`Reminder: You must follow the lead suit (${getSuitName(leadSuit)}). Focusing on ${getSuitName(suit)}.`);
+                    canPlayThisSuit = false;
+                }
+            }
+            
+            // Focus on the lowest card
+            const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => values.indexOf(a) - values.indexOf(b));
+            const lowestCard = sortedCards[0];
+            
+            // Get the hand element for the current player
+            const handElement = gameState.currentPlayer === 'south' ? elements.southHand : elements.northHand;
+            
+            // Find the button for this card
+            const cardButton = handElement.querySelector(`button[data-suit="${suit}"][data-card="${lowestCard}"]`);
+            
+            if (cardButton) {
+                // Focus the button
+                cardButton.focus();
+                
+                // Announce that focus has moved (with suit playability warning if needed)
+                if (canPlayThisSuit) {
+                    announceToScreenReader(`Focused on ${getSuitName(suit)} ${lowestCard}.`);
+                }
+            } else {
+                announceToScreenReader(`Could not find playable ${getSuitName(suit)} card.`);
+            }
+        }
+
+        /**
+         * Plays the highest card of a suit
+         */
+        function playHighestCard(suit) {
+            // Determine which player is active
+            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
+            const isCurrentPlayerHuman = gameState && ((gameState.currentPlayer === 'south') || 
+                                       (isNSTeamWon && gameState.currentPlayer === 'north'));
+            
+            if (!gameState || gameState.gamePhase !== 'play' || !isCurrentPlayerHuman) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            const hand = gameState.hands[gameState.currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                return;
+            }
+            
+            // Check if player must follow suit
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    announceToScreenReader(`You must follow the lead suit (${getSuitName(leadSuit)}).`);
+                    return;
+                }
+            }
+            
+            // Get the highest card (we need to convert card ranks for comparison)
+            const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => values.indexOf(b) - values.indexOf(a));
+            const highestCard = sortedCards[0];
+            
+            // Play the card
+            playCard(suit, highestCard);
+        }
+
+        /**
+         * Repeats the last announcement
+         */
+        function repeatLastAnnouncement() {
+            if (uiState.lastAnnouncement) {
+                announceToScreenReader(uiState.lastAnnouncement);
+            } else {
+                announceToScreenReader("No announcement to repeat.");
+            }
+        }
+
+        /**
+         * Announces the current score
+         */
+        function announceScore() {
+            if (gameState && (gameState.gamePhase === 'play' || gameState.gamePhase === 'end')) {
+                announceToScreenReader(`North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}.`);
+            } else {
+                announceToScreenReader("No score available yet.");
+            }
+        }
+
+        /**
+         * Restarts the game
+         */
+        function restartGame() {
+            if (confirm("Are you sure you want to restart the game?")) {
+                dealNewCards();
+                announceToScreenReader('Game restarted. New cards dealt.');
+            }
+        }
+
+        /**
+         * Announce message to screen reader
+         */
+        function announceToScreenReader(message) {
+            uiState.lastAnnouncement = message; // Store for repetition
+            elements.statusAnnouncer.textContent = '';
+            setTimeout(() => {
+                elements.statusAnnouncer.textContent = message;
+            }, 50);
+        }
+
+        /**
+         * Helper functions for naming
+         */
+        function getPositionName(position) {
+            switch(position) {
+                case 'north': return 'North';
+                case 'east': return 'East';
+                case 'south': return 'South';
+                case 'west': return 'West';
+                default: return position || 'Unknown';
+            }
+        }
+
+        function getSuitName(suit) {
+            const names = {
+                spades: 'Spades',
+                hearts: 'Hearts',
+                diamonds: 'Diamonds',
+                clubs: 'Clubs'
+            };
+            return names[suit] || suit;
+        }
+
+        function getSuitSymbol(suit) {
+            const symbols = { 
+                spades: '♠', 
+                hearts: '♥', 
+                diamonds: '♦', 
+                clubs: '♣' 
+            };
+            return symbols[suit] || suit;
+        }
+
         // Show help
         function showHelp() {
-            const helpArea = document.getElementById('help-area');
-            helpArea.style.display = 'block';
-            document.getElementById('show-help-button').textContent = 'Hide Help';
-            document.getElementById('show-help-button').onclick = closeHelp;
+            uiState.showHelp = true;
+            toggleHelp();
         }
         
         // Close help
         function closeHelp() {
-            const helpArea = document.getElementById('help-area');
-            helpArea.style.display = 'none';
-            document.getElementById('show-help-button').textContent = 'Show Help';
-            document.getElementById('show-help-button').onclick = showHelp;
+            uiState.showHelp = false;
+            toggleHelp();
+        }
+
+        /**
+         * Show/hide help section
+         */
+        function toggleHelp() {
+            uiState.showHelp = !uiState.showHelp;
+            elements.helpSection.style.display = uiState.showHelp ? 'block' : 'none';
+            elements.toggleHelpButton.textContent = uiState.showHelp ? 'Hide Help' : 'Show Help';
+            elements.toggleHelpButton.setAttribute('aria-expanded', uiState.showHelp);
+            
+            if (uiState.showHelp) {
+                renderHelpList();
+            }
         }
         
         // Deal new cards
@@ -171,7 +831,7 @@
             }
             
             // Announce new deal
-            announce('Dealing new cards...');
+            announceToScreenReader('Dealing new cards...');
         }
         
         // Fullscreen mode
@@ -198,7 +858,7 @@
             });
         }
         
-        // Render hand (same as game.html)
+        // Render hand (same as original)
         function renderHand(position, hand, isPlayable = false) {
             const element = position === 'north' ? document.getElementById('north-hand') :
                            position === 'south' ? document.getElementById('south-hand') :
@@ -219,7 +879,7 @@
             
             const showCards = position === 'south' || 
                            (position === 'north' && 
-                            (gameState.gamePhase === 'play' && isNSTeamWon));
+                            (gameState && gameState.gamePhase === 'play' && isNSTeamWon));
             
             if (!showCards && position === 'north') {
                 html += `<p>Cards will be visible when play begins, if South or North is declarer.</p>`;
@@ -242,10 +902,12 @@
                     cards.forEach(card => {
                         const cardClass = `card-${suit}`;
                         
-                        if (gameState.gamePhase === 'play' && isPlayableByHuman) {
+                        if (gameState && gameState.gamePhase === 'play' && isPlayableByHuman) {
                             html += `
                                 <button 
                                     class="card-button ${cardClass}"
+                                    data-suit="${suit}"
+                                    data-card="${card}"
                                     onclick="playCard('${suit}', '${card}')"
                                     ${!isCurrentPlayer ? 'disabled' : ''}
                                     aria-label="Play ${suitName(suit)} ${card}"
@@ -295,14 +957,14 @@
             
             renderBiddingHistory();
             
-            if (biddingState.currentBidder === myPosition) {
+            if (biddingState && biddingState.currentBidder === myPosition) {
                 renderBiddingControls();
             } else {
                 const biddingControls = document.getElementById('bidding-controls');
                 if (biddingControls) {
                     biddingControls.innerHTML = `
                         <h3>Your Bid</h3>
-                        <p>Waiting for ${positionName(biddingState.currentBidder)} to bid...</p>
+                        <p>Waiting for ${positionName(biddingState ? biddingState.currentBidder : 'unknown')} to bid...</p>
                     `;
                 }
             }
@@ -315,7 +977,7 @@
             
             let html = '<h3>Bidding History</h3>';
             
-            if (!biddingState.bidHistory || biddingState.bidHistory.length === 0) {
+            if (!biddingState || !biddingState.bidHistory || biddingState.bidHistory.length === 0) {
                 html += '<p>No bids yet.</p>';
             } else {
                 html += `
@@ -380,7 +1042,7 @@
             const biddingControls = document.getElementById('bidding-controls');
             if (!biddingControls) return;
             
-            const possibleBids = getPossibleBids(biddingState.highestBid);
+            const possibleBids = getPossibleBids(biddingState ? biddingState.highestBid : null);
             
             let html = '<h3>Your Bid</h3>';
             html += '<div class="bidding-buttons">';
@@ -596,7 +1258,7 @@
             const centerArea = document.getElementById('center-area');
             if (!centerArea) return;
             
-            if (gameState.gamePhase === 'play') {
+            if (gameState && gameState.gamePhase === 'play') {
                 let html = '<h3>Played Tricks</h3>';
                 
                 html += `<p>NS: ${gameState.tricks.ns}, EW: ${gameState.tricks.ew}</p>`;
@@ -615,7 +1277,7 @@
             const centerArea = document.getElementById('center-area');
             if (!centerArea) return;
             
-            if (gameState.currentTrick.length === 1) {
+            if (gameState && gameState.currentTrick && gameState.currentTrick.length === 1) {
                 centerArea.innerHTML = '<h3>Current Trick</h3>';
             }
             
@@ -634,7 +1296,9 @@
             let html = '<h3>Game Over</h3>';
             html += `<p>${message}</p>`;
             
-            html += `<p>NS: ${gameState.tricks.ns}, EW: ${gameState.tricks.ew}</p>`;
+            if (gameState && gameState.tricks) {
+                html += `<p>NS: ${gameState.tricks.ns}, EW: ${gameState.tricks.ew}</p>`;
+            }
             
             html += `<button onclick="dealNewCards()" class="button">Deal New Cards</button>`;
             
@@ -645,7 +1309,7 @@
         function makeMove() {
             if (!gameState) return;
             
-            if (gameState.gamePhase === 'bidding' && biddingState.currentBidder === myPosition) {
+            if (gameState.gamePhase === 'bidding' && biddingState && biddingState.currentBidder === myPosition) {
                 makeBid('P');
             } else if (gameState.gamePhase === 'play' && gameState.currentPlayer === myPosition) {
                 const hand = gameState.hands[myPosition];
@@ -685,11 +1349,71 @@
         function navigate(page) {
             window.location.href = page;
         }
+
+        /**
+         * Set up keyboard event listeners
+         */
+        function setupKeyboardListeners() {
+            document.addEventListener('keydown', (e) => {
+                // Process keyboard shortcuts
+                for (const shortcut of keyboardShortcuts) {
+                    if (shortcut.action && // Skip shortcuts with no action (they're handled separately)
+                        e.key.toLowerCase() === shortcut.key.toLowerCase() && 
+                        (!shortcut.alt || e.altKey) && 
+                        (!shortcut.shift || e.shiftKey) && 
+                        (!shortcut.ctrl || e.ctrlKey)) {
+                        
+                        e.preventDefault();
+                        shortcut.action();
+                        return;
+                    }
+                }
+                
+                // Handle s, h, d, c keys with dual purpose:
+                // 1. In bidding phase: suit selection for bidding
+                // 2. In play phase: focus on lowest card of that suit
+                const suitKey = e.key.toLowerCase();
+                if (['s', 'h', 'd', 'c'].includes(suitKey) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                    e.preventDefault();
+                    
+                    // Check game phase and handle accordingly
+                    if (gameState && gameState.gamePhase === 'bidding') {
+                        // Bidding phase - use for bid suit selection
+                        if (suitKey in bidSuitKeys) {
+                            handleBidSuitKey(bidSuitKeys[suitKey]);
+                        }
+                    } else if (gameState && gameState.gamePhase === 'play') {
+                        // Play phase - focus on lowest card
+                        handleSuitKeyInPlayPhase(suitKey);
+                    }
+                    return;
+                }
+                
+                // Handle bidding level selection (1-7)
+                if (bidLevelKeys.includes(e.key) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                    e.preventDefault();
+                    handleBidLevelKey(e.key);
+                    return;
+                }
+                
+                // Handle 'n' key for No Trump in bidding
+                if (e.key.toLowerCase() === 'n' && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                    e.preventDefault();
+                    if (gameState && gameState.gamePhase === 'bidding') {
+                        handleBidSuitKey('N');
+                    }
+                    return;
+                }
+            });
+        }
         
         // Initialize page when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             // Set solo mode flag
             window.isSoloMode = true;
+            
+            // Set up keyboard listeners
+            setupKeyboardListeners();
             
             // Connect to server
             connectToServer();
@@ -713,7 +1437,7 @@
                 updateGameUI();
                 renderBiddingUI();
                 
-                announce('Game started. Bidding phase begins.');
+                announceToScreenReader('Game started. Bidding phase begins.');
             });
             
             socket.on('yourCards', (data) => {
@@ -732,7 +1456,7 @@
                 const bidText = data.bid === 'P' ? 'passes' : 
                               data.bid === 'X' ? 'doubles' : 
                               data.bid === 'XX' ? 'redoubles' : `bids ${formatBidForDisplay(data.bid)}`;
-                announce(`${positionName(data.position)} ${bidText}.`);
+                announceToScreenReader(`${positionName(data.position)} ${bidText}.`);
             });
             
             socket.on('biddingComplete', (data) => {
@@ -751,7 +1475,7 @@
                 updateGameUI();
                 
                 const contractMessage = `Final contract: ${formatContract(data.contract)} by ${positionName(data.declarer)}. ${positionName(data.currentPlayer)} leads.`;
-                announce(contractMessage);
+                announceToScreenReader(contractMessage);
             });
             
             socket.on('playPhaseCards', (data) => {
@@ -762,7 +1486,7 @@
                 if (data.dummyCards) {
                     gameState.hands[gameState.dummy] = data.dummyCards;
                     renderHand(gameState.dummy, data.dummyCards);
-                    announce(`Dummy's cards are now visible.`);
+                    announceToScreenReader(`Dummy's cards are now visible.`);
                 }
                 
                 renderHand(data.position, data.cards);
@@ -786,7 +1510,7 @@
                 renderHand(data.position, gameState.hands[data.position]);
                 updatePlayedCard(data.position, data.suit, data.card);
                 
-                announce(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`, true);
+                announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`, true);
             });
             
             socket.on('nextPlayer', (data) => {
@@ -798,9 +1522,9 @@
                 const weAreController = myPosition === gameState.declarer && isDummy;
                 
                 if (isOurTurn || weAreController) {
-                    announce(`Your turn to play a card.`);
+                    announceToScreenReader(`Your turn to play a card.`);
                 } else {
-                    announce(`${positionName(data.currentPlayer)} plays next.`);
+                    announceToScreenReader(`${positionName(data.currentPlayer)} plays next.`);
                 }
             });
             
@@ -810,7 +1534,7 @@
                 gameState.currentPlayer = data.nextPlayer;
                 
                 updateCenterArea();
-                announce(`${positionName(data.winner)} won the trick!`);
+                announceToScreenReader(`${positionName(data.winner)} won the trick!`);
                 updateGameUI();
             });
             
@@ -819,51 +1543,7 @@
                 gameState.tricks = data.tricks;
                 
                 showGameOver(data.message);
-                announce(data.message);
-            });
-            
-            // Initialize keyboard listeners
-            document.addEventListener('keydown', function(event) {
-                if ((event.altKey || event.metaKey) && !event.ctrlKey && !event.shiftKey) {
-                    switch(event.key.toLowerCase()) {
-                        case 'h': 
-                            event.preventDefault();
-                            readCards();
-                            break;
-                        case 'j': 
-                            event.preventDefault();
-                            clickButton('.card-button', 0);
-                            break;
-                        case 'k': 
-                            event.preventDefault();
-                            clickButton('.card-button', 1);
-                            break;
-                        case 'l': 
-                            event.preventDefault();
-                            clickButton('.card-button', 2);
-                            break;
-                        case 'ö': 
-                            event.preventDefault();
-                            clickButton('.card-button', 3);
-                            break;
-                        case 'ä': 
-                            event.preventDefault();
-                            clickButton('.card-button', 4);
-                            break;
-                        case 'i': 
-                            event.preventDefault();
-                            repeatLastAnnouncement();
-                            break;
-                        case 'n': 
-                            event.preventDefault();
-                            dealNewCards();
-                            break;
-                        case 'p': 
-                            event.preventDefault();
-                            makeMove();
-                            break;
-                    }
-                }
+                announceToScreenReader(data.message);
             });
         });
     </script>
