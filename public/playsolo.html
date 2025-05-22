@@ -184,7 +184,7 @@
                 // Minimaika: 2 sekuntia, maksimaika: 10 sekuntia
                 const baseRate = 150;
                 const minDuration = 2000;
-                const maxDuration = 10000;
+                const maxDuration = 2000;
 
                 let estimated = message.length * baseRate;
                 
@@ -248,23 +248,7 @@
         /**
          * Pää-ilmoitusfunktio - käyttää jonosysteemiä
          */
-        function announceToScreenReader(message, priority = 'normal', interrupt = false) {
-            const priorityMap = {
-                'urgent': announcementQueue.priorities.URGENT,
-                'normal': announcementQueue.priorities.NORMAL,
-                'low': announcementQueue.priorities.LOW
-            };
-            // Jos ilmoitus käynnistyy näppäimistökäytöstä ilman aktiivista elementtiä,
-            // oletetaan että kyseessä on pikanäppäin ja keskeytetään puhe
-            if (document.activeElement === document.body) {
-                interrupt = true;
-            }
-            
-            // Jos keskeytetään, tyhjennä jono ensin
-            if (interrupt) {
-                announcementQueue.clear();
-            }
-            
+        function announceToScreenReader(message) {
             announcementQueue.add(message);
         }
 
