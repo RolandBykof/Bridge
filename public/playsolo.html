@@ -248,7 +248,23 @@
         /**
          * Pää-ilmoitusfunktio - käyttää jonosysteemiä
          */
-        function announceToScreenReader(message) {
+        function announceToScreenReader(message, priority = 'normal', interrupt = false) {
+            const priorityMap = {
+                'urgent': announcementQueue.priorities.URGENT,
+                'normal': announcementQueue.priorities.NORMAL,
+                'low': announcementQueue.priorities.LOW
+            };
+            // Jos ilmoitus käynnistyy näppäimistökäytöstä ilman aktiivista elementtiä,
+            // oletetaan että kyseessä on pikanäppäin ja keskeytetään puhe
+            if (document.activeElement === document.body) {
+                interrupt = true;
+            }
+            
+            // Jos keskeytetään, tyhjennä jono ensin
+            if (interrupt) {
+                announcementQueue.clear();
+            }
+            
             announcementQueue.add(message);
         }
 
