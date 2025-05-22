@@ -1610,11 +1610,38 @@
                 announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`);
             });
             
+            // MUOKATTU: trickComplete yhdistää tikin voittajan ja seuraavan pelaajan ilmoituksen
+            socket.on('trickComplete', (data) => {
+                gameState.currentTrick = [];
+                gameState.tricks = data.tricks;
+                gameState.currentPlayer = data.nextPlayer;
+                
+                updateCenterArea();
+                updateGameUI();
+                
+                // Yhdistetty ilmoitus: kuka voitti tikin ja kenen vuoro on seuraavaksi
+                const winner = positionName(data.winner);
+                const next = positionName(data.nextPlayer);
+                const isUserNext = data.nextPlayer === myPosition;
+                const isDummy = data.nextPlayer === gameState.dummy;
+                const weControlDummy = myPosition === gameState.declarer && isDummy;
+                
+                let message;
+                if (isUserNext || weControlDummy) {
+                    message = `${winner} won the trick. Your turn to play a card.`;
+                } else {
+                    message = `${winner} won the trick. ${next} plays next.`;
+                }
+                
+                announceToScreenReader(message);
+            });
+            
+            // MUOKATTU: nextPlayer käsittelijä ei anna enää erillistä ilmoitusta
             socket.on('nextPlayer', (data) => {
                 gameState.currentPlayer = data.currentPlayer;
                 updateGameUI();
                 
-                // Re-render hands when current player changes
+                // Re-render hands when current player changes (säilytetään ennallaan)
                 if (gameState.hands) {
                     // Re-render south's hand if south is current player or dummy controller
                     if (gameState.hands.south) {
@@ -1629,25 +1656,8 @@
                     }
                 }
                 
-                const isOurTurn = data.currentPlayer === myPosition;
-                const isDummy = data.currentPlayer === gameState.dummy;
-                const weAreController = myPosition === gameState.declarer && isDummy;
-                
-                if (isOurTurn || weAreController) {
-                    announceToScreenReader(`Your turn to play a card.`);
-                } else {
-                    announceToScreenReader(`${positionName(data.currentPlayer)} plays next.`);
-                }
-            });
-            
-            socket.on('trickComplete', (data) => {
-                gameState.currentTrick = [];
-                gameState.tricks = data.tricks;
-                gameState.currentPlayer = data.nextPlayer;
-                
-                updateCenterArea();
-                announceToScreenReader(`${positionName(data.winner)} won the trick!`);
-                updateGameUI();
+                // POISTETTU: Ei enää erillistä ilmoitusta vuoronvaihdosta
+                // (tämä tieto annetaan nyt trickComplete-viestin yhteydessä)
             });
             
             socket.on('gameOver', (data) => {
