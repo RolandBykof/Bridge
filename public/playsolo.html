@@ -1517,6 +1517,21 @@
                 gameState.currentPlayer = data.currentPlayer;
                 updateGameUI();
                 
+                // KORJAUS: Renderöi kädet uudelleen kun current player vaihtuu
+                if (gameState.hands) {
+                    // Renderöi south:n käsi jos south on current player tai dummy controller
+                    if (gameState.hands.south) {
+                        renderHand('south', gameState.hands.south);
+                    }
+                    // Renderöi north:n käsi jos north on current player ja näkyvissä
+                    if (gameState.hands.north && gameState.gamePhase === 'play') {
+                        const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
+                        if (isNSTeamWon) {
+                            renderHand('north', gameState.hands.north);
+                        }
+                    }
+                }
+                
                 const isOurTurn = data.currentPlayer === myPosition;
                 const isDummy = data.currentPlayer === gameState.dummy;
                 const weAreController = myPosition === gameState.declarer && isDummy;
