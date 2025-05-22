@@ -14,7 +14,7 @@
         <!-- ARIA Live area for announcements -->
         <div id="status-announcer" aria-live="polite" class="sr-only"></div>
         
-        <!-- ARIA Live area for card plays -->
+        <!-- ARIA Live area for urgent card plays -->
         <div id="card-announcement" aria-live="assertive" class="sr-only"></div>
         
         <!-- Error message container -->
@@ -137,6 +137,7 @@
         // DOM references
         const elements = {
             statusAnnouncer: document.getElementById('status-announcer'),
+            cardAnnouncer: document.getElementById('card-announcement'),
             helpSection: document.getElementById('help-section'),
             helpList: document.getElementById('help-list'),
             toggleHelpButton: document.getElementById('toggle-help-button'),
@@ -151,6 +152,160 @@
             southHand: document.getElementById('south-hand'),
             centerArea: document.getElementById('center-area'),
             playedCardsContainer: document.getElementById('played-cards-container')
+        };
+
+        // ANNOUNCEMENT QUEUE SYSTEM
+        const announcementQueue = {
+            queue: [],
+            processing: false,
+            currentTimeout: null,
+
+            // Priority levels: 1 = urgent, 2 = normal, 3 = low
+            priorities: {
+                URGENT: 1,    // Card plays, errors, user actions
+                NORMAL: 2,    // Game state changes, bid announcements
+                LOW: 3        // Information requests, help text
+            },
+
+            /**
+             * Add announcement to queue
+             * @param {string} message - Message to announce
+             * @param {number} priority - Priority level (1-3)
+             * @param {boolean} interrupt - Whether to interrupt current announcement
+             */
+            add(message, priority = 2, interrupt = false) {
+                // Store the message for potential repetition
+                uiState.lastAnnouncement = message;
+
+                // If interrupting and something is currently playing, clear it
+                if (interrupt && this.processing) {
+                    this.clearCurrent();
+                }
+
+                // Insert into queue based on priority
+                const announcement = {
+                    message,
+                    priority,
+                    timestamp: Date.now(),
+                    estimatedDuration: this.estimateDuration(message)
+                };
+
+                // Find correct position in queue based on priority
+                let insertIndex = this.queue.length;
+                for (let i = 0; i < this.queue.length; i++) {
+                    if (this.queue[i].priority > priority) {
+                        insertIndex = i;
+                        break;
+                    }
+                }
+
+                this.queue.splice(insertIndex, 0, announcement);
+
+                // Start processing if not already processing
+                if (!this.processing) {
+                    this.processNext();
+                }
+            },
+
+            /**
+             * Estimate how long it will take to read a message
+             * @param {string} message - Message to estimate
+             * @return {number} Estimated duration in milliseconds
+             */
+            estimateDuration(message) {
+                // Average reading speed: ~200 words per minute = ~3.3 words per second
+                // Average word length: ~5 characters
+                // So roughly 16-17 characters per second
+                // Add buffer for punctuation pauses and screen reader processing
+                const baseRate = 120; // ms per character (slower for clarity)
+                const minDuration = 1500; // Minimum 1.5 seconds
+                const maxDuration = 8000; // Maximum 8 seconds for very long messages
+
+                const estimated = Math.max(minDuration, Math.min(maxDuration, message.length * baseRate));
+                
+                // Add extra time for punctuation
+                const punctuationCount = (message.match(/[.!?;,]/g) || []).length;
+                return estimated + (punctuationCount * 300); // 300ms pause per punctuation
+            },
+
+            /**
+             * Process next announcement in queue
+             */
+            processNext() {
+                if (this.queue.length === 0) {
+                    this.processing = false;
+                    return;
+                }
+
+                this.processing = true;
+                const announcement = this.queue.shift();
+
+                // Clear both announcement areas first
+                elements.statusAnnouncer.textContent = '';
+                elements.cardAnnouncer.textContent = '';
+
+                // Small delay then announce
+                setTimeout(() => {
+                    // Use appropriate element based on priority
+                    const targetElement = announcement.priority === this.priorities.URGENT ? 
+                                        elements.cardAnnouncer : 
+                                        elements.statusAnnouncer;
+                    
+                    targetElement.textContent = announcement.message;
+
+                    // Set timeout for next announcement
+                    this.currentTimeout = setTimeout(() => {
+                        this.processNext();
+                    }, announcement.estimatedDuration);
+                }, 100);
+            },
+
+            /**
+             * Clear current announcement and start next
+             */
+            clearCurrent() {
+                if (this.currentTimeout) {
+                    clearTimeout(this.currentTimeout);
+                    this.currentTimeout = null;
+                }
+                elements.statusAnnouncer.textContent = '';
+                elements.cardAnnouncer.textContent = '';
+                this.processing = false;
+                
+                // Start next announcement
+                if (this.queue.length > 0) {
+                    this.processNext();
+                }
+            },
+
+            /**
+             * Clear all pending announcements
+             */
+            clearAll() {
+                this.queue = [];
+                this.clearCurrent();
+            },
+
+            /**
+             * Add urgent announcement (interrupts current)
+             */
+            urgent(message) {
+                this.add(message, this.priorities.URGENT, true);
+            },
+
+            /**
+             * Add normal announcement
+             */
+            normal(message) {
+                this.add(message, this.priorities.NORMAL, false);
+            },
+
+            /**
+             * Add low priority announcement
+             */
+            low(message) {
+                this.add(message, this.priorities.LOW, false);
+            }
         };
 
         // Keyboard shortcuts configuration
@@ -198,7 +353,8 @@
             { key: 'n', alt: true, description: 'Deal new cards', action: () => dealNewCards() },
             { key: 'i', alt: true, description: 'Repeat last announcement', action: () => repeatLastAnnouncement() },
             { key: 'o', alt: true, description: 'Announce score', action: () => announceScore() },
-            { key: 'm', alt: true, description: 'Restart game', action: () => restartGame() }
+            { key: 'm', alt: true, description: 'Restart game', action: () => restartGame() },
+            { key: 'q', alt: true, description: 'Clear announcement queue', action: () => clearAnnouncementQueue() }
         ];
 
         // Simple number keys for bidding levels
@@ -211,6 +367,27 @@
             'c': 'C', // Clubs
             'n': 'N'  // No Trump
         };
+
+        /**
+         * Clear announcement queue (new function)
+         */
+        function clearAnnouncementQueue() {
+            announcementQueue.clearAll();
+            announcementQueue.urgent("Announcement queue cleared.");
+        }
+
+        /**
+         * Main announcement function - now uses queue system
+         */
+        function announceToScreenReader(message, priority = 'normal', interrupt = false) {
+            const priorityMap = {
+                'urgent': announcementQueue.priorities.URGENT,
+                'normal': announcementQueue.priorities.NORMAL,
+                'low': announcementQueue.priorities.LOW
+            };
+            
+            announcementQueue.add(message, priorityMap[priority] || announcementQueue.priorities.NORMAL, interrupt);
+        }
 
         /**
          * Renders the help list
@@ -274,13 +451,13 @@
             
             if (!canViewCards) {
                 const message = `Cannot view ${getPositionName(position)}'s cards at this time.`;
-                announceToScreenReader(message);
+                announceToScreenReader(message, 'low');
                 return;
             }
             
             const hand = gameState && gameState.hands ? gameState.hands[position] : null;
             if (!hand) {
-                announceToScreenReader(`No cards available for ${getPositionName(position)}.`);
+                announceToScreenReader(`No cards available for ${getPositionName(position)}.`, 'low');
                 return;
             }
             
@@ -288,26 +465,24 @@
             
             if (cards.length === 0) {
                 const message = `${getPositionName(position)} has no ${getSuitName(suit)}s.`;
-                announceToScreenReader(message);
+                announceToScreenReader(message, 'low');
                 return;
             }
             
             const message = `${getPositionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
-            announceToScreenReader(message);
+            announceToScreenReader(message, 'low');
             
-            // Add a delay before focusing to allow screen reader to finish
-            // Only focus if it's the current player's turn and game is in play phase
+            // Focus on card after announcement is likely to be read
             const isCurrentPlayer = position === (gameState ? gameState.currentPlayer : null);
             const isPlayable = gameState && gameState.gamePhase === 'play' && isCurrentPlayer;
             
             if (isPlayable) {
-                // Estimate a delay based on message length - approximately 100ms per character
-                // with a minimum of 2 seconds
-                const estimatedReadTime = Math.max(2000, message.length * 100);
+                // Delay based on estimated reading time
+                const estimatedReadTime = announcementQueue.estimateDuration(message);
                 
                 setTimeout(() => {
                     focusLowestCardOfSuit(position, suit);
-                }, estimatedReadTime);
+                }, estimatedReadTime + 500); // Extra 500ms buffer
             }
         }
 
@@ -345,7 +520,7 @@
             if (!canPlayThisSuit) {
                 // Announce that player must follow lead suit
                 const leadSuit = gameState.currentTrick[0].suit;
-                announceToScreenReader(`You must follow the lead suit (${getSuitName(leadSuit)}).`);
+                announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`, 'urgent');
                 return;
             }
             
@@ -364,8 +539,8 @@
                 // Focus the button
                 cardButton.focus();
                 
-                // Announce that focus has moved
-                announceToScreenReader(`Focused on ${getSuitName(suit)} ${lowestCard}.`);
+                // Announce that focus has moved (low priority to not interrupt other announcements)
+                announceToScreenReader(`Focused on ${getSuitName(suit)} ${lowestCard}.`, 'low');
             }
         }
 
@@ -380,13 +555,13 @@
             
             if (!canViewCards) {
                 const message = `Cannot view ${getPositionName(position)}'s cards at this time.`;
-                announceToScreenReader(message);
+                announceToScreenReader(message, 'low');
                 return;
             }
             
             const hand = gameState && gameState.hands ? gameState.hands[position] : null;
             if (!hand) {
-                announceToScreenReader(`No cards available for ${getPositionName(position)}.`);
+                announceToScreenReader(`No cards available for ${getPositionName(position)}.`, 'low');
                 return;
             }
             
@@ -401,8 +576,8 @@
                 }
             }
             
-            // For "read all cards" commands, we don't focus on any specific card
-            announceToScreenReader(message);
+            // For "read all cards" commands, use low priority
+            announceToScreenReader(message, 'low');
         }
 
         /**
@@ -410,12 +585,12 @@
          */
         function announceCurrentTrick() {
             if (!gameState || gameState.gamePhase !== 'play') {
-                announceToScreenReader('The game is not in play phase yet.');
+                announceToScreenReader('The game is not in play phase yet.', 'low');
                 return;
             }
             
             if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
-                announceToScreenReader('No cards played in the current trick yet.');
+                announceToScreenReader('No cards played in the current trick yet.', 'low');
                 return;
             }
             
@@ -425,7 +600,7 @@
                 message += `${getPositionName(card.player)} played ${getSuitName(card.suit)} ${card.card}. `;
             }
             
-            announceToScreenReader(message);
+            announceToScreenReader(message, 'low');
         }
 
         /**
@@ -433,7 +608,7 @@
          */
         function announceGameState() {
             if (!gameState) {
-                announceToScreenReader('No game in progress.');
+                announceToScreenReader('No game in progress.', 'low');
                 return;
             }
             
@@ -447,7 +622,7 @@
                 message += `Current bidder: ${getPositionName(biddingState ? biddingState.currentBidder : 'unknown')}.`;
             }
             
-            announceToScreenReader(message);
+            announceToScreenReader(message, 'low');
         }
 
         /**
@@ -455,16 +630,16 @@
          */
         function announceCurrentPlayer() {
             if (!gameState) {
-                announceToScreenReader('No game in progress.');
+                announceToScreenReader('No game in progress.', 'low');
                 return;
             }
             
             if (gameState.gamePhase === 'play') {
-                announceToScreenReader(`Current player: ${getPositionName(gameState.currentPlayer)}.`);
+                announceToScreenReader(`Current player: ${getPositionName(gameState.currentPlayer)}.`, 'low');
             } else if (gameState.gamePhase === 'bidding') {
-                announceToScreenReader(`Current bidder: ${getPositionName(biddingState ? biddingState.currentBidder : 'unknown')}.`);
+                announceToScreenReader(`Current bidder: ${getPositionName(biddingState ? biddingState.currentBidder : 'unknown')}.`, 'low');
             } else {
-                announceToScreenReader(`Game phase: ${gameState.gamePhase}. No current player.`);
+                announceToScreenReader(`Game phase: ${gameState.gamePhase}. No current player.`, 'low');
             }
         }
 
@@ -473,7 +648,7 @@
          */
         function announceLastTrick() {
             if (!gameState || !gameState.playedCards || gameState.playedCards.length === 0) {
-                announceToScreenReader('No tricks have been played yet.');
+                announceToScreenReader('No tricks have been played yet.', 'low');
                 return;
             }
             
@@ -484,7 +659,7 @@
             );
             
             if (pastCards.length === 0) {
-                announceToScreenReader('No previous tricks to announce.');
+                announceToScreenReader('No previous tricks to announce.', 'low');
                 return;
             }
             
@@ -498,7 +673,7 @@
                 message += `${getPositionName(card.player)} played ${getSuitName(card.suit)} ${card.card}. `;
             }
             
-            announceToScreenReader(message);
+            announceToScreenReader(message, 'low');
         }
 
         /**
@@ -506,13 +681,13 @@
          */
         function makeBidShortcut(bid) {
             if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== 'south') {
-                announceToScreenReader("It's not your turn to bid.");
+                announceToScreenReader("It's not your turn to bid.", 'urgent');
                 return;
             }
             
             // For regular bids, we need both level and suit
             if (!['P', 'X', 'XX'].includes(bid)) {
-                announceToScreenReader('Invalid bid format.');
+                announceToScreenReader('Invalid bid format.', 'urgent');
                 return;
             }
             
@@ -524,12 +699,12 @@
          */
         function handleBidLevelKey(level) {
             if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== 'south') {
-                announceToScreenReader("It's not your turn to bid.");
+                announceToScreenReader("It's not your turn to bid.", 'urgent');
                 return;
             }
             
             uiState.bidLevel = level;
-            announceToScreenReader(`Bid level ${level} selected. Press S, H, D, C, or N to select suit.`);
+            announceToScreenReader(`Bid level ${level} selected. Press S, H, D, C, or N to select suit.`, 'normal');
         }
 
         /**
@@ -538,9 +713,9 @@
         function handleBidSuitKey(suit) {
             if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== 'south' || !uiState.bidLevel) {
                 if (!uiState.bidLevel) {
-                    announceToScreenReader("Please select a bid level (1-7) first.");
+                    announceToScreenReader("Please select a bid level 1 through 7 first.", 'urgent');
                 } else {
-                    announceToScreenReader("It's not your turn to bid.");
+                    announceToScreenReader("It's not your turn to bid.", 'urgent');
                 }
                 return;
             }
@@ -549,7 +724,7 @@
             
             // Check if bid is valid
             if (!isValidBid(bid, biddingState.highestBid)) {
-                announceToScreenReader(`Invalid bid: ${uiState.bidLevel}${getSuitNameForBid(suit)}.`);
+                announceToScreenReader(`Invalid bid: ${uiState.bidLevel} ${getSuitNameForBid(suit)}.`, 'urgent');
                 uiState.bidLevel = null; // Reset bid level
                 return;
             }
@@ -621,7 +796,7 @@
                                        (isNSTeamWon && gameState.currentPlayer === 'north'));
             
             if (!isCurrentPlayerHuman) {
-                announceToScreenReader("It's not your turn to play.");
+                announceToScreenReader("It's not your turn to play.", 'urgent');
                 return;
             }
             
@@ -630,17 +805,18 @@
             const cards = hand[suit] || [];
             
             if (cards.length === 0) {
-                announceToScreenReader(`You have no ${getSuitName(suit)}s.`);
+                announceToScreenReader(`You have no ${getSuitName(suit)}s.`, 'normal');
                 return;
             }
             
             // Check if player must follow suit
             let canPlayThisSuit = true;
+            let warningMessage = '';
             if (gameState.currentTrick && gameState.currentTrick.length > 0) {
                 const leadSuit = gameState.currentTrick[0].suit;
                 if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
                     // Notify player but still focus on the card
-                    announceToScreenReader(`Reminder: You must follow the lead suit (${getSuitName(leadSuit)}). Focusing on ${getSuitName(suit)}.`);
+                    warningMessage = `Reminder: You must follow the lead suit ${getSuitName(leadSuit)}. `;
                     canPlayThisSuit = false;
                 }
             }
@@ -660,12 +836,11 @@
                 // Focus the button
                 cardButton.focus();
                 
-                // Announce that focus has moved (with suit playability warning if needed)
-                if (canPlayThisSuit) {
-                    announceToScreenReader(`Focused on ${getSuitName(suit)} ${lowestCard}.`);
-                }
+                // Announce with appropriate priority
+                const message = warningMessage + `Focused on ${getSuitName(suit)} ${lowestCard}.`;
+                announceToScreenReader(message, canPlayThisSuit ? 'normal' : 'urgent');
             } else {
-                announceToScreenReader(`Could not find playable ${getSuitName(suit)} card.`);
+                announceToScreenReader(`Could not find playable ${getSuitName(suit)} card.`, 'normal');
             }
         }
 
@@ -679,7 +854,7 @@
                                        (isNSTeamWon && gameState.currentPlayer === 'north'));
             
             if (!gameState || gameState.gamePhase !== 'play' || !isCurrentPlayerHuman) {
-                announceToScreenReader("It's not your turn to play.");
+                announceToScreenReader("It's not your turn to play.", 'urgent');
                 return;
             }
             
@@ -687,7 +862,7 @@
             const cards = hand[suit] || [];
             
             if (cards.length === 0) {
-                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`, 'urgent');
                 return;
             }
             
@@ -695,7 +870,7 @@
             if (gameState.currentTrick && gameState.currentTrick.length > 0) {
                 const leadSuit = gameState.currentTrick[0].suit;
                 if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
-                    announceToScreenReader(`You must follow the lead suit (${getSuitName(leadSuit)}).`);
+                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`, 'urgent');
                     return;
                 }
             }
@@ -714,9 +889,11 @@
          */
         function repeatLastAnnouncement() {
             if (uiState.lastAnnouncement) {
-                announceToScreenReader(uiState.lastAnnouncement);
+                // Clear queue and immediately announce last message
+                announcementQueue.clearAll();
+                announceToScreenReader(uiState.lastAnnouncement, 'urgent');
             } else {
-                announceToScreenReader("No announcement to repeat.");
+                announceToScreenReader("No announcement to repeat.", 'normal');
             }
         }
 
@@ -725,9 +902,9 @@
          */
         function announceScore() {
             if (gameState && (gameState.gamePhase === 'play' || gameState.gamePhase === 'end')) {
-                announceToScreenReader(`North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}.`);
+                announceToScreenReader(`North-South: ${gameState.tricks.ns} tricks. East-West: ${gameState.tricks.ew} tricks.`, 'low');
             } else {
-                announceToScreenReader("No score available yet.");
+                announceToScreenReader("No score available yet.", 'low');
             }
         }
 
@@ -737,19 +914,8 @@
         function restartGame() {
             if (confirm("Are you sure you want to restart the game?")) {
                 dealNewCards();
-                announceToScreenReader('Game restarted. New cards dealt.');
+                announceToScreenReader('Game restarted. New cards dealt.', 'normal');
             }
-        }
-
-        /**
-         * Announce message to screen reader
-         */
-        function announceToScreenReader(message) {
-            uiState.lastAnnouncement = message; // Store for repetition
-            elements.statusAnnouncer.textContent = '';
-            setTimeout(() => {
-                elements.statusAnnouncer.textContent = message;
-            }, 50);
         }
 
         /**
@@ -817,6 +983,9 @@
             gameState = null;
             biddingState = null;
             
+            // Clear announcement queue to avoid confusion
+            announcementQueue.clearAll();
+            
             // Hide bidding area
             document.getElementById('bidding-area').style.display = 'none';
             
@@ -831,7 +1000,7 @@
             }
             
             // Announce new deal
-            announceToScreenReader('Dealing new cards...');
+            announceToScreenReader('Dealing new cards...', 'normal');
         }
         
         // Fullscreen mode
@@ -1437,7 +1606,7 @@
                 updateGameUI();
                 renderBiddingUI();
                 
-                announceToScreenReader('Game started. Bidding phase begins.');
+                announceToScreenReader('Game started. Bidding phase begins.', 'normal');
             });
             
             socket.on('yourCards', (data) => {
@@ -1456,7 +1625,7 @@
                 const bidText = data.bid === 'P' ? 'passes' : 
                               data.bid === 'X' ? 'doubles' : 
                               data.bid === 'XX' ? 'redoubles' : `bids ${formatBidForDisplay(data.bid)}`;
-                announceToScreenReader(`${positionName(data.position)} ${bidText}.`);
+                announceToScreenReader(`${positionName(data.position)} ${bidText}.`, 'normal');
             });
             
             socket.on('biddingComplete', (data) => {
@@ -1475,7 +1644,7 @@
                 updateGameUI();
                 
                 const contractMessage = `Final contract: ${formatContract(data.contract)} by ${positionName(data.declarer)}. ${positionName(data.currentPlayer)} leads.`;
-                announceToScreenReader(contractMessage);
+                announceToScreenReader(contractMessage, 'normal');
             });
             
             socket.on('playPhaseCards', (data) => {
@@ -1486,7 +1655,7 @@
                 if (data.dummyCards) {
                     gameState.hands[gameState.dummy] = data.dummyCards;
                     renderHand(gameState.dummy, data.dummyCards);
-                    announceToScreenReader(`Dummy's cards are now visible.`);
+                    announceToScreenReader(`Dummy's cards are now visible.`, 'normal');
                 }
                 
                 renderHand(data.position, data.cards);
@@ -1510,20 +1679,20 @@
                 renderHand(data.position, gameState.hands[data.position]);
                 updatePlayedCard(data.position, data.suit, data.card);
                 
-                announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`, true);
+                announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`, 'urgent');
             });
             
             socket.on('nextPlayer', (data) => {
                 gameState.currentPlayer = data.currentPlayer;
                 updateGameUI();
                 
-                // KORJAUS: Renderöi kädet uudelleen kun current player vaihtuu
+                // Re-render hands when current player changes
                 if (gameState.hands) {
-                    // Renderöi south:n käsi jos south on current player tai dummy controller
+                    // Re-render south's hand if south is current player or dummy controller
                     if (gameState.hands.south) {
                         renderHand('south', gameState.hands.south);
                     }
-                    // Renderöi north:n käsi jos north on current player ja näkyvissä
+                    // Re-render north's hand if north is current player and visible
                     if (gameState.hands.north && gameState.gamePhase === 'play') {
                         const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
                         if (isNSTeamWon) {
@@ -1537,9 +1706,9 @@
                 const weAreController = myPosition === gameState.declarer && isDummy;
                 
                 if (isOurTurn || weAreController) {
-                    announceToScreenReader(`Your turn to play a card.`);
+                    announceToScreenReader(`Your turn to play a card.`, 'normal');
                 } else {
-                    announceToScreenReader(`${positionName(data.currentPlayer)} plays next.`);
+                    announceToScreenReader(`${positionName(data.currentPlayer)} plays next.`, 'normal');
                 }
             });
             
@@ -1549,7 +1718,7 @@
                 gameState.currentPlayer = data.nextPlayer;
                 
                 updateCenterArea();
-                announceToScreenReader(`${positionName(data.winner)} won the trick!`);
+                announceToScreenReader(`${positionName(data.winner)} won the trick!`, 'normal');
                 updateGameUI();
             });
             
@@ -1558,7 +1727,7 @@
                 gameState.tricks = data.tricks;
                 
                 showGameOver(data.message);
-                announceToScreenReader(data.message);
+                announceToScreenReader(data.message, 'normal');
             });
         });
     </script>
