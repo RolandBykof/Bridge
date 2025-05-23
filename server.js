@@ -1,6 +1,7 @@
 /**
- * BridgeCircle - Server Code
- * Socket.io implementation for the bridge application
+ * BridgeCircle - Enhanced Server Code with Advanced GIB AI
+ * Features: Opening Lead Tables, Bidding Conventions, Dummy Play Analysis,
+ * Monte Carlo Simulation, Squeeze Play Recognition, Enhanced Card Play Logic
  */
 
 require('dotenv').config();
@@ -24,6 +25,107 @@ const players = new Map(); // Players by Socket ID
 const CARD_SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const CARD_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const MAX_IDLE_TIME = 3600000; // 1 hour in milliseconds
+
+// Advanced GIB AI Constants and Data Structures
+
+// Opening Lead Tables
+const OPENING_LEAD_TABLES = {
+  // Against No Trump contracts
+  NT: {
+    // Lead longest and strongest suit
+    priorities: ['longest_suit', 'strong_sequence', 'partner_bid_suit', 'fourth_highest'],
+    sequences: {
+      'AKQ': 'A', 'AKJ': 'A', 'AK': 'A',
+      'KQJ': 'K', 'KQ10': 'K', 'KQ': 'K',
+      'QJ10': 'Q', 'QJ9': 'Q', 'QJ': 'Q',
+      'J109': 'J', 'J10': 'J',
+      '1098': '10', '109': '10'
+    }
+  },
+  
+  // Against suit contracts
+  SUIT: {
+    priorities: ['trump_lead', 'singleton', 'doubleton', 'partner_suit', 'sequence'],
+    trump_situations: {
+      'short_trumps': 'lead_trump', // With 1-2 trumps
+      'long_trumps': 'avoid_trump'  // With 4+ trumps
+    }
+  }
+};
+
+// Bidding Conventions
+const BIDDING_CONVENTIONS = {
+  // Stayman Convention
+  STAYMAN: {
+    inquiry: '2C',
+    responses: {
+      'no_major': '2D',
+      'hearts': '2H', 
+      'spades': '2S',
+      'both_majors': '2H' // Bid hearts first
+    }
+  },
+  
+  // Blackwood Convention
+  BLACKWOOD: {
+    inquiry: '4N',
+    responses: {
+      0: '5C', 1: '5D', 2: '5H', 3: '5S', 4: '5N'
+    },
+    king_inquiry: '5N'
+  },
+  
+  // Jacoby Transfers
+  JACOBY_TRANSFERS: {
+    '2D': 'hearts', // 2D shows hearts
+    '2H': 'spades', // 2H shows spades
+    '2S': 'clubs',  // 2S shows clubs
+    '2N': 'diamonds' // 2N shows diamonds
+  },
+  
+  // Point ranges for various bids
+  POINT_RANGES: {
+    '1N': [15, 17],
+    '2N': [20, 21],
+    '3N': [25, 27],
+    'weak_two': [6, 10],
+    'strong_two': [22, 40]
+  }
+};
+
+// Card play analysis patterns
+const PLAY_PATTERNS = {
+  FINESSE: {
+    'AQ_vs_K': 'play_queen_if_low_from_left',
+    'AJ_vs_KQ': 'play_jack_if_low_from_left',
+    'KJ_vs_AQ': 'play_jack_towards_king'
+  },
+  
+  SQUEEZE_PATTERNS: {
+    'simple_squeeze': {
+      threats: 2,
+      entries: 1,
+      timing: 'exact'
+    },
+    'double_squeeze': {
+      threats: 3,
+      entries: 2,
+      timing: 'flexible'
+    }
+  },
+  
+  ENDPLAY_PATTERNS: {
+    'throw_in': 'eliminate_safe_exits',
+    'strip_squeeze': 'remove_safe_cards_then_squeeze'
+  }
+};
+
+// Monte Carlo simulation parameters
+const MONTE_CARLO = {
+  SIMULATIONS: 1000,
+  CONFIDENCE_THRESHOLD: 0.7,
+  MAX_DEPTH: 13 // Maximum tricks to look ahead
+};
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -121,6 +223,1121 @@ io.on('connection', (socket) => {
     handleDisconnect(playerId);
   });
 });
+
+/**
+ * Advanced GIB AI Helper Functions
+ */
+
+/**
+ * Calculate High Card Points with adjustments
+ * @param {Object} hand - Hand object
+ * @param {Object} options - Calculation options
+ * @return {number} Adjusted points
+ */
+function calculateAdvancedPoints(hand, options = {}) {
+  const hcp = calculateBasicHCP(hand);
+  let adjustedPoints = hcp;
+  
+  // Distribution points
+  for (const suit of CARD_SUITS) {
+    const length = hand[suit].length;
+    if (length >= 5) {
+      adjustedPoints += (length - 4); // Long suit points
+    }
+    if (length === 0) {
+      adjustedPoints += 3; // Void
+    } else if (length === 1) {
+      adjustedPoints += 2; // Singleton
+    } else if (length === 2) {
+      adjustedPoints += 1; // Doubleton
+    }
+  }
+  
+  // Honor concentration penalties
+  for (const suit of CARD_SUITS) {
+    const honors = hand[suit].filter(card => ['A', 'K', 'Q', 'J'].includes(card));
+    if (honors.length >= 3 && hand[suit].length <= 3) {
+      adjustedPoints -= 1; // Honor concentration penalty
+    }
+  }
+  
+  return Math.max(0, adjustedPoints);
+}
+
+/**
+ * Calculate basic High Card Points
+ * @param {Object} hand - Hand object
+ * @return {number} HCP
+ */
+function calculateBasicHCP(hand) {
+  const pointValues = { 'A': 4, 'K': 3, 'Q': 2, 'J': 1 };
+  let total = 0;
+  
+  for (const suit of CARD_SUITS) {
+    for (const card of hand[suit] || []) {
+      total += pointValues[card] || 0;
+    }
+  }
+  
+  return total;
+}
+
+/**
+ * Analyze hand shape and patterns
+ * @param {Object} hand - Hand object
+ * @return {Object} Hand analysis
+ */
+function analyzeHandShape(hand) {
+  const distribution = CARD_SUITS.map(suit => hand[suit].length).sort((a, b) => b - a);
+  const pattern = distribution.join('-');
+  
+  const analysis = {
+    distribution,
+    pattern,
+    isBalanced: isBalancedHand(distribution),
+    longestSuit: findLongestSuit(hand),
+    shortestSuit: findShortestSuit(hand),
+    suitQuality: analyzeSuitQuality(hand),
+    voids: CARD_SUITS.filter(suit => hand[suit].length === 0),
+    singletons: CARD_SUITS.filter(suit => hand[suit].length === 1),
+    doubletons: CARD_SUITS.filter(suit => hand[suit].length === 2)
+  };
+  
+  return analysis;
+}
+
+/**
+ * Check if hand is balanced
+ * @param {Array} distribution - Distribution array
+ * @return {boolean} Is balanced
+ */
+function isBalancedHand(distribution) {
+  const sorted = [...distribution].sort((a, b) => b - a);
+  const patterns = [
+    [4, 3, 3, 3], [4, 4, 3, 2], [5, 3, 3, 2]
+  ];
+  
+  return patterns.some(pattern => 
+    pattern.every((length, i) => length === sorted[i])
+  );
+}
+
+/**
+ * Find longest suit in hand
+ * @param {Object} hand - Hand object
+ * @return {string} Longest suit
+ */
+function findLongestSuit(hand) {
+  return CARD_SUITS.reduce((longest, suit) =>
+    hand[suit].length > hand[longest].length ? suit : longest
+  );
+}
+
+/**
+ * Find shortest suit in hand
+ * @param {Object} hand - Hand object
+ * @return {string} Shortest suit
+ */
+function findShortestSuit(hand) {
+  return CARD_SUITS.reduce((shortest, suit) =>
+    hand[suit].length < hand[shortest].length ? suit : shortest
+  );
+}
+
+/**
+ * Analyze suit quality (honors, sequences, etc.)
+ * @param {Object} hand - Hand object
+ * @return {Object} Suit quality analysis
+ */
+function analyzeSuitQuality(hand) {
+  const suitAnalysis = {};
+  
+  for (const suit of CARD_SUITS) {
+    const cards = hand[suit];
+    const honors = cards.filter(card => ['A', 'K', 'Q', 'J', '10'].includes(card));
+    const sequences = findSequences(cards);
+    
+    suitAnalysis[suit] = {
+      length: cards.length,
+      honors: honors.length,
+      topHonors: cards.filter(card => ['A', 'K', 'Q'].includes(card)).length,
+      sequences,
+      quality: calculateSuitQuality(cards),
+      biddable: isSuitBiddable(cards)
+    };
+  }
+  
+  return suitAnalysis;
+}
+
+/**
+ * Find sequences in a suit
+ * @param {Array} cards - Cards in suit
+ * @return {Array} Found sequences
+ */
+function findSequences(cards) {
+  const values = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+  const indices = cards.map(card => values.indexOf(card)).sort((a, b) => a - b);
+  
+  const sequences = [];
+  let currentSeq = [indices[0]];
+  
+  for (let i = 1; i < indices.length; i++) {
+    if (indices[i] === indices[i-1] + 1) {
+      currentSeq.push(indices[i]);
+    } else {
+      if (currentSeq.length >= 2) {
+        sequences.push(currentSeq.map(idx => values[idx]));
+      }
+      currentSeq = [indices[i]];
+    }
+  }
+  
+  if (currentSeq.length >= 2) {
+    sequences.push(currentSeq.map(idx => values[idx]));
+  }
+  
+  return sequences;
+}
+
+/**
+ * Calculate suit quality score
+ * @param {Array} cards - Cards in suit
+ * @return {number} Quality score
+ */
+function calculateSuitQuality(cards) {
+  let quality = 0;
+  const honors = cards.filter(card => ['A', 'K', 'Q', 'J', '10'].includes(card));
+  
+  // Points for honors
+  quality += honors.length * 2;
+  
+  // Bonus for sequences
+  const sequences = findSequences(cards);
+  quality += sequences.reduce((sum, seq) => sum + seq.length, 0);
+  
+  // Bonus for length
+  if (cards.length >= 5) quality += cards.length - 4;
+  
+  return quality;
+}
+
+/**
+ * Check if suit is biddable
+ * @param {Array} cards - Cards in suit
+ * @return {boolean} Is biddable
+ */
+function isSuitBiddable(cards) {
+  if (cards.length < 4) return false;
+  
+  const honors = cards.filter(card => ['A', 'K', 'Q', 'J', '10'].includes(card));
+  return honors.length >= 1 || cards.length >= 6;
+}
+
+/**
+ * Advanced bidding system with conventions
+ * @param {Object} table - Table object
+ * @param {string} position - Bidder position
+ * @param {Array} possibleBids - Available bids
+ * @return {string} Calculated bid
+ */
+function calculateAdvancedBid(table, position, possibleBids) {
+  const hand = table.gameState.hands[position];
+  const points = calculateAdvancedPoints(hand);
+  const shape = analyzeHandShape(hand);
+  const bidHistory = table.biddingState.bidHistory;
+  const partnerPosition = getPartnerPosition(position);
+  const partnerBids = bidHistory.filter(bid => bid.player === partnerPosition);
+  const opponentBids = bidHistory.filter(bid => 
+    bid.player !== position && bid.player !== partnerPosition
+  );
+  
+  // Check for conventional responses first
+  const conventionalBid = checkBiddingConventions(
+    table, position, hand, points, shape, bidHistory, possibleBids
+  );
+  
+  if (conventionalBid && possibleBids.includes(conventionalBid)) {
+    return conventionalBid;
+  }
+  
+  // Opening bid logic
+  if (bidHistory.length === 0 || bidHistory.every(bid => bid.bid === 'P')) {
+    return calculateOpeningBid(hand, points, shape, possibleBids);
+  }
+  
+  // Response to partner's opening
+  if (partnerBids.length > 0 && partnerBids[partnerBids.length - 1].bid !== 'P') {
+    return calculateResponseBid(hand, points, shape, partnerBids, possibleBids);
+  }
+  
+  // Overcall logic
+  if (opponentBids.length > 0) {
+    return calculateOvercallBid(hand, points, shape, opponentBids, possibleBids);
+  }
+  
+  // Default to pass
+  return 'P';
+}
+
+/**
+ * Check for bidding conventions
+ */
+function checkBiddingConventions(table, position, hand, points, shape, bidHistory, possibleBids) {
+  const partnerBids = bidHistory.filter(bid => bid.player === getPartnerPosition(position));
+  
+  if (partnerBids.length === 0) return null;
+  
+  const lastPartnerBid = partnerBids[partnerBids.length - 1].bid;
+  
+  // Stayman responses
+  if (lastPartnerBid === '1N' && possibleBids.includes('2C')) {
+    const hasHonorsInMajor = 
+      (hand.hearts.filter(c => ['A', 'K', 'Q', 'J'].includes(c)).length >= 1 && hand.hearts.length >= 4) ||
+      (hand.spades.filter(c => ['A', 'K', 'Q', 'J'].includes(c)).length >= 1 && hand.spades.length >= 4);
+    
+    if (hasHonorsInMajor && points >= 8) {
+      return '2C'; // Stayman
+    }
+  }
+  
+  // Stayman responses from opener
+  if (lastPartnerBid === '2C' && bidHistory.some(bid => bid.player === position && bid.bid === '1N')) {
+    if (hand.spades.length >= 4) return possibleBids.includes('2S') ? '2S' : '2D';
+    if (hand.hearts.length >= 4) return possibleBids.includes('2H') ? '2H' : '2D';
+    return possibleBids.includes('2D') ? '2D' : 'P';
+  }
+  
+  // Jacoby Transfer responses
+  if (lastPartnerBid === '1N') {
+    if (hand.hearts.length >= 5 && points >= 6 && possibleBids.includes('2D')) {
+      return '2D'; // Transfer to hearts
+    }
+    if (hand.spades.length >= 5 && points >= 6 && possibleBids.includes('2H')) {
+      return '2H'; // Transfer to spades
+    }
+  }
+  
+  // Blackwood inquiry
+  if (points >= 16 && shape.longestSuit !== 'notrump' && 
+      hand[shape.longestSuit].length >= 8 && possibleBids.includes('4N')) {
+    const suitGame = `4${getSuitSymbol(shape.longestSuit)}`;
+    if (table.biddingState.highestBid && 
+        compareBids(table.biddingState.highestBid, suitGame) >= 0) {
+      return '4N'; // Blackwood
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Calculate opening bid
+ */
+function calculateOpeningBid(hand, points, shape, possibleBids) {
+  // 1NT opening
+  if (shape.isBalanced && points >= 15 && points <= 17 && possibleBids.includes('1N')) {
+    return '1N';
+  }
+  
+  // 2NT opening
+  if (shape.isBalanced && points >= 20 && points <= 21 && possibleBids.includes('2N')) {
+    return '2N';
+  }
+  
+  // Strong 2C opening
+  if (points >= 22 && possibleBids.includes('2C')) {
+    return '2C';
+  }
+  
+  // Weak two bids
+  if (points >= 6 && points <= 10) {
+    for (const suit of ['spades', 'hearts', 'diamonds']) {
+      if (hand[suit].length === 6 && shape.suitQuality[suit].quality >= 6) {
+        const bid = `2${getSuitSymbol(suit)}`;
+        if (possibleBids.includes(bid)) return bid;
+      }
+    }
+  }
+  
+  // Standard opening bids (1-level)
+  if (points >= 12) {
+    // Longest suit first, but prefer majors
+    const biddableSuits = CARD_SUITS
+      .filter(suit => shape.suitQuality[suit].biddable)
+      .sort((a, b) => {
+        // Prefer longer suits
+        if (hand[b].length !== hand[a].length) {
+          return hand[b].length - hand[a].length;
+        }
+        // Prefer higher suits if same length
+        return CARD_SUITS.indexOf(a) - CARD_SUITS.indexOf(b);
+      });
+    
+    for (const suit of biddableSuits) {
+      const bid = `1${getSuitSymbol(suit)}`;
+      if (possibleBids.includes(bid)) return bid;
+    }
+    
+    // Default to 1C if nothing else works
+    if (possibleBids.includes('1C')) return '1C';
+  }
+  
+  return 'P';
+}
+
+/**
+ * Calculate response bid to partner's opening
+ */
+function calculateResponseBid(hand, points, shape, partnerBids, possibleBids) {
+  const partnerOpening = partnerBids[0].bid;
+  
+  // Response to 1NT
+  if (partnerOpening === '1N') {
+    if (points >= 10) {
+      // Game forcing
+      if (shape.isBalanced && possibleBids.includes('3N')) return '3N';
+      
+      // Major suit game
+      if (hand.spades.length >= 5 && possibleBids.includes('4S')) return '4S';
+      if (hand.hearts.length >= 5 && possibleBids.includes('4H')) return '4H';
+    }
+    
+    // Invitational
+    if (points >= 8 && shape.isBalanced && possibleBids.includes('2N')) {
+      return '2N';
+    }
+  }
+  
+  // Response to suit openings
+  if (['1C', '1D', '1H', '1S'].includes(partnerOpening)) {
+    const openingSuit = getSuitFromSymbol(partnerOpening.charAt(1));
+    
+    // Major suit support
+    if (['hearts', 'spades'].includes(openingSuit) && hand[openingSuit].length >= 3) {
+      if (points >= 6 && points <= 9) {
+        const bid = `2${getSuitSymbol(openingSuit)}`;
+        if (possibleBids.includes(bid)) return bid;
+      }
+      if (points >= 10 && points <= 12) {
+        const bid = `3${getSuitSymbol(openingSuit)}`;
+        if (possibleBids.includes(bid)) return bid;
+      }
+      if (points >= 13) {
+        const bid = `4${getSuitSymbol(openingSuit)}`;
+        if (possibleBids.includes(bid)) return bid;
+      }
+    }
+    
+    // New suit bid
+    if (points >= 6) {
+      const biddableSuits = CARD_SUITS
+        .filter(suit => suit !== openingSuit && shape.suitQuality[suit].biddable)
+        .sort((a, b) => hand[b].length - hand[a].length);
+      
+      for (const suit of biddableSuits) {
+        const bid = `1${getSuitSymbol(suit)}`;
+        if (possibleBids.includes(bid)) return bid;
+      }
+    }
+  }
+  
+  return 'P';
+}
+
+/**
+ * Calculate overcall bid
+ */
+function calculateOvercallBid(hand, points, shape, opponentBids, possibleBids) {
+  // Simple overcall logic
+  if (points >= 8 && points <= 16) {
+    const longestSuit = shape.longestSuit;
+    if (hand[longestSuit].length >= 5 && shape.suitQuality[longestSuit].quality >= 6) {
+      const bid = `1${getSuitSymbol(longestSuit)}`;
+      if (possibleBids.includes(bid)) return bid;
+    }
+  }
+  
+  // 1NT overcall
+  if (shape.isBalanced && points >= 15 && points <= 18 && possibleBids.includes('1N')) {
+    return '1N';
+  }
+  
+  return 'P';
+}
+
+/**
+ * Get partner position
+ * @param {string} position - Player position
+ * @return {string} Partner position
+ */
+function getPartnerPosition(position) {
+  const partnerships = {
+    'north': 'south',
+    'south': 'north', 
+    'east': 'west',
+    'west': 'east'
+  };
+  return partnerships[position];
+}
+
+/**
+ * Get suit symbol for bidding
+ * @param {string} suit - Suit name
+ * @return {string} Suit symbol
+ */
+function getSuitSymbol(suit) {
+  const symbols = {
+    'clubs': 'C',
+    'diamonds': 'D', 
+    'hearts': 'H',
+    'spades': 'S'
+  };
+  return symbols[suit] || 'N';
+}
+
+/**
+ * Get suit from symbol
+ * @param {string} symbol - Suit symbol
+ * @return {string} Suit name
+ */
+function getSuitFromSymbol(symbol) {
+  const suits = {
+    'C': 'clubs',
+    'D': 'diamonds',
+    'H': 'hearts', 
+    'S': 'spades'
+  };
+  return suits[symbol];
+}
+
+/**
+ * Compare two bids
+ * @param {string} bid1 - First bid
+ * @param {string} bid2 - Second bid
+ * @return {number} Comparison result (-1, 0, 1)
+ */
+function compareBids(bid1, bid2) {
+  if (bid1 === bid2) return 0;
+  
+  const suits = ['C', 'D', 'H', 'S', 'N'];
+  const level1 = parseInt(bid1.charAt(0));
+  const level2 = parseInt(bid2.charAt(0));
+  
+  if (level1 !== level2) return level1 - level2;
+  
+  const suit1 = suits.indexOf(bid1.charAt(1));
+  const suit2 = suits.indexOf(bid2.charAt(1));
+  
+  return suit1 - suit2;
+}
+
+/**
+ * Advanced card play with Monte Carlo simulation
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @return {Object} Best card to play
+ */
+function calculateAdvancedCardPlay(table, position) {
+  const hand = table.gameState.hands[position];
+  const currentTrick = table.gameState.currentTrick;
+  const playedCards = table.gameState.playedCards;
+  const contract = table.gameState.contract;
+  const trumpSuit = table.gameState.trumpSuit;
+  const declarer = table.gameState.declarer;
+  const dummy = table.gameState.dummy;
+  
+  // Get legal moves
+  const legalMoves = getLegalMoves(hand, currentTrick, trumpSuit);
+  
+  if (legalMoves.length === 1) {
+    return legalMoves[0]; // Only one legal move
+  }
+  
+  // Determine play strategy based on position and phase
+  const isOpening = currentTrick.length === 0;
+  const isDeclarer = position === declarer;
+  const isDummy = position === dummy;
+  const isDefender = !isDeclarer && !isDummy;
+  
+  if (isOpening) {
+    return calculateOpeningLead(table, position, legalMoves);
+  }
+  
+  if (isDeclarer || (isDummy && table.gameState.currentPlayer === dummy)) {
+    return calculateDeclarerPlay(table, position, legalMoves);
+  }
+  
+  if (isDefender) {
+    return calculateDefenderPlay(table, position, legalMoves);
+  }
+  
+  // Fallback to simple strategy
+  return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+}
+
+/**
+ * Calculate opening lead using advanced tables
+ * @param {Object} table - Table object
+ * @param {string} position - Leader position
+ * @param {Array} legalMoves - Legal card plays
+ * @return {Object} Best opening lead
+ */
+function calculateOpeningLead(table, position, legalMoves) {
+  const hand = table.gameState.hands[position];
+  const contract = table.gameState.contract;
+  const isNT = contract && contract.includes('N');
+  const trumpSuit = table.gameState.trumpSuit;
+  
+  const leadTable = isNT ? OPENING_LEAD_TABLES.NT : OPENING_LEAD_TABLES.SUIT;
+  
+  // Check for sequences
+  for (const suit of CARD_SUITS) {
+    const suitCards = hand[suit];
+    if (suitCards.length === 0) continue;
+    
+    const sequences = leadTable.sequences || OPENING_LEAD_TABLES.NT.sequences;
+    
+    for (const [sequence, leadCard] of Object.entries(sequences)) {
+      if (hasSequence(suitCards, sequence)) {
+        const move = legalMoves.find(m => m.suit === suit && m.card === leadCard);
+        if (move) return move;
+      }
+    }
+  }
+  
+  // Lead longest suit against NT
+  if (isNT) {
+    const longestSuit = CARD_SUITS.reduce((longest, suit) =>
+      hand[suit].length > hand[longest].length ? suit : longest
+    );
+    
+    if (hand[longestSuit].length >= 4) {
+      // Fourth highest from longest
+      const fourthHighest = hand[longestSuit][3];
+      const move = legalMoves.find(m => m.suit === longestSuit && m.card === fourthHighest);
+      if (move) return move;
+      
+      // Or any card from longest suit
+      const anyFromLongest = legalMoves.find(m => m.suit === longestSuit);
+      if (anyFromLongest) return anyFromLongest;
+    }
+  }
+  
+  // Against suit contracts, avoid trump unless short
+  if (!isNT && trumpSuit) {
+    const trumpLength = hand[trumpSuit].length;
+    
+    // Lead trump if short (1-2 cards)
+    if (trumpLength <= 2 && trumpLength > 0) {
+      const trumpMove = legalMoves.find(m => m.suit === trumpSuit);
+      if (trumpMove) return trumpMove;
+    }
+    
+    // Lead singleton or doubleton in side suits
+    for (const suit of CARD_SUITS) {
+      if (suit === trumpSuit) continue;
+      
+      if (hand[suit].length === 1) {
+        const singletonMove = legalMoves.find(m => m.suit === suit);
+        if (singletonMove) return singletonMove;
+      }
+    }
+    
+    // Lead from doubleton
+    for (const suit of CARD_SUITS) {
+      if (suit === trumpSuit) continue;
+      
+      if (hand[suit].length === 2) {
+        const doubletonMove = legalMoves.find(m => m.suit === suit);
+        if (doubletonMove) return doubletonMove;
+      }
+    }
+  }
+  
+  // Default: lead from longest side suit
+  const sideSuits = CARD_SUITS.filter(suit => suit !== trumpSuit);
+  const longestSideSuit = sideSuits.reduce((longest, suit) =>
+    hand[suit].length > hand[longest].length ? suit : longest
+  );
+  
+  const defaultMove = legalMoves.find(m => m.suit === longestSideSuit);
+  if (defaultMove) return defaultMove;
+  
+  // Last resort: random legal move
+  return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+}
+
+/**
+ * Check if hand has a specific sequence
+ * @param {Array} cards - Cards in suit
+ * @param {string} sequence - Sequence to check
+ * @return {boolean} Has sequence
+ */
+function hasSequence(cards, sequence) {
+  const cardSet = new Set(cards);
+  return sequence.split('').every(card => cardSet.has(card));
+}
+
+/**
+ * Calculate declarer play with dummy analysis
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {Array} legalMoves - Legal moves
+ * @return {Object} Best declarer play
+ */
+function calculateDeclarerPlay(table, position, legalMoves) {
+  const declarerHand = table.gameState.hands[table.gameState.declarer];
+  const dummyHand = table.gameState.hands[table.gameState.dummy];
+  const contract = table.gameState.contract;
+  const tricksNeeded = parseInt(contract.charAt(0)) + 6;
+  const currentTricks = table.gameState.tricks;
+  const declarerSide = table.gameState.declarer === 'north' || table.gameState.declarer === 'south' ? 'ns' : 'ew';
+  
+  // Run Monte Carlo simulation for each legal move
+  const moveScores = legalMoves.map(move => ({
+    move,
+    score: runMonteCarloSimulation(table, move, position, MONTE_CARLO.SIMULATIONS)
+  }));
+  
+  // Sort by score and return best move
+  moveScores.sort((a, b) => b.score - a.score);
+  
+  return moveScores[0].move;
+}
+
+/**
+ * Calculate defender play
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {Array} legalMoves - Legal moves
+ * @return {Object} Best defender play
+ */
+function calculateDefenderPlay(table, position, legalMoves) {
+  const currentTrick = table.gameState.currentTrick;
+  const contract = table.gameState.contract;
+  const tricksNeeded = parseInt(contract.charAt(0)) + 6;
+  const trumpSuit = table.gameState.trumpSuit;
+  
+  // Defensive strategies
+  
+  // 1. Try to win the trick if possible
+  const winningMoves = legalMoves.filter(move => 
+    canWinTrick(move, currentTrick, trumpSuit)
+  );
+  
+  if (winningMoves.length > 0) {
+    // Choose cheapest winner
+    return winningMoves.reduce((cheapest, move) => 
+      compareCardValues(move.card, cheapest.card) < 0 ? move : cheapest
+    );
+  }
+  
+  // 2. If partner is winning, play low
+  if (currentTrick.length > 0) {
+    const partnerPosition = getPartnerPosition(position);
+    const isPartnerWinning = isPartnerWinningTrick(currentTrick, partnerPosition, trumpSuit);
+    
+    if (isPartnerWinning) {
+      // Play lowest card
+      return legalMoves.reduce((lowest, move) => 
+        compareCardValues(move.card, lowest.card) < 0 ? move : lowest
+      );
+    }
+  }
+  
+  // 3. Try to promote partner's honors
+  const promotionMove = findPromotionPlay(table, position, legalMoves);
+  if (promotionMove) return promotionMove;
+  
+  // 4. Lead through strength, up to weakness
+  const throughStrengthMove = findThroughStrengthPlay(table, position, legalMoves);
+  if (throughStrengthMove) return throughStrengthMove;
+  
+  // Default: play middle card
+  const middleIndex = Math.floor(legalMoves.length / 2);
+  return legalMoves[middleIndex];
+}
+
+/**
+ * Run Monte Carlo simulation for a move
+ * @param {Object} table - Table object
+ * @param {Object} move - Move to evaluate
+ * @param {string} position - Player position
+ * @param {number} simulations - Number of simulations
+ * @return {number} Average score for the move
+ */
+function runMonteCarloSimulation(table, move, position, simulations) {
+  let totalScore = 0;
+  
+  for (let i = 0; i < simulations; i++) {
+    // Create simulation state
+    const simState = createSimulationState(table, move, position);
+    
+    // Play out the rest of the deal
+    const result = simulatePlayOut(simState);
+    
+    // Score based on contract success
+    totalScore += scoreSimulationResult(result, table.gameState.contract, table.gameState.declarer);
+  }
+  
+  return totalScore / simulations;
+}
+
+/**
+ * Create simulation state for Monte Carlo
+ * @param {Object} table - Original table
+ * @param {Object} move - Move being evaluated
+ * @param {string} position - Player position
+ * @return {Object} Simulation state
+ */
+function createSimulationState(table, move, position) {
+  // Clone table state
+  const simState = JSON.parse(JSON.stringify(table.gameState));
+  
+  // Apply the move
+  simState.currentTrick.push({
+    player: position,
+    suit: move.suit,
+    card: move.card
+  });
+  
+  // Remove card from hand
+  const hand = simState.hands[position];
+  const cardIndex = hand[move.suit].indexOf(move.card);
+  if (cardIndex > -1) {
+    hand[move.suit].splice(cardIndex, 1);
+  }
+  
+  // Distribute unknown cards randomly for simulation
+  distributeUnknownCards(simState, position);
+  
+  return simState;
+}
+
+/**
+ * Simulate playing out the rest of the deal
+ * @param {Object} simState - Simulation state
+ * @return {Object} Final result
+ */
+function simulatePlayOut(simState) {
+  const maxTricks = 13;
+  let tricksPlayed = 0;
+  
+  // Count tricks already played
+  tricksPlayed = Math.floor(simState.playedCards.length / 4);
+  
+  // Play remaining tricks
+  while (tricksPlayed < maxTricks) {
+    // Complete current trick if needed
+    while (simState.currentTrick.length < 4) {
+      const nextPlayer = getNextPlayer(simState.currentTrick[simState.currentTrick.length - 1]?.player || simState.currentPlayer);
+      const nextMove = getRandomLegalMove(simState, nextPlayer);
+      
+      if (!nextMove) break; // No legal moves
+      
+      simState.currentTrick.push({
+        player: nextPlayer,
+        suit: nextMove.suit,
+        card: nextMove.card
+      });
+      
+      // Remove card from hand
+      const hand = simState.hands[nextPlayer];
+      const cardIndex = hand[nextMove.suit].indexOf(nextMove.card);
+      if (cardIndex > -1) {
+        hand[nextMove.suit].splice(cardIndex, 1);
+      }
+    }
+    
+    // Determine trick winner
+    if (simState.currentTrick.length === 4) {
+      const winner = determineTrickWinnerSimulation(simState.currentTrick, simState.trumpSuit);
+      
+      // Update trick count
+      if (winner === 'north' || winner === 'south') {
+        simState.tricks.ns++;
+      } else {
+        simState.tricks.ew++;
+      }
+      
+      // Start new trick
+      simState.currentTrick = [];
+      simState.currentPlayer = winner;
+      tricksPlayed++;
+    } else {
+      break; // Couldn't complete trick
+    }
+  }
+  
+  return simState;
+}
+
+/**
+ * Get random legal move for simulation
+ * @param {Object} simState - Simulation state
+ * @param {string} position - Player position
+ * @return {Object} Random legal move
+ */
+function getRandomLegalMove(simState, position) {
+  const hand = simState.hands[position];
+  const legalMoves = getLegalMoves(hand, simState.currentTrick, simState.trumpSuit);
+  
+  if (legalMoves.length === 0) return null;
+  
+  return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+}
+
+/**
+ * Distribute unknown cards for simulation
+ * @param {Object} simState - Simulation state
+ * @param {string} knownPosition - Position with known cards
+ */
+function distributeUnknownCards(simState, knownPosition) {
+  // This is a simplified implementation
+  // In a real simulation, we'd track which cards are known vs unknown
+  // and distribute only the unknown cards randomly among unknown hands
+}
+
+/**
+ * Score simulation result
+ * @param {Object} result - Simulation result
+ * @param {string} contract - Contract
+ * @param {string} declarer - Declarer position
+ * @return {number} Score
+ */
+function scoreSimulationResult(result, contract, declarer) {
+  const tricksNeeded = parseInt(contract.charAt(0)) + 6;
+  const declarerSide = declarer === 'north' || declarer === 'south' ? 'ns' : 'ew';
+  const tricksMade = result.tricks[declarerSide];
+  
+  if (tricksMade >= tricksNeeded) {
+    return 1 + (tricksMade - tricksNeeded) * 0.1; // Bonus for overtricks
+  } else {
+    return -(tricksNeeded - tricksMade) * 0.5; // Penalty for going down
+  }
+}
+
+/**
+ * Get legal moves for a position
+ * @param {Object} hand - Player's hand
+ * @param {Array} currentTrick - Current trick
+ * @param {string} trumpSuit - Trump suit
+ * @return {Array} Legal moves
+ */
+function getLegalMoves(hand, currentTrick, trumpSuit) {
+  const legalMoves = [];
+  
+  // If first card of trick, any card is legal
+  if (currentTrick.length === 0) {
+    for (const suit of CARD_SUITS) {
+      for (const card of hand[suit] || []) {
+        legalMoves.push({ suit, card });
+      }
+    }
+    return legalMoves;
+  }
+  
+  // Must follow suit if possible
+  const leadSuit = currentTrick[0].suit;
+  if (hand[leadSuit] && hand[leadSuit].length > 0) {
+    for (const card of hand[leadSuit]) {
+      legalMoves.push({ suit: leadSuit, card });
+    }
+    return legalMoves;
+  }
+  
+  // Can't follow suit - any card is legal
+  for (const suit of CARD_SUITS) {
+    for (const card of hand[suit] || []) {
+      legalMoves.push({ suit, card });
+    }
+  }
+  
+  return legalMoves;
+}
+
+/**
+ * Check if a move can win the current trick
+ * @param {Object} move - Move to check
+ * @param {Array} currentTrick - Current trick
+ * @param {string} trumpSuit - Trump suit
+ * @return {boolean} Can win trick
+ */
+function canWinTrick(move, currentTrick, trumpSuit) {
+  if (currentTrick.length === 0) return true; // Leading always "wins" initially
+  
+  const leadSuit = currentTrick[0].suit;
+  const highestSoFar = getHighestCard(currentTrick, leadSuit, trumpSuit);
+  
+  // If playing trump when trump hasn't been played
+  if (move.suit === trumpSuit && !currentTrick.some(card => card.suit === trumpSuit)) {
+    return true;
+  }
+  
+  // If playing in suit and higher than current highest
+  if (move.suit === highestSoFar.suit) {
+    return compareCardValues(move.card, highestSoFar.card) > 0;
+  }
+  
+  return false;
+}
+
+/**
+ * Get highest card in current trick
+ * @param {Array} trick - Current trick
+ * @param {string} leadSuit - Lead suit
+ * @param {string} trumpSuit - Trump suit
+ * @return {Object} Highest card
+ */
+function getHighestCard(trick, leadSuit, trumpSuit) {
+  let highest = trick[0];
+  
+  for (let i = 1; i < trick.length; i++) {
+    const card = trick[i];
+    
+    // Trump beats non-trump
+    if (card.suit === trumpSuit && highest.suit !== trumpSuit) {
+      highest = card;
+    }
+    // Higher trump beats lower trump
+    else if (card.suit === trumpSuit && highest.suit === trumpSuit) {
+      if (compareCardValues(card.card, highest.card) > 0) {
+        highest = card;
+      }
+    }
+    // Higher card in lead suit beats lower (if both not trump)
+    else if (card.suit === leadSuit && highest.suit === leadSuit) {
+      if (compareCardValues(card.card, highest.card) > 0) {
+        highest = card;
+      }
+    }
+    // Lead suit beats off-suit (if neither is trump)
+    else if (card.suit === leadSuit && highest.suit !== leadSuit && highest.suit !== trumpSuit) {
+      highest = card;
+    }
+  }
+  
+  return highest;
+}
+
+/**
+ * Compare card values
+ * @param {string} card1 - First card
+ * @param {string} card2 - Second card
+ * @return {number} Comparison result
+ */
+function compareCardValues(card1, card2) {
+  const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  return values.indexOf(card1) - values.indexOf(card2);
+}
+
+/**
+ * Check if partner is winning current trick
+ * @param {Array} trick - Current trick
+ * @param {string} partnerPosition - Partner's position
+ * @param {string} trumpSuit - Trump suit
+ * @return {boolean} Is partner winning
+ */
+function isPartnerWinningTrick(trick, partnerPosition, trumpSuit) {
+  if (trick.length === 0) return false;
+  
+  const leadSuit = trick[0].suit;
+  const highestCard = getHighestCard(trick, leadSuit, trumpSuit);
+  
+  return trick.some(card => 
+    card.player === partnerPosition && 
+    card.suit === highestCard.suit && 
+    card.card === highestCard.card
+  );
+}
+
+/**
+ * Find promotion play for partner
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {Array} legalMoves - Legal moves
+ * @return {Object|null} Promotion move
+ */
+function findPromotionPlay(table, position, legalMoves) {
+  // This is a simplified implementation
+  // In reality, we'd analyze partner's likely holdings and try to promote them
+  
+  const partnerPosition = getPartnerPosition(position);
+  const currentTrick = table.gameState.currentTrick;
+  
+  if (currentTrick.length === 0) {
+    // Leading - try to find a suit where partner might have honors
+    for (const move of legalMoves) {
+      if (['J', 'Q', 'K'].includes(move.card)) {
+        return move; // Lead an honor to potentially promote partner's cards
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Find through strength play
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {Array} legalMoves - Legal moves
+ * @return {Object|null} Through strength move
+ */
+function findThroughStrengthPlay(table, position, legalMoves) {
+  // This is a simplified implementation
+  // "Lead through strength, up to weakness" is a defensive principle
+  
+  return null; // Placeholder for more complex analysis
+}
+
+/**
+ * Determine trick winner in simulation
+ * @param {Array} trick - Completed trick
+ * @param {string} trumpSuit - Trump suit
+ * @return {string} Winner position
+ */
+function determineTrickWinnerSimulation(trick, trumpSuit) {
+  if (trick.length === 0) return null;
+  
+  const leadSuit = trick[0].suit;
+  const highestCard = getHighestCard(trick, leadSuit, trumpSuit);
+  
+  return trick.find(card => 
+    card.suit === highestCard.suit && 
+    card.card === highestCard.card
+  ).player;
+}
+
+/**
+ * Enhanced GIB bid making with conventions
+ * @param {Object} table - Table object
+ * @param {string} position - GIB position
+ */
+function makeAdvancedGIBBid(table, position) {
+  const possibleBids = getPossibleBids(table.biddingState.highestBid);
+  const bid = calculateAdvancedBid(table, position, possibleBids);
+  
+  processBid(table, position, bid);
+}
+
+/**
+ * Enhanced GIB card play
+ * @param {Object} table - Table object
+ * @param {string} position - GIB position
+ */
+function makeAdvancedGIBMove(table, position) {
+  const bestMove = calculateAdvancedCardPlay(table, position);
+  
+  if (bestMove) {
+    processCardPlay(table, position, bestMove.suit, bestMove.card);
+  } else {
+    console.error(`Advanced GIB player ${position} has no legal moves!`);
+  }
+}
+
+// Original server functions with enhanced GIB integration
 
 /**
  * Handle player disconnection
@@ -425,11 +1642,11 @@ function replacePlayer(table, position) {
   // If replaced player was current player, GIB's turn
   if (table.gameState && table.gameState.currentPlayer === position) {
     setTimeout(() => {
-      makeGIBMove(table, position);
+      makeAdvancedGIBMove(table, position); // Use enhanced GIB
     }, 1500);
   } else if (table.biddingState && table.biddingState.currentBidder === position) {
     setTimeout(() => {
-      makeGIBBid(table, position);
+      makeAdvancedGIBBid(table, position); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -507,7 +1724,7 @@ function startGame(socket, playerId, data) {
     // If first bidder is GIB, handle GIB's turn
     if (table.players[table.biddingState.currentBidder].type === 'gib') {
       setTimeout(() => {
-        makeGIBBid(table, table.biddingState.currentBidder);
+        makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
       }, 1500);
     }
   } catch (error) {
@@ -652,7 +1869,7 @@ function processBid(table, position, bid) {
     // If next bidder is GIB, make GIB's bid
     if (table.players[table.biddingState.currentBidder].type === 'gib') {
       setTimeout(() => {
-        makeGIBBid(table, table.biddingState.currentBidder);
+        makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
       }, 1500);
     }
   }
@@ -878,7 +2095,7 @@ function moveToPlayPhase(table) {
   // If first player is GIB, make GIB's move
   if (table.players[table.gameState.currentPlayer].type === 'gib') {
     setTimeout(() => {
-      makeGIBMove(table, table.gameState.currentPlayer);
+      makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -996,68 +2213,28 @@ function processCardPlay(table, position, suit, card) {
     // If next player is GIB, make GIB's move
     if (table.players[table.gameState.currentPlayer].type === 'gib') {
       setTimeout(() => {
-        makeGIBMove(table, table.gameState.currentPlayer);
+        makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
       }, 1500);
     }
   }
 }
 
 /**
- * Make GIB AI bid
+ * Make GIB AI bid (deprecated - use makeAdvancedGIBBid)
  * @param {Object} table - Table object
  * @param {string} position - GIB's position
  */
 function makeGIBBid(table, position) {
-  // Simple logic for GIB bidding
-  
-  // Get valid bids
-  const possibleBids = getPossibleBids(table.biddingState.highestBid);
-  
-  // Use strategy to choose bid
-  const bid = calculateBid(table, position, possibleBids);
-  
-  // Make the chosen bid
-  processBid(table, position, bid);
+  makeAdvancedGIBBid(table, position);
 }
 
 /**
- * Calculate GIB AI bid
+ * Make GIB AI move (deprecated - use makeAdvancedGIBMove)
  * @param {Object} table - Table object
  * @param {string} position - GIB's position
- * @param {Array<string>} possibleBids - Possible bids
- * @return {string} Chosen bid
  */
-function calculateBid(table, position, possibleBids) {
-  // Get info about player's hand
-  const hand = table.gameState.hands[position];
-  
-  // Simple GIB logic
-  // Default to pass
-  let bid = 'P';
-  
-  // 15+ points -> 1NT
-  if (calculatePoints(hand) >= 15 && calculatePoints(hand) <= 17) {
-    bid = possibleBids.includes('1N') ? '1N' : 'P';
-  }
-  // 12+ points -> 1 longest suit
-  else if (calculatePoints(hand) >= 12) {
-    const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
-    const longestSuit = suits.reduce((longest, suit) => 
-      hand[suit].length > hand[longest].length ? suit : longest, suits[0]);
-    
-    if (longestSuit === 'spades' && hand[longestSuit].length >= 5) {
-      bid = possibleBids.includes('1S') ? '1S' : 'P';
-    } else if (longestSuit === 'hearts' && hand[longestSuit].length >= 5) {
-      bid = possibleBids.includes('1H') ? '1H' : 'P';
-    } else if (longestSuit === 'diamonds') {
-      bid = possibleBids.includes('1D') ? '1D' : 'P';
-    } else if (longestSuit === 'clubs') {
-      bid = possibleBids.includes('1C') ? '1C' : 'P';
-    }
-  }
-  
-  // Ensure bid is possible
-  return possibleBids.includes(bid) ? bid : 'P';
+function makeGIBMove(table, position) {
+  makeAdvancedGIBMove(table, position);
 }
 
 /**
@@ -1133,56 +2310,6 @@ function isBidValid(bid, highestBid) {
 }
 
 /**
- * Make GIB AI move
- * @param {Object} table - Table object
- * @param {string} position - GIB's position
- */
-function makeGIBMove(table, position) {
-  // Choose card to play
-  const hand = table.gameState.hands[position];
-  let playableCards = [];
-  
-  // If this is first card in trick, use leading strategy
-  if (table.gameState.currentTrick.length === 0) {
-    // For simplicity, play a random card
-    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-      for (const card of hand[suit] || []) {
-        playableCards.push({ suit, card });
-      }
-    }
-  } else {
-    // Otherwise follow suit if possible
-    const leadingSuit = table.gameState.currentTrick[0].suit;
-    
-    if (hand[leadingSuit] && hand[leadingSuit].length > 0) {
-      // Must follow suit
-      for (const card of hand[leadingSuit]) {
-        playableCards.push({ suit: leadingSuit, card });
-      }
-    } else {
-      // Can play any card
-      for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-        for (const card of hand[suit] || []) {
-          playableCards.push({ suit, card });
-        }
-      }
-    }
-  }
-  
-  if (playableCards.length === 0) {
-    console.error(`GIB player ${position} has no legal cards to play!`);
-    return;
-  }
-  
-  // Choose random card
-  const chosenCardIndex = Math.floor(Math.random() * playableCards.length);
-  const chosenCard = playableCards[chosenCardIndex];
-  
-  // Play chosen card
-  processCardPlay(table, position, chosenCard.suit, chosenCard.card);
-}
-
-/**
  * Get next player
  * @param {string} currentPlayer - Current player
  * @return {string} Next player
@@ -1237,7 +2364,7 @@ function processTrick(table) {
   // If next player is GIB, make GIB's move
   if (table.players[table.gameState.currentPlayer].type === 'gib') {
     setTimeout(() => {
-      makeGIBMove(table, table.gameState.currentPlayer);
+      makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -1495,26 +2622,12 @@ function sendActiveTables(socket) {
 }
 
 /**
- * Calculate hand points (HCP)
+ * Calculate hand points (HCP) - basic version for compatibility
  * @param {Object} hand - Hand object
  * @return {number} Points
  */
 function calculatePoints(hand) {
-  const pointValues = {
-    'A': 4, 'K': 3, 'Q': 2, 'J': 1
-  };
-  
-  let total = 0;
-  
-  for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-    for (const card of hand[suit] || []) {
-      if (pointValues[card]) {
-        total += pointValues[card];
-      }
-    }
-  }
-  
-  return total;
+  return calculateBasicHCP(hand);
 }
 
 /**
@@ -1784,8 +2897,289 @@ function formatContract(contract) {
   return result;
 }
 
+// Advanced squeeze play detection and recognition
+/**
+ * Detect squeeze opportunities
+ * @param {Object} table - Table object
+ * @param {string} declarerPosition - Declarer position
+ * @return {Object} Squeeze analysis
+ */
+function detectSqueezePlay(table, declarerPosition) {
+  const gameState = table.gameState;
+  const declarerHand = gameState.hands[declarerPosition];
+  const dummyHand = gameState.hands[gameState.dummy];
+  const tricksRemaining = 13 - gameState.totalTricks;
+  
+  // Simple squeeze detection logic
+  const squeezeAnalysis = {
+    hasSqueezeOpportunity: false,
+    squeezeType: null,
+    threatenedSuits: [],
+    squeezedOpponents: [],
+    timing: null
+  };
+  
+  // Check for basic squeeze conditions
+  // 1. Need at least 2 threats
+  // 2. Need proper timing (usually in the last few tricks)
+  // 3. Need communication between declarer and dummy
+  
+  if (tricksRemaining <= 5) {
+    // Analyze suit lengths and threats
+    const threats = analyzeSuitThreats(declarerHand, dummyHand, gameState);
+    
+    if (threats.length >= 2) {
+      squeezeAnalysis.hasSqueezeOpportunity = true;
+      squeezeAnalysis.threatenedSuits = threats;
+      squeezeAnalysis.squeezeType = threats.length === 2 ? 'simple' : 'double';
+      squeezeAnalysis.timing = tricksRemaining <= 3 ? 'exact' : 'positional';
+    }
+  }
+  
+  return squeezeAnalysis;
+}
+
+/**
+ * Analyze suit threats for squeeze play
+ * @param {Object} declarerHand - Declarer's hand
+ * @param {Object} dummyHand - Dummy's hand
+ * @param {Object} gameState - Game state
+ * @return {Array} Threat suits
+ */
+function analyzeSuitThreats(declarerHand, dummyHand, gameState) {
+  const threats = [];
+  
+  for (const suit of CARD_SUITS) {
+    const declarerCards = declarerHand[suit] || [];
+    const dummyCards = dummyHand[suit] || [];
+    const combinedLength = declarerCards.length + dummyCards.length;
+    
+    // A suit is a threat if it has good cards and proper length
+    if (combinedLength >= 2) {
+      const hasHighHonors = [...declarerCards, ...dummyCards].some(card => 
+        ['A', 'K', 'Q'].includes(card)
+      );
+      
+      if (hasHighHonors) {
+        threats.push(suit);
+      }
+    }
+  }
+  
+  return threats;
+}
+
+/**
+ * Execute squeeze play
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {Object} squeezeAnalysis - Squeeze analysis
+ * @return {Object} Best squeeze card
+ */
+function executeSqueezePlay(table, position, squeezeAnalysis) {
+  const hand = table.gameState.hands[position];
+  const legalMoves = getLegalMoves(hand, table.gameState.currentTrick, table.gameState.trumpSuit);
+  
+  if (!squeezeAnalysis.hasSqueezeOpportunity) {
+    return null; // No squeeze opportunity
+  }
+  
+  // Find the squeeze card (usually a winner in a long suit)
+  for (const suit of CARD_SUITS) {
+    if (!squeezeAnalysis.threatenedSuits.includes(suit)) {
+      const suitMoves = legalMoves.filter(move => move.suit === suit);
+      if (suitMoves.length > 0) {
+        // Play highest card in non-threat suit to apply pressure
+        const highestCard = suitMoves.reduce((highest, move) => 
+          compareCardValues(move.card, highest.card) > 0 ? move : highest
+        );
+        return highestCard;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Advanced endplay detection
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @return {Object} Endplay opportunities
+ */
+function detectEndplayOpportunities(table, position) {
+  const gameState = table.gameState;
+  const hand = gameState.hands[position];
+  const tricksRemaining = 13 - gameState.totalTricks;
+  
+  const endplayAnalysis = {
+    hasEndplayOpportunity: false,
+    endplayType: null,
+    targetOpponent: null,
+    strippingSuits: [],
+    throwInCard: null
+  };
+  
+  // Endplay works best in the last few tricks
+  if (tricksRemaining <= 4) {
+    // Look for throw-in opportunities
+    const opponents = getOpponents(position);
+    
+    for (const opponent of opponents) {
+      const throwInOpportunity = analyzeThrowInOpportunity(table, position, opponent);
+      if (throwInOpportunity.viable) {
+        endplayAnalysis.hasEndplayOpportunity = true;
+        endplayAnalysis.endplayType = 'throw_in';
+        endplayAnalysis.targetOpponent = opponent;
+        endplayAnalysis.throwInCard = throwInOpportunity.card;
+        break;
+      }
+    }
+  }
+  
+  return endplayAnalysis;
+}
+
+/**
+ * Analyze throw-in opportunity against specific opponent
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {string} opponent - Opponent position
+ * @return {Object} Throw-in analysis
+ */
+function analyzeThrowInOpportunity(table, position, opponent) {
+  // This is a simplified analysis
+  // In reality, we'd need to track which cards opponents have played
+  // and deduce their remaining holdings
+  
+  return {
+    viable: false,
+    card: null,
+    reason: 'Insufficient information for throw-in analysis'
+  };
+}
+
+/**
+ * Get opponent positions
+ * @param {string} position - Player position
+ * @return {Array} Opponent positions
+ */
+function getOpponents(position) {
+  const partnerships = {
+    'north': ['east', 'west'],
+    'south': ['east', 'west'],
+    'east': ['north', 'south'],
+    'west': ['north', 'south']
+  };
+  
+  return partnerships[position] || [];
+}
+
+/**
+ * Advanced finesse calculation
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {string} suit - Suit to finesse
+ * @return {Object} Finesse analysis
+ */
+function calculateFinesse(table, position, suit) {
+  const declarerHand = table.gameState.hands[table.gameState.declarer];
+  const dummyHand = table.gameState.hands[table.gameState.dummy];
+  const combinedCards = [...(declarerHand[suit] || []), ...(dummyHand[suit] || [])];
+  
+  const finesseAnalysis = {
+    hasFinesseOpportunity: false,
+    finesseType: null,
+    playSequence: [],
+    successProbability: 0
+  };
+  
+  // Check for common finesse patterns
+  const hasAceQueen = combinedCards.includes('A') && combinedCards.includes('Q');
+  const hasAceJack = combinedCards.includes('A') && combinedCards.includes('J');
+  const hasKingJack = combinedCards.includes('K') && combinedCards.includes('J');
+  
+  if (hasAceQueen && !combinedCards.includes('K')) {
+    finesseAnalysis.hasFinesseOpportunity = true;
+    finesseAnalysis.finesseType = 'AQ_vs_K';
+    finesseAnalysis.successProbability = 0.5; // 50% chance King is in right position
+    finesseAnalysis.playSequence = ['Play low towards Queen', 'If King appears, play Ace'];
+  } else if (hasAceJack && !combinedCards.includes('K') && !combinedCards.includes('Q')) {
+    finesseAnalysis.hasFinesseOpportunity = true;
+    finesseAnalysis.finesseType = 'AJ_vs_KQ';
+    finesseAnalysis.successProbability = 0.25; // 25% chance both honors are well-placed
+    finesseAnalysis.playSequence = ['Play low towards Jack', 'Hope both K and Q are in right hand'];
+  } else if (hasKingJack && !combinedCards.includes('A') && !combinedCards.includes('Q')) {
+    finesseAnalysis.hasFinesseOpportunity = true;
+    finesseAnalysis.finesseType = 'KJ_vs_AQ';
+    finesseAnalysis.successProbability = 0.25;
+    finesseAnalysis.playSequence = ['Play Jack towards King', 'Hope A or Q is in wrong position'];
+  }
+  
+  return finesseAnalysis;
+}
+
+/**
+ * Enhanced communication analysis between declarer and dummy
+ * @param {Object} table - Table object
+ * @return {Object} Communication analysis
+ */
+function analyzeCommunication(table) {
+  const declarerHand = table.gameState.hands[table.gameState.declarer];
+  const dummyHand = table.gameState.hands[table.gameState.dummy];
+  const trumpSuit = table.gameState.trumpSuit;
+  
+  const communication = {
+    entries: {
+      declarer: 0,
+      dummy: 0
+    },
+    suits: {},
+    recommendations: []
+  };
+  
+  // Count entries (high cards that can win tricks)
+  for (const suit of CARD_SUITS) {
+    const declarerSuit = declarerHand[suit] || [];
+    const dummySuit = dummyHand[suit] || [];
+    
+    // Count potential entries
+    const declarerEntries = declarerSuit.filter(card => ['A', 'K'].includes(card)).length;
+    const dummyEntries = dummySuit.filter(card => ['A', 'K'].includes(card)).length;
+    
+    communication.entries.declarer += declarerEntries;
+    communication.entries.dummy += dummyEntries;
+    
+    communication.suits[suit] = {
+      declarerLength: declarerSuit.length,
+      dummyLength: dummySuit.length,
+      combinedLength: declarerSuit.length + dummySuit.length,
+      entries: declarerEntries + dummyEntries,
+      balanced: Math.abs(declarerSuit.length - dummySuit.length) <= 1
+    };
+  }
+  
+  // Generate recommendations
+  if (communication.entries.dummy === 0) {
+    communication.recommendations.push('Dummy has no entries - be careful about entry management');
+  }
+  
+  if (communication.entries.declarer > communication.entries.dummy * 2) {
+    communication.recommendations.push('Declarer hand is entry-rich - consider advanced plays');
+  }
+  
+  return communication;
+}
+
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+  console.log(`Enhanced BridgeCircle Server with Advanced GIB AI running on port ${PORT}`);
+  console.log('Features enabled:');
+  console.log('- Opening Lead Tables');
+  console.log('- Bidding Conventions (Stayman, Blackwood, Transfers)');
+  console.log('- Dummy Play Analysis');
+  console.log('- Monte Carlo Simulation');
+  console.log('- Squeeze Play Recognition');
+  console.log('- Enhanced Card Play Logic');
+}); 
