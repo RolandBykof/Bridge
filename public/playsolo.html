@@ -416,16 +416,6 @@
             // Focus on card after announcement - use longer delay to ensure announcement is read
             const isCurrentPlayer = position === (gameState ? gameState.currentPlayer : null);
             const isPlayable = gameState && gameState.gamePhase === 'play' && isCurrentPlayer;
-            
-            if (isPlayable) {
-                // Calculate delay based on the message that was just queued
-                const estimatedReadTime = announcementQueue.estimateDuration(message);
-                
-                setTimeout(() => {
-                    focusLowestCardOfSuit(position, suit);
-                }, estimatedReadTime + 1000); // Extra 1 second buffer
-            }
-        }
 
         /**
          * Focuses on the lowest card of a specific suit
@@ -484,6 +474,30 @@
                 announceToScreenReader(`Focused on ${getSuitName(suit)} ${lowestCard}.`);
             }
         }
+
+/**
+ * Siirtää automaattisesti fokuksen pakollisen maan pienimpään korttiin
+ */
+function autoFocusOnRequiredSuit(position) {
+    if (!gameState || gameState.gamePhase !== 'play') return;
+    
+    const hand = gameState.hands[position];
+    if (!hand) return;
+    
+    // Jos trick on tyhjä, ei siirretä fokusta (pelaaja voi aloittaa millä tahansa)
+    if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+        return;
+    }
+    
+    // Selvitetään pakollinen maa
+    const leadSuit = gameState.currentTrick[0].suit;
+    
+    // Jos pelaajalla on lead suitin kortteja, siirretään fokus sinne
+    if (hand[leadSuit] && hand[leadSuit].length > 0) {
+        focusLowestCardOfSuit(position, leadSuit);
+    }
+    // Jos ei ole lead suitin kortteja, pelaaja voi pelata mitä tahansa - ei siirretä fokusta
+}
 
         /**
          * Announces all cards in a hand
@@ -1636,29 +1650,40 @@
             });
             
             // MUOKATTU: nextPlayer käsittelijä ei anna enää erillistä ilmoitusta
-            socket.on('nextPlayer', (data) => {
-                gameState.currentPlayer = data.currentPlayer;
-                updateGameUI();
-                
-                // Re-render hands when current player changes (säilytetään ennallaan)
-                if (gameState.hands) {
-                    // Re-render south's hand if south is current player or dummy controller
-                    if (gameState.hands.south) {
-                        renderHand('south', gameState.hands.south);
-                    }
-                    // Re-render north's hand if north is current player and visible
-                    if (gameState.hands.north && gameState.gamePhase === 'play') {
-                        const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
-                        if (isNSTeamWon) {
-                            renderHand('north', gameState.hands.north);
-                        }
-                    }
-                }
-                
-                // POISTETTU: Ei enää erillistä ilmoitusta vuoronvaihdosta
-                // (tämä tieto annetaan nyt trickComplete-viestin yhteydessä)
-            });
-            
+socket.on('nextPlayer', (data) => {
+    gameState.currentPlayer = data.currentPlayer;
+    updateGameUI();
+    
+    // Re-render hands when current player changes (säilytetään ennallaan)
+    if (gameState.hands) {
+        // Re-render south's hand if south is current player or dummy controller
+        if (gameState.hands.south) {
+            renderHand('south', gameState.hands.south);
+        }
+        // Re-render north's hand if north is current player and visible
+        if (gameState.hands.north && gameState.gamePhase === 'play') {
+            const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
+            if (isNSTeamWon) {
+                renderHand('north', gameState.hands.north);
+            }
+        }
+    }
+    
+    // Automaattinen fokuksen siirtyminen pelaajan vuorolla
+    const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
+    const isMyTurn = data.currentPlayer === 'south' || 
+                    (data.currentPlayer === 'north' && isNSTeamWon);
+    
+    if (isMyTurn && gameState.gamePhase === 'play') {
+        setTimeout(() => {
+            autoFocusOnRequiredSuit(data.currentPlayer);
+        }, 500); // Lyhyt viive että renderöinti ehtii valmistua
+    }
+    
+    // POISTETTU: Ei enää erillistä ilmoitusta vuoronvaihdosta
+    // (tämä tieto annetaan nyt trickComplete-viestin yhteydessä)
+});
+
             socket.on('gameOver', (data) => {
                 gameState.gamePhase = 'end';
                 gameState.tricks = data.tricks;
