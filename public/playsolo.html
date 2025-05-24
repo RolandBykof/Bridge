@@ -255,18 +255,18 @@
         // Keyboard shortcuts configuration
         const keyboardShortcuts = [
             // Card viewing shortcuts (Own cards)
-            { key: '1', alt: true, description: 'Read your spades', action: () => announceHandSuit('south', 'spades') },
-            { key: '2', alt: true, description: 'Read your hearts', action: () => announceHandSuit('south', 'hearts') },
-            { key: '3', alt: true, description: 'Read your diamonds', action: () => announceHandSuit('south', 'diamonds') },
-            { key: '4', alt: true, description: 'Read your clubs', action: () => announceHandSuit('south', 'clubs') },
-            { key: '5', alt: true, description: 'Read all your cards', action: () => announceEntireHand('south') },
+            { key: 'a', alt: true, description: 'Read your spades', action: () => announceHandSuit('south', 'spades') },
+            { key: 's', alt: true, description: 'Read your hearts', action: () => announceHandSuit('south', 'hearts') },
+            { key: 'd', alt: true, description: 'Read your diamonds', action: () => announceHandSuit('south', 'diamonds') },
+            { key: 'f', alt: true, description: 'Read your clubs', action: () => announceHandSuit('south', 'clubs') },
+            { key: 'g', alt: true, description: 'Read all your cards', action: () => announceEntireHand('south') },
             
             // Card viewing shortcuts (Dummy's cards)
-            { key: '6', alt: true, description: 'Read dummy spades', action: () => announceHandSuit('north', 'spades') },
-            { key: '7', alt: true, description: 'Read dummy hearts', action: () => announceHandSuit('north', 'hearts') },
-            { key: '8', alt: true, description: 'Read dummy diamonds', action: () => announceHandSuit('north', 'diamonds') },
-            { key: '9', alt: true, description: 'Read dummy clubs', action: () => announceHandSuit('north', 'clubs') },
-            { key: '0', alt: true, description: 'Read all dummy cards', action: () => announceEntireHand('north') },
+            { key: 'q', alt: true, description: 'Read dummy spades', action: () => announceHandSuit('north', 'spades') },
+            { key: 'w', alt: true, description: 'Read dummy hearts', action: () => announceHandSuit('north', 'hearts') },
+            { key: 'e', alt: true, description: 'Read dummy diamonds', action: () => announceHandSuit('north', 'diamonds') },
+            { key: 'r', alt: true, description: 'Read dummy clubs', action: () => announceHandSuit('north', 'clubs') },
+            { key: 't', alt: true, description: 'Read all dummy cards', action: () => announceEntireHand('north') },
             
             // Game state shortcuts
             { key: 'z', alt: true, description: 'Read current trick', action: () => announceCurrentTrick() },
@@ -298,7 +298,6 @@
             { key: 'i', alt: true, description: 'Repeat last announcement', action: () => repeatLastAnnouncement() },
             { key: 'o', alt: true, description: 'Announce score', action: () => announceScore() },
             { key: 'm', alt: true, description: 'Restart game', action: () => restartGame() },
-            { key: 'q', alt: true, description: 'Clear announcement queue', action: () => clearAnnouncementQueue() }
         ];
 
         // Simple number keys for bidding levels
