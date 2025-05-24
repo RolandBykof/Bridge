@@ -413,9 +413,9 @@
             const message = `${getPositionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
             announceToScreenReader(message);
             
-            // Focus on card after announcement - use longer delay to ensure announcement is read
             const isCurrentPlayer = position === (gameState ? gameState.currentPlayer : null);
             const isPlayable = gameState && gameState.gamePhase === 'play' && isCurrentPlayer;
+}
 
         /**
          * Focuses on the lowest card of a specific suit
