@@ -386,9 +386,7 @@
          */
         function announceHandSuit(position, suit) {
             // Check if we can view these cards
-            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
-            const canViewCards = position === 'south' || 
-                                (position === 'north' && gameState && gameState.gamePhase === 'play' && isNSTeamWon);
+            const canViewCards = canViewHandCards(position);
             
             if (!canViewCards) {
                 const message = `Cannot view ${getPositionName(position)}'s cards at this time.`;
@@ -412,23 +410,66 @@
             
             const message = `${getPositionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
             announceToScreenReader(message);
+        }
+
+        /**
+         * Check if we can view cards for a position
+         */
+        function canViewHandCards(position) {
+            if (position === 'south') return true; // Always can view own cards
             
-            const isCurrentPlayer = position === (gameState ? gameState.currentPlayer : null);
-            const isPlayable = gameState && gameState.gamePhase === 'play' && isCurrentPlayer;
-}
+            // Can view dummy's cards if we're declarer and in play phase
+            if (position === 'north' && gameState && gameState.gamePhase === 'play') {
+                const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
+                return isNSTeamWon;
+            }
+            
+            return false;
+        }
+
+        /**
+         * Check if we can play cards from a position
+         */
+        function canPlayFromPosition(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return false;
+            
+            // Always can play from south (our position)
+            if (position === 'south') return true;
+            
+            // Can play from north if we're declarer and north is dummy
+            if (position === 'north' && gameState.declarer === 'south' && gameState.dummy === 'north') {
+                return true;
+            }
+            
+            return false;
+        }
+
+        /**
+         * Check if it's our turn to play from a specific position
+         */
+        function isOurTurnToPlay(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return false;
+            
+            const currentPlayer = gameState.currentPlayer;
+            
+            // Direct control: it's our position and our turn
+            if (position === 'south' && currentPlayer === 'south') return true;
+            
+            // Dummy control: we're declarer, it's dummy's turn, and we can control dummy
+            if (position === 'north' && currentPlayer === 'north' && 
+                gameState.declarer === 'south' && gameState.dummy === 'north') {
+                return true;
+            }
+            
+            return false;
+        }
 
         /**
          * Focuses on the lowest card of a specific suit
          */
         function focusLowestCardOfSuit(position, suit) {
-            // Check if the current player can play cards
-            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
-            const isPlayersTurn = gameState && (gameState.currentPlayer === position) && 
-                                 (position === 'south' || 
-                                  (position === 'north' && isNSTeamWon));
-            
-            if (!isPlayersTurn || !gameState || gameState.gamePhase !== 'play') {
-                return; // Don't focus if not player's turn or not in play phase
+            if (!isOurTurnToPlay(position)) {
+                return; // Don't focus if not our turn
             }
             
             // Get the cards of the suit
@@ -475,38 +516,35 @@
             }
         }
 
-/**
- * Siirtää automaattisesti fokuksen pakollisen maan pienimpään korttiin
- */
-function autoFocusOnRequiredSuit(position) {
-    if (!gameState || gameState.gamePhase !== 'play') return;
-    
-    const hand = gameState.hands[position];
-    if (!hand) return;
-    
-    // Jos trick on tyhjä, ei siirretä fokusta (pelaaja voi aloittaa millä tahansa)
-    if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
-        return;
-    }
-    
-    // Selvitetään pakollinen maa
-    const leadSuit = gameState.currentTrick[0].suit;
-    
-    // Jos pelaajalla on lead suitin kortteja, siirretään fokus sinne
-    if (hand[leadSuit] && hand[leadSuit].length > 0) {
-        focusLowestCardOfSuit(position, leadSuit);
-    }
-    // Jos ei ole lead suitin kortteja, pelaaja voi pelata mitä tahansa - ei siirretä fokusta
-}
+        /**
+         * Siirtää automaattisesti fokuksen pakollisen maan pienimpään korttiin
+         */
+        function autoFocusOnRequiredSuit(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return;
+            
+            const hand = gameState.hands[position];
+            if (!hand) return;
+            
+            // Jos trick on tyhjä, ei siirretä fokusta (pelaaja voi aloittaa millä tahansa)
+            if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                return;
+            }
+            
+            // Selvitetään pakollinen maa
+            const leadSuit = gameState.currentTrick[0].suit;
+            
+            // Jos pelaajalla on lead suitin kortteja, siirretään fokus sinne
+            if (hand[leadSuit] && hand[leadSuit].length > 0) {
+                focusLowestCardOfSuit(position, leadSuit);
+            }
+            // Jos ei ole lead suitin kortteja, pelaaja voi pelata mitä tahansa - ei siirretä fokusta
+        }
 
         /**
          * Announces all cards in a hand
          */
         function announceEntireHand(position) {
-            // Check if we can view these cards
-            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
-            const canViewCards = position === 'south' || 
-                                (position === 'north' && gameState && gameState.gamePhase === 'play' && isNSTeamWon);
+            const canViewCards = canViewHandCards(position);
             
             if (!canViewCards) {
                 const message = `Cannot view ${getPositionName(position)}'s cards at this time.`;
@@ -744,18 +782,17 @@ function autoFocusOnRequiredSuit(position) {
             const suit = suitMap[suitKey];
             if (!suit) return;
             
-            // Determine current player
-            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
-            const isCurrentPlayerHuman = gameState && ((gameState.currentPlayer === 'south') || 
-                                       (isNSTeamWon && gameState.currentPlayer === 'north'));
+            // Determine current player and if we can control them
+            const currentPlayer = gameState.currentPlayer;
+            const canControlCurrentPlayer = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
             
-            if (!isCurrentPlayerHuman) {
+            if (!canControlCurrentPlayer) {
                 announceToScreenReader("It's not your turn to play.");
                 return;
             }
             
             // Get current player's hand
-            const hand = gameState.hands[gameState.currentPlayer];
+            const hand = gameState.hands[currentPlayer];
             const cards = hand[suit] || [];
             
             if (cards.length === 0) {
@@ -781,7 +818,7 @@ function autoFocusOnRequiredSuit(position) {
             const lowestCard = sortedCards[0];
             
             // Get the hand element for the current player
-            const handElement = gameState.currentPlayer === 'south' ? elements.southHand : elements.northHand;
+            const handElement = currentPlayer === 'south' ? elements.southHand : elements.northHand;
             
             // Find the button for this card
             const cardButton = handElement.querySelector(`button[data-suit="${suit}"][data-card="${lowestCard}"]`);
@@ -803,16 +840,15 @@ function autoFocusOnRequiredSuit(position) {
          */
         function playHighestCard(suit) {
             // Determine which player is active
-            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
-            const isCurrentPlayerHuman = gameState && ((gameState.currentPlayer === 'south') || 
-                                       (isNSTeamWon && gameState.currentPlayer === 'north'));
+            const currentPlayer = gameState.currentPlayer;
+            const canControlCurrentPlayer = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
             
-            if (!gameState || gameState.gamePhase !== 'play' || !isCurrentPlayerHuman) {
+            if (!gameState || gameState.gamePhase !== 'play' || !canControlCurrentPlayer) {
                 announceToScreenReader("It's not your turn to play.");
                 return;
             }
             
-            const hand = gameState.hands[gameState.currentPlayer];
+            const hand = gameState.hands[currentPlayer];
             const cards = hand[suit] || [];
             
             if (cards.length === 0) {
@@ -835,7 +871,7 @@ function autoFocusOnRequiredSuit(position) {
             const highestCard = sortedCards[0];
             
             // Play the card
-            playCard(suit, highestCard);
+            playCard(suit, highestCard, currentPlayer);
         }
 
         /**
@@ -968,7 +1004,7 @@ function autoFocusOnRequiredSuit(position) {
             });
         }
         
-        // Render hand (same as original)
+        // Render hand - KORJATTU VERSIO
         function renderHand(position, hand, isPlayable = false) {
             const element = position === 'north' ? document.getElementById('north-hand') :
                            position === 'south' ? document.getElementById('south-hand') :
@@ -977,21 +1013,17 @@ function autoFocusOnRequiredSuit(position) {
             
             if (!element || !hand) return;
             
-            const isCurrentPlayer = gameState && gameState.currentPlayer === position;
-            const isNSTeamWon = gameState && (gameState.declarer === 'south' || gameState.declarer === 'north');
-            
-            const isPlayableByHuman = position === 'south' || 
-                                   (position === 'north' && isNSTeamWon && 
-                                    gameState.players && gameState.players[position].type === 'human');
+            // KORJATTU: Tarkista voiko pelata tästä positiosta
+            const canPlayFromThisPosition = canPlayFromPosition(position);
+            const isCurrentPlayersTurn = isOurTurnToPlay(position);
             
             let html = `<h3>${position === 'south' ? 'Your Hand (South)' : positionName(position)} 
                       ${gameState && gameState.players && gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
             
-            const showCards = position === 'south' || 
-                           (position === 'north' && 
-                            (gameState && gameState.gamePhase === 'play' && isNSTeamWon));
+            // KORJATTU: Tarkista voiko nähdä kortit
+            const canViewCards = canViewHandCards(position);
             
-            if (!showCards && position === 'north') {
+            if (!canViewCards) {
                 html += `<p>Cards will be visible when play begins, if South or North is declarer.</p>`;
                 element.innerHTML = html;
                 return;
@@ -1012,14 +1044,15 @@ function autoFocusOnRequiredSuit(position) {
                     cards.forEach(card => {
                         const cardClass = `card-${suit}`;
                         
-                        if (gameState && gameState.gamePhase === 'play' && isPlayableByHuman) {
+                        // KORJATTU: Tee korteista painikkeita jos voi pelata tästä positiosta
+                        if (gameState && gameState.gamePhase === 'play' && canPlayFromThisPosition) {
                             html += `
                                 <button 
                                     class="card-button ${cardClass}"
                                     data-suit="${suit}"
                                     data-card="${card}"
-                                    onclick="playCard('${suit}', '${card}')"
-                                    ${!isCurrentPlayer ? 'disabled' : ''}
+                                    onclick="playCard('${suit}', '${card}', '${position}')"
+                                    ${!isCurrentPlayersTurn ? 'disabled' : ''}
                                     aria-label="Play ${suitName(suit)} ${card}"
                                 >
                                     ${card}
@@ -1046,13 +1079,22 @@ function autoFocusOnRequiredSuit(position) {
             element.innerHTML = html;
         }
         
-        // Play card
-        function playCard(suit, card) {
+        // Play card - KORJATTU VERSIO
+        function playCard(suit, card, fromPosition = null) {
             if (!tableCode) return;
+            
+            // Determine which position we're playing from
+            const actualPosition = fromPosition || myPosition;
+            
+            // Verify we can play from this position
+            if (!canPlayFromPosition(actualPosition) || !isOurTurnToPlay(actualPosition)) {
+                announceToScreenReader("It's not your turn to play from this position.");
+                return;
+            }
             
             socket.emit('playCard', {
                 tableCode: tableCode,
-                position: myPosition,
+                position: actualPosition,
                 suit: suit,
                 card: card
             });
@@ -1421,36 +1463,42 @@ function autoFocusOnRequiredSuit(position) {
             
             if (gameState.gamePhase === 'bidding' && biddingState && biddingState.currentBidder === myPosition) {
                 makeBid('P');
-            } else if (gameState.gamePhase === 'play' && gameState.currentPlayer === myPosition) {
-                const hand = gameState.hands[myPosition];
-                if (!hand) return;
-                
-                let playableCard = null;
-                
-                if (gameState.currentTrick && gameState.currentTrick.length > 0) {
-                    const leadSuit = gameState.currentTrick[0].suit;
-                    if (hand[leadSuit] && hand[leadSuit].length > 0) {
-                        playableCard = {
-                            suit: leadSuit,
-                            card: hand[leadSuit][0]
-                        };
-                    }
-                }
-                
-                if (!playableCard) {
-                    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-                        if (hand[suit] && hand[suit].length > 0) {
+            } else if (gameState.gamePhase === 'play') {
+                // Determine which position we should play from
+                const currentPlayer = gameState.currentPlayer;
+                if (canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer)) {
+                    const hand = gameState.hands[currentPlayer];
+                    if (!hand) return;
+                    
+                    let playableCard = null;
+                    
+                    if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                        const leadSuit = gameState.currentTrick[0].suit;
+                        if (hand[leadSuit] && hand[leadSuit].length > 0) {
                             playableCard = {
-                                suit: suit,
-                                card: hand[suit][0]
+                                suit: leadSuit,
+                                card: hand[leadSuit][0],
+                                position: currentPlayer
                             };
-                            break;
                         }
                     }
-                }
-                
-                if (playableCard) {
-                    playCard(playableCard.suit, playableCard.card);
+                    
+                    if (!playableCard) {
+                        for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+                            if (hand[suit] && hand[suit].length > 0) {
+                                playableCard = {
+                                    suit: suit,
+                                    card: hand[suit][0],
+                                    position: currentPlayer
+                                };
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (playableCard) {
+                        playCard(playableCard.suit, playableCard.card, playableCard.position);
+                    }
                 }
             }
         }
@@ -1635,12 +1683,10 @@ function autoFocusOnRequiredSuit(position) {
                 // Yhdistetty ilmoitus: kuka voitti tikin ja kenen vuoro on seuraavaksi
                 const winner = positionName(data.winner);
                 const next = positionName(data.nextPlayer);
-                const isUserNext = data.nextPlayer === myPosition;
-                const isDummy = data.nextPlayer === gameState.dummy;
-                const weControlDummy = myPosition === gameState.declarer && isDummy;
+                const isUserNext = canPlayFromPosition(data.nextPlayer) && isOurTurnToPlay(data.nextPlayer);
                 
                 let message;
-                if (isUserNext || weControlDummy) {
+                if (isUserNext) {
                     message = `${winner} won the trick. Your turn to play a card.`;
                 } else {
                     message = `${winner} won the trick. ${next} plays next.`;
@@ -1650,39 +1696,37 @@ function autoFocusOnRequiredSuit(position) {
             });
             
             // MUOKATTU: nextPlayer käsittelijä ei anna enää erillistä ilmoitusta
-socket.on('nextPlayer', (data) => {
-    gameState.currentPlayer = data.currentPlayer;
-    updateGameUI();
-    
-    // Re-render hands when current player changes (säilytetään ennallaan)
-    if (gameState.hands) {
-        // Re-render south's hand if south is current player or dummy controller
-        if (gameState.hands.south) {
-            renderHand('south', gameState.hands.south);
-        }
-        // Re-render north's hand if north is current player and visible
-        if (gameState.hands.north && gameState.gamePhase === 'play') {
-            const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
-            if (isNSTeamWon) {
-                renderHand('north', gameState.hands.north);
-            }
-        }
-    }
-    
-    // Automaattinen fokuksen siirtyminen pelaajan vuorolla
-    const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
-    const isMyTurn = data.currentPlayer === 'south' || 
-                    (data.currentPlayer === 'north' && isNSTeamWon);
-    
-    if (isMyTurn && gameState.gamePhase === 'play') {
-        setTimeout(() => {
-            autoFocusOnRequiredSuit(data.currentPlayer);
-        }, 500); // Lyhyt viive että renderöinti ehtii valmistua
-    }
-    
-    // POISTETTU: Ei enää erillistä ilmoitusta vuoronvaihdosta
-    // (tämä tieto annetaan nyt trickComplete-viestin yhteydessä)
-});
+            socket.on('nextPlayer', (data) => {
+                gameState.currentPlayer = data.currentPlayer;
+                updateGameUI();
+                
+                // Re-render hands when current player changes (säilytetään ennallaan)
+                if (gameState.hands) {
+                    // Re-render south's hand
+                    if (gameState.hands.south) {
+                        renderHand('south', gameState.hands.south);
+                    }
+                    // Re-render north's hand if visible
+                    if (gameState.hands.north && gameState.gamePhase === 'play') {
+                        const canViewNorth = canViewHandCards('north');
+                        if (canViewNorth) {
+                            renderHand('north', gameState.hands.north);
+                        }
+                    }
+                }
+                
+                // Automaattinen fokuksen siirtyminen pelaajan vuorolla
+                const canControlCurrentPlayer = canPlayFromPosition(data.currentPlayer) && isOurTurnToPlay(data.currentPlayer);
+                
+                if (canControlCurrentPlayer && gameState.gamePhase === 'play') {
+                    setTimeout(() => {
+                        autoFocusOnRequiredSuit(data.currentPlayer);
+                    }, 500); // Lyhyt viive että renderöinti ehtii valmistua
+                }
+                
+                // POISTETTU: Ei enää erillistä ilmoitusta vuoronvaihdosta
+                // (tämä tieto annetaan nyt trickComplete-viestin yhteydessä)
+            });
 
             socket.on('gameOver', (data) => {
                 gameState.gamePhase = 'end';
