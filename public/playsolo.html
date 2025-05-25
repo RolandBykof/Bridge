@@ -231,8 +231,8 @@
         }
 
         /**
-         * NEW CARD PLAY VALIDATION FUNCTION
-         * This function is called when any card button is clicked
+         * KORJATTU CARD PLAY VALIDATION FUNCTION
+         * Varmistaa että voi pelata dummysta jos on declarer
          */
         function attemptToPlayCard(suit, card, fromPosition) {
             console.log('Attempting to play card:', { suit, card, fromPosition, gameState });
@@ -259,21 +259,27 @@
             // Check if it's the right player's turn
             const currentPlayer = gameState.currentPlayer;
             console.log('Current player:', currentPlayer, 'Trying to play from:', actualPosition);
+            console.log('Declarer:', gameState.declarer, 'Dummy:', gameState.dummy);
             
-            // Simple turn validation:
-            // - If current player is 'south' and we're playing from 'south' → OK
-            // - If current player is 'north' and we're declarer and playing from 'north' → OK
-            // - Otherwise → Error
+            // KORJATTU VALIDOINTI: Salli pelaaminen jos:
+            // 1. Nykyinen pelaaja on 'south' ja pelataan 'south':sta
+            // 2. Nykyinen pelaaja on 'north' ja olemme declarer ('south') ja 'north' on dummy
             
             let isValidTurn = false;
             
             if (currentPlayer === 'south' && actualPosition === 'south') {
                 isValidTurn = true;
+                console.log('Valid: Playing from south on south turn');
             } else if (currentPlayer === 'north' && actualPosition === 'north') {
-                // Check if we can control north (dummy)
+                // Tarkista voiko kontrolloidaimmyä
                 if (gameState.declarer === 'south' && gameState.dummy === 'north') {
                     isValidTurn = true;
+                    console.log('Valid: Playing from north (dummy) as declarer');
+                } else {
+                    console.log('Invalid: Cannot control north - declarer:', gameState.declarer, 'dummy:', gameState.dummy);
                 }
+            } else {
+                console.log('Invalid: Wrong turn or position');
             }
             
             if (!isValidTurn) {
@@ -333,11 +339,11 @@
             const leadSuit = gameState.currentTrick[0].suit;
             const currentPlayer = gameState.currentPlayer;
             
-            // Tarkista että voimme kontrolloida nykyistä pelaajaa
-            const canControlCurrentPlayer = (currentPlayer === 'south') || 
-                                          (currentPlayer === 'north' && gameState.declarer === 'south' && gameState.dummy === 'north');
+            // KORJATTU: Tarkista että voimme kontrolloida nykyistä pelaajaa
+            const canControlCurrentPlayer = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
             
             if (!canControlCurrentPlayer) {
+                console.log('Cannot control current player for auto-focus:', currentPlayer);
                 return;
             }
             
@@ -345,6 +351,7 @@
             const hand = gameState.hands[currentPlayer];
             if (!hand || !hand[leadSuit] || hand[leadSuit].length === 0) {
                 // Ei ole pyydetyn maan kortteja, ei siirretä fokusta
+                console.log('No cards in lead suit for auto-focus:', leadSuit);
                 return;
             }
             
@@ -364,7 +371,7 @@
                 // Siirretään fokus lyhyen viiveen jälkeen (annetaan renderöinnin valmistua)
                 setTimeout(() => {
                     cardButton.focus();
-                    console.log(`Auto-focused on ${getSuitName(leadSuit)} ${lowestCard}`);
+                    console.log(`Auto-focused on ${getSuitName(leadSuit)} ${lowestCard} for player ${currentPlayer}`);
                     
                     // Ilmoita käyttäjälle että fokus siirtyi
                     announceToScreenReader(`Focus moved to ${getSuitName(leadSuit)} ${lowestCard}.`);
@@ -559,22 +566,24 @@
         }
 
         /**
-         * Check if we can view cards for a position
+         * KORJATTU: Check if we can view cards for a position
          */
         function canViewHandCards(position) {
             if (position === 'south') return true; // Always can view own cards
             
-            // Can view dummy's cards if we're declarer and in play phase
+            // KORJATTU: Can view dummy's cards if we're declarer and in play phase
             if (position === 'north' && gameState && gameState.gamePhase === 'play') {
-                const isNSTeamWon = gameState.declarer === 'south' || gameState.declarer === 'north';
-                return isNSTeamWon;
+                // Jos olemme declarer, voimme nähdä dummyn kortit
+                if (gameState.declarer === 'south') {
+                    return true;
+                }
             }
             
             return false;
         }
 
         /**
-         * Check if we can play cards from a position
+         * KORJATTU: Check if we can play cards from a position
          */
         function canPlayFromPosition(position) {
             if (!gameState || gameState.gamePhase !== 'play') return false;
@@ -582,8 +591,28 @@
             // Always can play from south (our position)
             if (position === 'south') return true;
             
-            // Can play from north if we're declarer and north is dummy
+            // KORJATTU: Can play from north if we're declarer (south) and north is dummy
             if (position === 'north' && gameState.declarer === 'south' && gameState.dummy === 'north') {
+                return true;
+            }
+            
+            return false;
+        }
+
+        /**
+         * KORJATTU: Check if it's our turn to play from a specific position
+         */
+        function isOurTurnToPlay(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return false;
+            
+            const currentPlayer = gameState.currentPlayer;
+            
+            // Direct control: it's our position and our turn
+            if (position === 'south' && currentPlayer === 'south') return true;
+            
+            // KORJATTU: Dummy control: we're declarer, it's dummy's turn, and we can control dummy
+            if (position === 'north' && currentPlayer === 'north' && 
+                gameState.declarer === 'south' && gameState.dummy === 'north') {
                 return true;
             }
             
@@ -660,6 +689,11 @@
                 message += `Contract: ${formatContract(gameState.contract)} by ${getPositionName(gameState.declarer)}. `;
                 message += `North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}. `;
                 message += `Current player: ${getPositionName(gameState.currentPlayer)}.`;
+                
+                // LISÄTTY: Ilmoita jos olemme declarer
+                if (gameState.declarer === 'south') {
+                    message += ` You are the declarer and can control both South and North (dummy).`;
+                }
             } else if (gameState.gamePhase === 'bidding') {
                 message += `Current bidder: ${getPositionName(biddingState ? biddingState.currentBidder : 'unknown')}.`;
             }
@@ -677,7 +711,14 @@
             }
             
             if (gameState.gamePhase === 'play') {
-                announceToScreenReader(`Current player: ${getPositionName(gameState.currentPlayer)}.`);
+                let message = `Current player: ${getPositionName(gameState.currentPlayer)}.`;
+                
+                // LISÄTTY: Selitä jos voimme kontrolloida pelaajaa
+                if (gameState.currentPlayer === 'north' && gameState.declarer === 'south') {
+                    message += ` You control North as the declarer.`;
+                }
+                
+                announceToScreenReader(message);
             } else if (gameState.gamePhase === 'bidding') {
                 announceToScreenReader(`Current bidder: ${getPositionName(biddingState ? biddingState.currentBidder : 'unknown')}.`);
             } else {
@@ -819,9 +860,8 @@
                 return;
             }
             
-            // Check if we can control the current player
-            const canControl = (currentPlayer === 'south') || 
-                             (currentPlayer === 'north' && gameState.declarer === 'south' && gameState.dummy === 'north');
+            // KORJATTU: Check if we can control the current player
+            const canControl = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
             
             if (!canControl) {
                 announceToScreenReader("It's not your turn to play.");
@@ -974,7 +1014,21 @@
             });
         }
         
-        // RENDER HAND - VERSION WITH ALWAYS ENABLED BUTTONS
+        /**
+         * KORJATTU: Renders all hands correctly based on declarer/dummy status
+         */
+        function renderAllHands() {
+            if (!gameState || !gameState.hands) return;
+            
+            // Render all positions that we have cards for
+            for (const position of ['north', 'south', 'east', 'west']) {
+                if (gameState.hands[position]) {
+                    renderHand(position, gameState.hands[position]);
+                }
+            }
+        }
+        
+        // RENDER HAND - KORJATTU VERSIO
         function renderHand(position, hand) {
             const element = position === 'north' ? document.getElementById('north-hand') :
                            position === 'south' ? document.getElementById('south-hand') :
@@ -983,8 +1037,16 @@
             
             if (!element || !hand) return;
             
+            // KORJATTU: Näytä oikea tyyppi positiolle
+            let positionType = 'GIB';
+            if (position === 'south') {
+                positionType = 'You';
+            } else if (position === 'north' && gameState && gameState.declarer === 'south') {
+                positionType = 'Dummy (You control)';
+            }
+            
             let html = `<h3>${position === 'south' ? 'Your Hand (South)' : positionName(position)} 
-                      ${gameState && gameState.players && gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
+                      ${position === 'south' ? '' : `(${positionType})`}</h3>`;
             
             // Check if we can view cards
             const canViewCards = canViewHandCards(position);
@@ -995,9 +1057,11 @@
                 return;
             }
             
-            // Check if we can play from this position
+            // KORJATTU: Check if we can play from this position
             const canPlayFromThisPosition = canPlayFromPosition(position);
             const isPlayPhase = gameState && gameState.gamePhase === 'play';
+            
+            console.log(`Rendering ${position}: canPlay=${canPlayFromThisPosition}, isPlayPhase=${isPlayPhase}, declarer=${gameState?.declarer}, dummy=${gameState?.dummy}`);
             
             Object.entries(hand).forEach(([suit, cards]) => {
                 const suitClass = `suit-${suit}`;
@@ -1014,8 +1078,7 @@
                     cards.forEach(card => {
                         const cardClass = `card-${suit}`;
                         
-                        // Make buttons if we can play from this position AND it's play phase
-                        // Buttons are ALWAYS enabled, validation happens in click handler
+                        // KORJATTU: Make buttons if we can play from this position AND it's play phase
                         if (isPlayPhase && canPlayFromThisPosition) {
                             html += `
                                 <button 
@@ -1300,13 +1363,22 @@
                     const isCurrentPlayer = gameState.currentPlayer === position;
                     const player = gameState.players[position];
                     const playerName = player ? player.name : positionName(position);
-                    const playerType = player ? player.type : 'human';
+                    let playerType = player ? player.type : 'human';
+                    
+                    // KORJATTU: Näytä oikea status dummylle
+                    if (position === 'north' && gameState.declarer === 'south') {
+                        playerType = 'Dummy (You control)';
+                    } else if (playerType === 'gib') {
+                        playerType = 'GIB';
+                    } else {
+                        playerType = 'Human';
+                    }
                     
                     html += `
                         <div class="player-badge ${isCurrentPlayer ? 'current' : ''}">
                             <div>${positionName(position)}</div>
                             <div>${playerName}</div>
-                            <div>${playerType === 'gib' ? 'GIB' : 'Human'}</div>
+                            <div>${playerType}</div>
                         </div>
                     `;
                 }
@@ -1319,7 +1391,11 @@
                 if (gameState.gamePhase === 'bidding') {
                     statusArea.textContent = 'Bidding phase';
                 } else if (gameState.gamePhase === 'play') {
-                    statusArea.textContent = `Playing: ${formatContract(gameState.contract)}`;
+                    let statusText = `Playing: ${formatContract(gameState.contract)}`;
+                    if (gameState.declarer === 'south') {
+                        statusText += ' (You are declarer)';
+                    }
+                    statusArea.textContent = statusText;
                 } else {
                     statusArea.textContent = 'BridgeCircle Solo Play';
                 }
@@ -1532,8 +1608,18 @@
                 document.getElementById('bidding-area').style.display = 'none';
                 updateGameUI();
                 
+                // KORJATTU: Renderöi kaikki kädet uudelleen kun declarer/dummy status selviää
+                renderAllHands();
+                
                 const contractMessage = `Final contract: ${formatContract(data.contract)} by ${positionName(data.declarer)}. ${positionName(data.currentPlayer)} leads.`;
-                announceToScreenReader(contractMessage);
+                
+                // LISÄTTY: Ilmoita jos olemme declarer
+                if (data.declarer === 'south') {
+                    const dummyMessage = ` You are the declarer and control both South and North (dummy).`;
+                    announceToScreenReader(contractMessage + dummyMessage);
+                } else {
+                    announceToScreenReader(contractMessage);
+                }
             });
             
             socket.on('playPhaseCards', (data) => {
@@ -1543,11 +1629,11 @@
                 
                 if (data.dummyCards) {
                     gameState.hands[gameState.dummy] = data.dummyCards;
-                    renderHand(gameState.dummy, data.dummyCards);
                     announceToScreenReader(`Dummy's cards are now visible.`);
                 }
                 
-                renderHand(data.position, data.cards);
+                // KORJATTU: Renderöi kaikki kädet uudelleen
+                renderAllHands();
             });
             
             socket.on('cardPlayed', (data) => {
@@ -1582,7 +1668,7 @@
                 const winner = positionName(data.winner);
                 const next = positionName(data.nextPlayer);
                 
-                // Check if next player is controlled by us
+                // KORJATTU: Check if next player is controlled by us (declarer controlling dummy)
                 const isUserNext = (data.nextPlayer === 'south') || 
                                  (data.nextPlayer === 'north' && gameState.declarer === 'south' && gameState.dummy === 'north');
                 
@@ -1600,20 +1686,10 @@
                 gameState.currentPlayer = data.currentPlayer;
                 updateGameUI();
                 
-                // Re-render hands when current player changes
-                if (gameState.hands) {
-                    if (gameState.hands.south) {
-                        renderHand('south', gameState.hands.south);
-                    }
-                    if (gameState.hands.north && gameState.gamePhase === 'play') {
-                        const canViewNorth = canViewHandCards('north');
-                        if (canViewNorth) {
-                            renderHand('north', gameState.hands.north);
-                        }
-                    }
-                }
+                // KORJATTU: Re-render hands when current player changes to update button states
+                renderAllHands();
                 
-                // UUSI OMINAISUUS: Siirretään fokus automaattisesti pyydetyn maan korttiin kun tulee meidän vuoro
+                // Siirretään fokus automaattisesti pyydetyn maan korttiin kun tulee meidän vuoro
                 autoFocusOnLeadSuit();
             });
 
