@@ -315,6 +315,99 @@
             });
         }
 
+        /**
+         * UUSI OMINAISUUS: Siirtää fokuksen automaattisesti pyydetyn maan pienimmälle kortille
+         * kun joku pelaa kortin ja siitä tulee uusi lead suit
+         */
+        function autoFocusOnLeadSuit() {
+            // Tarkista että on pelivaihe ja meillä on tiedot käsissä
+            if (!gameState || gameState.gamePhase !== 'play' || !gameState.hands) {
+                return;
+            }
+            
+            // Tarkista että tikissä on kortteja ja voimme määrittää lead suitin
+            if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                return;
+            }
+            
+            const leadSuit = gameState.currentTrick[0].suit;
+            const currentPlayer = gameState.currentPlayer;
+            
+            // Tarkista että voimme kontrolloida nykyistä pelaajaa
+            const canControlCurrentPlayer = (currentPlayer === 'south') || 
+                                          (currentPlayer === 'north' && gameState.declarer === 'south' && gameState.dummy === 'north');
+            
+            if (!canControlCurrentPlayer) {
+                return;
+            }
+            
+            // Hae nykyisen pelaajan käsi
+            const hand = gameState.hands[currentPlayer];
+            if (!hand || !hand[leadSuit] || hand[leadSuit].length === 0) {
+                // Ei ole pyydetyn maan kortteja, ei siirretä fokusta
+                return;
+            }
+            
+            // Etsi pienin kortti lead suitista
+            const lowestCard = findLowestCard(hand[leadSuit]);
+            if (!lowestCard) {
+                return;
+            }
+            
+            // Etsi oikea käsi-elementti
+            const handElement = currentPlayer === 'south' ? elements.southHand : elements.northHand;
+            
+            // Etsi kortin painike
+            const cardButton = handElement.querySelector(`button[data-suit="${leadSuit}"][data-card="${lowestCard}"]`);
+            
+            if (cardButton) {
+                // Siirretään fokus lyhyen viiveen jälkeen (annetaan renderöinnin valmistua)
+                setTimeout(() => {
+                    cardButton.focus();
+                    console.log(`Auto-focused on ${getSuitName(leadSuit)} ${lowestCard}`);
+                    
+                    // Ilmoita käyttäjälle että fokus siirtyi
+                    announceToScreenReader(`Focus moved to ${getSuitName(leadSuit)} ${lowestCard}.`);
+                }, 250);
+            }
+        }
+
+        /**
+         * Etsii pienimmän kortin listasta käyttäen bridge-järjestystä
+         */
+        function findLowestCard(cards) {
+            if (!cards || cards.length === 0) {
+                return null;
+            }
+            
+            const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+            
+            // Järjestä kortit arvon mukaan pienimmästä suurimpaan
+            const sortedCards = [...cards].sort((a, b) => {
+                return cardValues.indexOf(a) - cardValues.indexOf(b);
+            });
+            
+            return sortedCards[0];
+        }
+
+        /**
+         * Etsii suurimman kortin listasta käyttäen bridge-järjestystä
+         */
+        function findHighestCard(cards) {
+            if (!cards || cards.length === 0) {
+                return null;
+            }
+            
+            const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+            
+            // Järjestä kortit arvon mukaan suurimmasta pienimpään
+            const sortedCards = [...cards].sort((a, b) => {
+                return cardValues.indexOf(b) - cardValues.indexOf(a);
+            });
+            
+            return sortedCards[0];
+        }
+
         // Keyboard shortcuts configuration
         const keyboardShortcuts = [
             // Card viewing shortcuts (Own cards)
@@ -753,12 +846,12 @@
             }
             
             // Get the highest card
-            const values = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
-            const sortedCards = [...cards].sort((a, b) => values.indexOf(b) - values.indexOf(a));
-            const highestCard = sortedCards[0];
+            const highestCard = findHighestCard(cards);
             
-            // Play the card
-            attemptToPlayCard(suit, highestCard, currentPlayer);
+            if (highestCard) {
+                // Play the card
+                attemptToPlayCard(suit, highestCard, currentPlayer);
+            }
         }
 
         /**
@@ -881,7 +974,7 @@
             });
         }
         
-        // RENDER HAND - NEW VERSION WITH ALWAYS ENABLED BUTTONS
+        // RENDER HAND - VERSION WITH ALWAYS ENABLED BUTTONS
         function renderHand(position, hand) {
             const element = position === 'north' ? document.getElementById('north-hand') :
                            position === 'south' ? document.getElementById('south-hand') :
@@ -921,7 +1014,7 @@
                     cards.forEach(card => {
                         const cardClass = `card-${suit}`;
                         
-                        // NEW: Make buttons if we can play from this position AND it's play phase
+                        // Make buttons if we can play from this position AND it's play phase
                         // Buttons are ALWAYS enabled, validation happens in click handler
                         if (isPlayPhase && canPlayFromThisPosition) {
                             html += `
@@ -1476,6 +1569,9 @@
                 updatePlayedCard(data.position, data.suit, data.card);
                 
                 announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`);
+                
+                // UUSI OMINAISUUS: Siirretään fokus automaattisesti pyydetyn maan korttiin
+                autoFocusOnLeadSuit();
             });
             
             socket.on('trickComplete', (data) => {
