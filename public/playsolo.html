@@ -1569,9 +1569,6 @@
                 updatePlayedCard(data.position, data.suit, data.card);
                 
                 announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`);
-                
-                // UUSI OMINAISUUS: Siirretään fokus automaattisesti pyydetyn maan korttiin
-                autoFocusOnLeadSuit();
             });
             
             socket.on('trickComplete', (data) => {
@@ -1615,6 +1612,9 @@
                         }
                     }
                 }
+                
+                // UUSI OMINAISUUS: Siirretään fokus automaattisesti pyydetyn maan korttiin kun tulee meidän vuoro
+                autoFocusOnLeadSuit();
             });
 
             socket.on('gameOver', (data) => {
