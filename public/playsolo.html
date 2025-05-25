@@ -252,6 +252,14 @@
             announcementQueue.add(message);
         }
 
+        /**
+         * Show error message with announcement
+         */
+        function showErrorWithAnnouncement(message) {
+            showError(message);
+            announceToScreenReader(message);
+        }
+
         // Keyboard shortcuts configuration
         const keyboardShortcuts = [
             // Card viewing shortcuts (Own cards)
@@ -1004,7 +1012,7 @@
             });
         }
         
-        // Render hand - KORJATTU VERSIO
+        // Render hand - KORJATTU VERSIO - AINA KÄYTETTÄVISSÄ OLEVAT PAINIKKEET
         function renderHand(position, hand, isPlayable = false) {
             const element = position === 'north' ? document.getElementById('north-hand') :
                            position === 'south' ? document.getElementById('south-hand') :
@@ -1013,14 +1021,13 @@
             
             if (!element || !hand) return;
             
-            // KORJATTU: Tarkista voiko pelata tästä positiosta
+            // Tarkista voiko pelata tästä positiosta
             const canPlayFromThisPosition = canPlayFromPosition(position);
-            const isCurrentPlayersTurn = isOurTurnToPlay(position);
             
             let html = `<h3>${position === 'south' ? 'Your Hand (South)' : positionName(position)} 
                       ${gameState && gameState.players && gameState.players[position].type === 'gib' ? '(GIB)' : ''}</h3>`;
             
-            // KORJATTU: Tarkista voiko nähdä kortit
+            // Tarkista voiko nähdä kortit
             const canViewCards = canViewHandCards(position);
             
             if (!canViewCards) {
@@ -1044,15 +1051,14 @@
                     cards.forEach(card => {
                         const cardClass = `card-${suit}`;
                         
-                        // KORJATTU: Tee korteista painikkeita jos voi pelata tästä positiosta
+                        // MUUTOS: Tee korteista painikkeita jos voi pelata tästä positiosta JA peli on pelivaiheessa
                         if (gameState && gameState.gamePhase === 'play' && canPlayFromThisPosition) {
                             html += `
                                 <button 
                                     class="card-button ${cardClass}"
                                     data-suit="${suit}"
                                     data-card="${card}"
-                                    onclick="playCard('${suit}', '${card}', '${position}')"
-                                    ${!isCurrentPlayersTurn ? 'disabled' : ''}
+                                    onclick="playCardWithValidation('${suit}', '${card}', '${position}')"
                                     aria-label="Play ${suitName(suit)} ${card}"
                                 >
                                     ${card}
@@ -1079,18 +1085,37 @@
             element.innerHTML = html;
         }
         
-        // Play card - KORJATTU VERSIO
-        function playCard(suit, card, fromPosition = null) {
-            if (!tableCode) return;
+        // UUSI FUNKTIO: Kortinpelaaminen validoinnilla
+        function playCardWithValidation(suit, card, fromPosition = null) {
+            if (!tableCode) {
+                showErrorWithAnnouncement('No game in progress.');
+                return;
+            }
             
             // Determine which position we're playing from
             const actualPosition = fromPosition || myPosition;
             
-            // Verify we can play from this position
-            if (!canPlayFromPosition(actualPosition) || !isOurTurnToPlay(actualPosition)) {
-                announceToScreenReader("It's not your turn to play from this position.");
+            // TÄRKEÄ: Tarkista ensin, onko pelaajan vuoro
+            if (!isOurTurnToPlay(actualPosition)) {
+                showErrorWithAnnouncement("It's not your turn to play.");
                 return;
             }
+            
+            // Verify we can play from this position
+            if (!canPlayFromPosition(actualPosition)) {
+                showErrorWithAnnouncement("You cannot play from this position.");
+                return;
+            }
+            
+            // Proceed with normal card play
+            playCard(suit, card, actualPosition);
+        }
+        
+        // Play card - ALKUPERÄINEN VERSIO (ilman extra-validointia, koska se tehdään playCardWithValidation:ssa)
+        function playCard(suit, card, fromPosition = null) {
+            if (!tableCode) return;
+            
+            const actualPosition = fromPosition || myPosition;
             
             socket.emit('playCard', {
                 tableCode: tableCode,
