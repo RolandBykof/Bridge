@@ -2058,7 +2058,28 @@ function moveToPlayPhase(table) {
   
   // Update game phase
   table.gameState.gamePhase = 'play';
-  
+
+  // Vaihda dummy GIB-ihmispelaajaksi, jos pelinviejä on ihminen ja dummy on GIB
+const declarer = table.biddingState.declarer;
+const dummy = table.biddingState.dummy;
+const declarerPlayer = table.players[declarer];
+const dummyPlayer = table.players[dummy];
+
+if (
+  declarerPlayer &&
+  declarerPlayer.type === 'human' &&
+  dummyPlayer &&
+  dummyPlayer.type === 'gib'
+) {
+  // Korvaa dummy GIB ihmisellä
+  table.players[dummy] = {
+    name: declarerPlayer.name + ' (dummy)',
+    id: declarerPlayer.id,
+    type: 'human'
+  };
+  console.log(`Dummy ${dummy} otettiin ihmispelaajan ${declarerPlayer.name} hallintaan`);
+}
+
   // Set first player (left of declarer)
   const positions = ['north', 'east', 'south', 'west'];
   const declarerIndex = positions.indexOf(table.biddingState.declarer);
