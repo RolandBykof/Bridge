@@ -1,8 +1,7 @@
 /**
- * BridgeCircle - Enhanced Server Code with Advanced GIB AI and Real GIB API Integration
+ * BridgeCircle - Enhanced Server Code with Advanced GIB AI
  * Features: Opening Lead Tables, Bidding Conventions, Dummy Play Analysis,
- * Monte Carlo Simulation, Squeeze Play Recognition, Enhanced Card Play Logic,
- * Real GIB API Integration with Fallback
+ * Monte Carlo Simulation, Squeeze Play Recognition, Enhanced Card Play Logic
  */
 
 require('dotenv').config();
@@ -12,8 +11,6 @@ const socketIO = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
-const fetch = require('node-fetch');
-const xml2js = require('xml2js');
 
 // Initialize Express app and server
 const app = express();
@@ -28,20 +25,6 @@ const players = new Map(); // Players by Socket ID
 const CARD_SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const CARD_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const MAX_IDLE_TIME = 3600000; // 1 hour in milliseconds
-
-// GIB API Configuration
-const GIB_API_CONFIG = {
-  enabled: process.env.GIB_API_ENABLED !== 'false', // Default enabled
-  baseUrl: 'http://gibrest.bridgebase.com',
-  timeout: parseInt(process.env.GIB_API_TIMEOUT) || 5000,
-  maxRetries: 2,
-  enableCaching: process.env.GIB_CACHE_ENABLED !== 'false'
-};
-
-// GIB API Cache
-const gibCache = new Map();
-const CACHE_MAX_SIZE = 1000;
-const CACHE_TTL = parseInt(process.env.GIB_CACHE_TTL) || 3600000; // 1 hour
 
 // Advanced GIB AI Constants and Data Structures
 
@@ -158,369 +141,88 @@ app.get('/health', (req, res) => {
   });
 });
 
-// GIB API status endpoint
-app.get('/api/gib/status', async (req, res) => {
-  try {
-    if (!GIB_API_CONFIG.enabled) {
-      return res.json({
-        gibApiEnabled: false,
-        gibApiAvailable: false,
-        message: 'GIB API is disabled in configuration',
-        cacheSize: gibCache.size
-      });
-    }
-
-    const testResponse = await fetch(`${GIB_API_CONFIG.baseUrl}/u_dealer/u_dealer.php?n=1`, {
-      timeout: 3000
-    });
-    
-    res.json({
-      gibApiEnabled: GIB_API_CONFIG.enabled,
-      gibApiAvailable: testResponse.ok,
-      cacheSize: gibCache.size,
-      config: {
-        timeout: GIB_API_CONFIG.timeout,
-        maxRetries: GIB_API_CONFIG.maxRetries,
-        enableCaching: GIB_API_CONFIG.enableCaching
-      }
-    });
-  } catch (error) {
-    res.json({
-      gibApiEnabled: GIB_API_CONFIG.enabled,
-      gibApiAvailable: false,
-      error: error.message,
-      cacheSize: gibCache.size
-    });
-  }
-});
-
 // Background processes
 setInterval(cleanupProcess, 300000); // Cleanup every 5 minutes
 
-/**
- * GIB API Integration Functions
- */
-
-/**
- * Format hand for GIB API (e.g., "akq86.ak3.4.ak63")
- * @param {Object} hand - Hand object
- * @return {string} GIB formatted hand
- */
-function formatHandForGIB(hand) {
-  const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
-  return suits.map(suit => {
-    const cards = hand[suit] || [];
-    return cards.map(card => card === '10' ? 't' : card.toLowerCase()).join('');
-  }).join('.');
-}
-
-/**
- * Format bidding history for GIB API
- * @param {Array} bidHistory - Bidding history
- * @return {string} GIB formatted bidding history
- */
-function formatBiddingHistoryForGIB(bidHistory) {
-  if (!bidHistory || bidHistory.length === 0) return '';
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
+  let playerId = socket.id;
   
-  return bidHistory.map(bid => {
-    if (bid.bid === 'P') return 'p';
-    if (bid.bid === 'X') return 'x';
-    if (bid.bid === 'XX') return 'xx';
-    
-    // Convert bid like "1S" to "1s"
-    const level = bid.bid.charAt(0);
-    const suit = bid.bid.charAt(1).toLowerCase();
-    return level + suit;
-  }).join('-');
-}
-
-/**
- * Format played cards for GIB API
- * @param {Array} playedCards - Played cards array
- * @return {string} GIB formatted played cards
- */
-function formatPlayedCardsForGIB(playedCards) {
-  if (!playedCards || playedCards.length === 0) return '';
-  
-  return playedCards.map(card => {
-    const suit = card.suit.charAt(0).toUpperCase();
-    const value = card.card === '10' ? 't' : card.card.toLowerCase();
-    return suit + value;
-  }).join('-');
-}
-
-/**
- * Parse GIB XML response
- * @param {string} xmlResponse - XML response from GIB
- * @return {Object} Parsed response
- */
-async function parseGIBResponse(xmlResponse) {
-  try {
-    const parser = new xml2js.Parser();
-    const result = await parser.parseStringPromise(xmlResponse);
-    
-    if (result.sc_bm && result.sc_bm.r && result.sc_bm.r[0]) {
-      const response = result.sc_bm.r[0].$;
-      
-      if (response.type === 'bid') {
-        return {
-          type: 'bid',
-          bid: formatBidFromGIB(response.bid),
-          success: true
-        };
-      } else if (response.type === 'play') {
-        return {
-          type: 'play',
-          card: formatCardFromGIB(response.card),
-          success: true
-        };
-      }
-    }
-    
-    return { success: false, error: 'Invalid response format' };
-  } catch (error) {
-    console.error('Error parsing GIB response:', error);
-    return { success: false, error: 'Parse error' };
-  }
-}
-
-/**
- * Format bid from GIB response
- * @param {string} gibBid - GIB bid format
- * @return {string} Standard bid format
- */
-function formatBidFromGIB(gibBid) {
-  if (!gibBid) return 'P';
-  
-  const bid = gibBid.toLowerCase();
-  if (bid === 'p') return 'P';
-  if (bid === 'x') return 'X';
-  if (bid === 'xx') return 'XX';
-  
-  // Convert "1s" to "1S"
-  if (bid.length === 2) {
-    const level = bid.charAt(0);
-    const suit = bid.charAt(1).toUpperCase();
-    return level + suit;
-  }
-  
-  return 'P'; // Default fallback
-}
-
-/**
- * Format card from GIB response
- * @param {string} gibCard - GIB card format (e.g., "Sk")
- * @return {Object} Card object
- */
-function formatCardFromGIB(gibCard) {
-  if (!gibCard || gibCard.length < 2) {
-    return null;
-  }
-  
-  const suitMap = {
-    'S': 'spades',
-    'H': 'hearts', 
-    'D': 'diamonds',
-    'C': 'clubs'
-  };
-  
-  const suit = suitMap[gibCard.charAt(0).toUpperCase()];
-  let card = gibCard.charAt(1);
-  
-  if (card === 't') card = '10';
-  else card = card.toUpperCase();
-  
-  return { suit, card };
-}
-
-/**
- * Create cache key for GIB API calls
- * @param {string} type - API call type ('bid' or 'play')
- * @param {Object} params - API parameters
- * @return {string} Cache key
- */
-function createGIBCacheKey(type, params) {
-  const keyData = {
-    type,
-    hands: [params.s, params.w, params.n, params.e].join('|'),
-    history: params.h || '',
-    pov: params.pov
-  };
-  return JSON.stringify(keyData);
-}
-
-/**
- * Get cached GIB response
- * @param {string} cacheKey - Cache key
- * @return {Object|null} Cached response or null
- */
-function getGIBCache(cacheKey) {
-  if (!GIB_API_CONFIG.enableCaching) return null;
-  
-  const cached = gibCache.get(cacheKey);
-  if (!cached) return null;
-  
-  // Check TTL
-  if (Date.now() - cached.timestamp > CACHE_TTL) {
-    gibCache.delete(cacheKey);
-    return null;
-  }
-  
-  return cached.data;
-}
-
-/**
- * Set GIB cache
- * @param {string} cacheKey - Cache key
- * @param {Object} data - Data to cache
- */
-function setGIBCache(cacheKey, data) {
-  if (!GIB_API_CONFIG.enableCaching) return;
-  
-  // Limit cache size
-  if (gibCache.size >= CACHE_MAX_SIZE) {
-    const firstKey = gibCache.keys().next().value;
-    gibCache.delete(firstKey);
-  }
-  
-  gibCache.set(cacheKey, {
-    data,
-    timestamp: Date.now()
+  // Create player record
+  players.set(playerId, {
+    socket,
+    table: null,
+    name: null,
+    position: null,
+    connected: Date.now()
   });
-}
-
-/**
- * Make GIB API bid request
- * @param {Object} table - Table object
- * @param {string} position - Player position
- * @return {Promise<Object>} GIB bid response
- */
-async function makeGIBBidRequest(table, position) {
-  if (!GIB_API_CONFIG.enabled) {
-    return { success: false, error: 'GIB API disabled' };
-  }
-
-  const gameState = table.gameState;
-  const biddingState = table.biddingState;
   
-  const params = {
-    sc: 'tp',
-    pov: position.charAt(0).toUpperCase(),
-    d: (gameState.declarer || 'south').charAt(0).toUpperCase(),
-    v: '-',
-    s: formatHandForGIB(gameState.hands.south),
-    w: formatHandForGIB(gameState.hands.west),
-    n: formatHandForGIB(gameState.hands.north),
-    e: formatHandForGIB(gameState.hands.east),
-    h: formatBiddingHistoryForGIB(biddingState.bidHistory)
-  };
+  // Message handling
+  socket.on('getActiveTables', () => {
+    sendActiveTables(socket);
+  });
   
-  // Check cache first
-  const cacheKey = createGIBCacheKey('bid', params);
-  const cachedResponse = getGIBCache(cacheKey);
-  if (cachedResponse) {
-    console.log(`GIB bid cache hit for ${position}`);
-    return cachedResponse;
-  }
+  socket.on('createTable', (data) => {
+    createTable(socket, playerId, data);
+  });
   
-  try {
-    const response = await fetch(`${GIB_API_CONFIG.baseUrl}/u_bm/robot.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams(params),
-      timeout: GIB_API_CONFIG.timeout
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const xmlResponse = await response.text();
-    const parsedResponse = await parseGIBResponse(xmlResponse);
-    
-    if (parsedResponse.success) {
-      setGIBCache(cacheKey, parsedResponse);
-      console.log(`GIB API bid success for ${position}: ${parsedResponse.bid}`);
-    }
-    
-    return parsedResponse;
-    
-  } catch (error) {
-    console.error(`GIB API bid request failed for ${position}:`, error.message);
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Make GIB API play request
- * @param {Object} table - Table object
- * @param {string} position - Player position
- * @return {Promise<Object>} GIB play response
- */
-async function makeGIBPlayRequest(table, position) {
-  if (!GIB_API_CONFIG.enabled) {
-    return { success: false, error: 'GIB API disabled' };
-  }
-
-  const gameState = table.gameState;
-  const biddingState = table.biddingState;
+  socket.on('joinTable', (data) => {
+    joinTable(socket, playerId, data);
+  });
   
-  // Combine bidding history and played cards
-  const biddingHistory = formatBiddingHistoryForGIB(biddingState.bidHistory);
-  const playedCards = formatPlayedCardsForGIB(gameState.playedCards);
-  const fullHistory = biddingHistory + (playedCards ? '-' + playedCards : '');
+  socket.on('selectPosition', (data) => {
+    selectPosition(socket, playerId, data);
+  });
   
-  const params = {
-    sc: 'tp',
-    pov: position.charAt(0).toUpperCase(),
-    d: (gameState.declarer || 'south').charAt(0).toUpperCase(),
-    v: '-',
-    s: formatHandForGIB(gameState.hands.south),
-    w: formatHandForGIB(gameState.hands.west),
-    n: formatHandForGIB(gameState.hands.north),
-    e: formatHandForGIB(gameState.hands.east),
-    h: fullHistory
-  };
+  socket.on('getTableInfo', (data) => {
+    getTableInfo(socket, playerId, data);
+  });
   
-  // Check cache first
-  const cacheKey = createGIBCacheKey('play', params);
-  const cachedResponse = getGIBCache(cacheKey);
-  if (cachedResponse) {
-    console.log(`GIB play cache hit for ${position}`);
-    return cachedResponse;
-  }
+  socket.on('leaveTable', () => {
+    removeFromTable(socket, playerId);
+  });
   
-  try {
-    const response = await fetch(`${GIB_API_CONFIG.baseUrl}/u_bm/robot.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams(params),
-      timeout: GIB_API_CONFIG.timeout
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const xmlResponse = await response.text();
-    const parsedResponse = await parseGIBResponse(xmlResponse);
-    
-    if (parsedResponse.success) {
-      setGIBCache(cacheKey, parsedResponse);
-      console.log(`GIB API play success for ${position}: ${parsedResponse.card?.suit} ${parsedResponse.card?.card}`);
-    }
-    
-    return parsedResponse;
-    
-  } catch (error) {
-    console.error(`GIB API play request failed for ${position}:`, error.message);
-    return { success: false, error: error.message };
-  }
-}
+  socket.on('startGame', (data) => {
+    startGame(socket, playerId, data);
+  });
+  
+  socket.on('sendChatMessage', (data) => {
+    sendChatMessage(socket, playerId, data);
+  });
+  
+  socket.on('makeBid', (data) => {
+    makeBid(socket, playerId, data);
+  });
+  
+  socket.on('playCard', (data) => {
+    playCard(socket, playerId, data);
+  });
+  
+  socket.on('startNewGame', (data) => {
+    startNewGame(socket, playerId, data);
+  });
+  
+  socket.on('createSoloGame', (data) => {
+    createSoloGame(socket, playerId, data);
+  });
+  
+  socket.on('resetSoloGame', (data) => {
+    resetSoloGame(socket, playerId, data);
+  });
+  
+  // Disconnect handling
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', playerId);
+    handleDisconnect(playerId);
+  });
+  
+  // Error handling
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
+    handleDisconnect(playerId);
+  });
+});
 
 /**
  * Advanced GIB AI Helper Functions
@@ -1609,34 +1311,11 @@ function determineTrickWinnerSimulation(trick, trumpSuit) {
 }
 
 /**
- * Enhanced GIB bid making with real GIB API integration
+ * Enhanced GIB bid making with conventions
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
-async function makeAdvancedGIBBid(table, position) {
-  console.log(`Making GIB bid for ${position}`);
-  
-  // Try GIB API first
-  try {
-    const gibResponse = await makeGIBBidRequest(table, position);
-    
-    if (gibResponse.success && gibResponse.bid) {
-      const possibleBids = getPossibleBids(table.biddingState.highestBid);
-      
-      // Validate that GIB's bid is legal
-      if (possibleBids.includes(gibResponse.bid)) {
-        processBid(table, position, gibResponse.bid);
-        return;
-      } else {
-        console.warn(`GIB API returned illegal bid ${gibResponse.bid} for ${position}, falling back to local AI`);
-      }
-    }
-  } catch (error) {
-    console.error(`GIB API error for ${position}:`, error);
-  }
-  
-  // Fallback to local Advanced GIB AI
-  console.log(`Using fallback AI for ${position} bid`);
+function makeAdvancedGIBBid(table, position) {
   const possibleBids = getPossibleBids(table.biddingState.highestBid);
   const bid = calculateAdvancedBid(table, position, possibleBids);
   
@@ -1644,42 +1323,11 @@ async function makeAdvancedGIBBid(table, position) {
 }
 
 /**
- * Enhanced GIB card play with real GIB API integration
+ * Enhanced GIB card play
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
-async function makeAdvancedGIBMove(table, position) {
-  console.log(`Making GIB move for ${position}`);
-  
-  // Try GIB API first
-  try {
-    const gibResponse = await makeGIBPlayRequest(table, position);
-    
-    if (gibResponse.success && gibResponse.card) {
-      const { suit, card } = gibResponse.card;
-      const hand = table.gameState.hands[position];
-      
-      // Validate that the card is legal
-      if (hand[suit] && hand[suit].includes(card)) {
-        const legalMoves = getLegalMoves(hand, table.gameState.currentTrick, table.gameState.trumpSuit);
-        const isLegal = legalMoves.some(move => move.suit === suit && move.card === card);
-        
-        if (isLegal) {
-          processCardPlay(table, position, suit, card);
-          return;
-        } else {
-          console.warn(`GIB API returned illegal move ${suit} ${card} for ${position}, falling back to local AI`);
-        }
-      } else {
-        console.warn(`GIB API returned card not in hand ${suit} ${card} for ${position}, falling back to local AI`);
-      }
-    }
-  } catch (error) {
-    console.error(`GIB API error for ${position}:`, error);
-  }
-  
-  // Fallback to local Advanced GIB AI
-  console.log(`Using fallback AI for ${position} move`);
+function makeAdvancedGIBMove(table, position) {
   const bestMove = calculateAdvancedCardPlay(table, position);
   
   if (bestMove) {
@@ -1690,86 +1338,6 @@ async function makeAdvancedGIBMove(table, position) {
 }
 
 // Original server functions with enhanced GIB integration
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-  let playerId = socket.id;
-  
-  // Create player record
-  players.set(playerId, {
-    socket,
-    table: null,
-    name: null,
-    position: null,
-    connected: Date.now()
-  });
-  
-  // Message handling
-  socket.on('getActiveTables', () => {
-    sendActiveTables(socket);
-  });
-  
-  socket.on('createTable', (data) => {
-    createTable(socket, playerId, data);
-  });
-  
-  socket.on('joinTable', (data) => {
-    joinTable(socket, playerId, data);
-  });
-  
-  socket.on('selectPosition', (data) => {
-    selectPosition(socket, playerId, data);
-  });
-  
-  socket.on('getTableInfo', (data) => {
-    getTableInfo(socket, playerId, data);
-  });
-  
-  socket.on('leaveTable', () => {
-    removeFromTable(socket, playerId);
-  });
-  
-  socket.on('startGame', (data) => {
-    startGame(socket, playerId, data);
-  });
-  
-  socket.on('sendChatMessage', (data) => {
-    sendChatMessage(socket, playerId, data);
-  });
-  
-  socket.on('makeBid', (data) => {
-    makeBid(socket, playerId, data);
-  });
-  
-  socket.on('playCard', (data) => {
-    playCard(socket, playerId, data);
-  });
-  
-  socket.on('startNewGame', (data) => {
-    startNewGame(socket, playerId, data);
-  });
-  
-  socket.on('createSoloGame', (data) => {
-    createSoloGame(socket, playerId, data);
-  });
-  
-  socket.on('resetSoloGame', (data) => {
-    resetSoloGame(socket, playerId, data);
-  });
-  
-  // Disconnect handling
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', playerId);
-    handleDisconnect(playerId);
-  });
-  
-  // Error handling
-  socket.on('error', (error) => {
-    console.error('Socket error:', error);
-    handleDisconnect(playerId);
-  });
-});
 
 /**
  * Handle player disconnection
@@ -2073,12 +1641,12 @@ function replacePlayer(table, position) {
   
   // If replaced player was current player, GIB's turn
   if (table.gameState && table.gameState.currentPlayer === position) {
-    setTimeout(async () => {
-      await makeAdvancedGIBMove(table, position);
+    setTimeout(() => {
+      makeAdvancedGIBMove(table, position); // Use enhanced GIB
     }, 1500);
   } else if (table.biddingState && table.biddingState.currentBidder === position) {
-    setTimeout(async () => {
-      await makeAdvancedGIBBid(table, position);
+    setTimeout(() => {
+      makeAdvancedGIBBid(table, position); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -2155,8 +1723,8 @@ function startGame(socket, playerId, data) {
     
     // If first bidder is GIB, handle GIB's turn
     if (table.players[table.biddingState.currentBidder].type === 'gib') {
-      setTimeout(async () => {
-        await makeAdvancedGIBBid(table, table.biddingState.currentBidder);
+      setTimeout(() => {
+        makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
       }, 1500);
     }
   } catch (error) {
@@ -2300,8 +1868,8 @@ function processBid(table, position, bid) {
     
     // If next bidder is GIB, make GIB's bid
     if (table.players[table.biddingState.currentBidder].type === 'gib') {
-      setTimeout(async () => {
-        await makeAdvancedGIBBid(table, table.biddingState.currentBidder);
+      setTimeout(() => {
+        makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
       }, 1500);
     }
   }
@@ -2491,26 +2059,26 @@ function moveToPlayPhase(table) {
   // Update game phase
   table.gameState.gamePhase = 'play';
 
-  // Replace dummy GIB with human player if declarer is human and dummy is GIB
-  const declarer = table.biddingState.declarer;
-  const dummy = table.biddingState.dummy;
-  const declarerPlayer = table.players[declarer];
-  const dummyPlayer = table.players[dummy];
+  // Vaihda dummy GIB-ihmispelaajaksi, jos pelinviejä on ihminen ja dummy on GIB
+const declarer = table.biddingState.declarer;
+const dummy = table.biddingState.dummy;
+const declarerPlayer = table.players[declarer];
+const dummyPlayer = table.players[dummy];
 
-  if (
-    declarerPlayer &&
-    declarerPlayer.type === 'human' &&
-    dummyPlayer &&
-    dummyPlayer.type === 'gib'
-  ) {
-    // Replace dummy GIB with human control
-    table.players[dummy] = {
-      name: declarerPlayer.name + ' (dummy)',
-      id: declarerPlayer.id,
-      type: 'human'
-    };
-    console.log(`Dummy ${dummy} taken under control by human player ${declarerPlayer.name}`);
-  }
+if (
+  declarerPlayer &&
+  declarerPlayer.type === 'human' &&
+  dummyPlayer &&
+  dummyPlayer.type === 'gib'
+) {
+  // Korvaa dummy GIB ihmisellä
+  table.players[dummy] = {
+    name: declarerPlayer.name + ' (dummy)',
+    id: declarerPlayer.id,
+    type: 'human'
+  };
+  console.log(`Dummy ${dummy} otettiin ihmispelaajan ${declarerPlayer.name} hallintaan`);
+}
 
   // Set first player (left of declarer)
   const positions = ['north', 'east', 'south', 'west'];
@@ -2547,8 +2115,8 @@ function moveToPlayPhase(table) {
   
   // If first player is GIB, make GIB's move
   if (table.players[table.gameState.currentPlayer].type === 'gib') {
-    setTimeout(async () => {
-      await makeAdvancedGIBMove(table, table.gameState.currentPlayer);
+    setTimeout(() => {
+      makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -2665,11 +2233,29 @@ function processCardPlay(table, position, suit, card) {
     
     // If next player is GIB, make GIB's move
     if (table.players[table.gameState.currentPlayer].type === 'gib') {
-      setTimeout(async () => {
-        await makeAdvancedGIBMove(table, table.gameState.currentPlayer);
+      setTimeout(() => {
+        makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
       }, 1500);
     }
   }
+}
+
+/**
+ * Make GIB AI bid (deprecated - use makeAdvancedGIBBid)
+ * @param {Object} table - Table object
+ * @param {string} position - GIB's position
+ */
+function makeGIBBid(table, position) {
+  makeAdvancedGIBBid(table, position);
+}
+
+/**
+ * Make GIB AI move (deprecated - use makeAdvancedGIBMove)
+ * @param {Object} table - Table object
+ * @param {string} position - GIB's position
+ */
+function makeGIBMove(table, position) {
+  makeAdvancedGIBMove(table, position);
 }
 
 /**
@@ -2798,8 +2384,8 @@ function processTrick(table) {
   
   // If next player is GIB, make GIB's move
   if (table.players[table.gameState.currentPlayer].type === 'gib') {
-    setTimeout(async () => {
-      await makeAdvancedGIBMove(table, table.gameState.currentPlayer);
+    setTimeout(() => {
+      makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -3075,7 +2661,7 @@ function sendError(socket, message) {
 }
 
 /**
- * KORJATTU: Send message to all players in table
+ * Send message to all players in table
  * @param {Object} table - Table object
  * @param {Object} message - Message to send
  */
@@ -3084,9 +2670,7 @@ function sendToTablePlayers(table, message) {
     if (playerData && playerData.id) {
       const player = players.get(playerData.id);
       if (player && player.socket) {
-        // KORJATTU: Poista type kenttä ennen lähetystä
-        const { type, ...data } = message;
-        player.socket.emit(type, data);
+        player.socket.emit(message.type, message);
       }
     }
   }
@@ -3237,23 +2821,20 @@ function filterTablePlayers(tablePlayers) {
 }
 
 /**
- * KORJATTU: Filter game state for client
+ * Filter game state for client
  * @param {Object} gameState - Game state
  * @param {string|null} position - Player's position
  * @return {Object} Filtered game state
  */
 function filterGameState(gameState, position) {
+  // If gameState doesn't exist or position is null/undefined, return general version
   if (!gameState) return null;
   
+  // Copy basic info
   const filteredState = { ...gameState };
   
-  // KORJATTU: Säilytä hands tieto solo-peleissä
-  // Poista hands tieto vain multiplayer-peleissä jos position on määritelty
-  if (position !== null && position !== undefined) {
-    // Multiplayer-peli - poista hands tieto (lähetetään erikseen)
-    delete filteredState.hands;
-  }
-  // Solo-pelissä (position === null) säilytetään hands tieto
+  // Remove hands info (sent separately)
+  delete filteredState.hands;
   
   return filteredState;
 }
@@ -3286,13 +2867,6 @@ function cleanupProcess() {
       tables.delete(code);
       console.log(`Table ${code} removed due to inactivity`);
     }
-  }
-  
-  // Clean up GIB cache if it gets too large
-  if (gibCache.size > CACHE_MAX_SIZE * 1.5) {
-    const keysToDelete = Array.from(gibCache.keys()).slice(0, CACHE_MAX_SIZE / 2);
-    keysToDelete.forEach(key => gibCache.delete(key));
-    console.log(`Cleaned up ${keysToDelete.length} entries from GIB cache`);
   }
 }
 
@@ -3344,22 +2918,289 @@ function formatContract(contract) {
   return result;
 }
 
+// Advanced squeeze play detection and recognition
+/**
+ * Detect squeeze opportunities
+ * @param {Object} table - Table object
+ * @param {string} declarerPosition - Declarer position
+ * @return {Object} Squeeze analysis
+ */
+function detectSqueezePlay(table, declarerPosition) {
+  const gameState = table.gameState;
+  const declarerHand = gameState.hands[declarerPosition];
+  const dummyHand = gameState.hands[gameState.dummy];
+  const tricksRemaining = 13 - gameState.totalTricks;
+  
+  // Simple squeeze detection logic
+  const squeezeAnalysis = {
+    hasSqueezeOpportunity: false,
+    squeezeType: null,
+    threatenedSuits: [],
+    squeezedOpponents: [],
+    timing: null
+  };
+  
+  // Check for basic squeeze conditions
+  // 1. Need at least 2 threats
+  // 2. Need proper timing (usually in the last few tricks)
+  // 3. Need communication between declarer and dummy
+  
+  if (tricksRemaining <= 5) {
+    // Analyze suit lengths and threats
+    const threats = analyzeSuitThreats(declarerHand, dummyHand, gameState);
+    
+    if (threats.length >= 2) {
+      squeezeAnalysis.hasSqueezeOpportunity = true;
+      squeezeAnalysis.threatenedSuits = threats;
+      squeezeAnalysis.squeezeType = threats.length === 2 ? 'simple' : 'double';
+      squeezeAnalysis.timing = tricksRemaining <= 3 ? 'exact' : 'positional';
+    }
+  }
+  
+  return squeezeAnalysis;
+}
+
+/**
+ * Analyze suit threats for squeeze play
+ * @param {Object} declarerHand - Declarer's hand
+ * @param {Object} dummyHand - Dummy's hand
+ * @param {Object} gameState - Game state
+ * @return {Array} Threat suits
+ */
+function analyzeSuitThreats(declarerHand, dummyHand, gameState) {
+  const threats = [];
+  
+  for (const suit of CARD_SUITS) {
+    const declarerCards = declarerHand[suit] || [];
+    const dummyCards = dummyHand[suit] || [];
+    const combinedLength = declarerCards.length + dummyCards.length;
+    
+    // A suit is a threat if it has good cards and proper length
+    if (combinedLength >= 2) {
+      const hasHighHonors = [...declarerCards, ...dummyCards].some(card => 
+        ['A', 'K', 'Q'].includes(card)
+      );
+      
+      if (hasHighHonors) {
+        threats.push(suit);
+      }
+    }
+  }
+  
+  return threats;
+}
+
+/**
+ * Execute squeeze play
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {Object} squeezeAnalysis - Squeeze analysis
+ * @return {Object} Best squeeze card
+ */
+function executeSqueezePlay(table, position, squeezeAnalysis) {
+  const hand = table.gameState.hands[position];
+  const legalMoves = getLegalMoves(hand, table.gameState.currentTrick, table.gameState.trumpSuit);
+  
+  if (!squeezeAnalysis.hasSqueezeOpportunity) {
+    return null; // No squeeze opportunity
+  }
+  
+  // Find the squeeze card (usually a winner in a long suit)
+  for (const suit of CARD_SUITS) {
+    if (!squeezeAnalysis.threatenedSuits.includes(suit)) {
+      const suitMoves = legalMoves.filter(move => move.suit === suit);
+      if (suitMoves.length > 0) {
+        // Play highest card in non-threat suit to apply pressure
+        const highestCard = suitMoves.reduce((highest, move) => 
+          compareCardValues(move.card, highest.card) > 0 ? move : highest
+        );
+        return highestCard;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Advanced endplay detection
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @return {Object} Endplay opportunities
+ */
+function detectEndplayOpportunities(table, position) {
+  const gameState = table.gameState;
+  const hand = gameState.hands[position];
+  const tricksRemaining = 13 - gameState.totalTricks;
+  
+  const endplayAnalysis = {
+    hasEndplayOpportunity: false,
+    endplayType: null,
+    targetOpponent: null,
+    strippingSuits: [],
+    throwInCard: null
+  };
+  
+  // Endplay works best in the last few tricks
+  if (tricksRemaining <= 4) {
+    // Look for throw-in opportunities
+    const opponents = getOpponents(position);
+    
+    for (const opponent of opponents) {
+      const throwInOpportunity = analyzeThrowInOpportunity(table, position, opponent);
+      if (throwInOpportunity.viable) {
+        endplayAnalysis.hasEndplayOpportunity = true;
+        endplayAnalysis.endplayType = 'throw_in';
+        endplayAnalysis.targetOpponent = opponent;
+        endplayAnalysis.throwInCard = throwInOpportunity.card;
+        break;
+      }
+    }
+  }
+  
+  return endplayAnalysis;
+}
+
+/**
+ * Analyze throw-in opportunity against specific opponent
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {string} opponent - Opponent position
+ * @return {Object} Throw-in analysis
+ */
+function analyzeThrowInOpportunity(table, position, opponent) {
+  // This is a simplified analysis
+  // In reality, we'd need to track which cards opponents have played
+  // and deduce their remaining holdings
+  
+  return {
+    viable: false,
+    card: null,
+    reason: 'Insufficient information for throw-in analysis'
+  };
+}
+
+/**
+ * Get opponent positions
+ * @param {string} position - Player position
+ * @return {Array} Opponent positions
+ */
+function getOpponents(position) {
+  const partnerships = {
+    'north': ['east', 'west'],
+    'south': ['east', 'west'],
+    'east': ['north', 'south'],
+    'west': ['north', 'south']
+  };
+  
+  return partnerships[position] || [];
+}
+
+/**
+ * Advanced finesse calculation
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @param {string} suit - Suit to finesse
+ * @return {Object} Finesse analysis
+ */
+function calculateFinesse(table, position, suit) {
+  const declarerHand = table.gameState.hands[table.gameState.declarer];
+  const dummyHand = table.gameState.hands[table.gameState.dummy];
+  const combinedCards = [...(declarerHand[suit] || []), ...(dummyHand[suit] || [])];
+  
+  const finesseAnalysis = {
+    hasFinesseOpportunity: false,
+    finesseType: null,
+    playSequence: [],
+    successProbability: 0
+  };
+  
+  // Check for common finesse patterns
+  const hasAceQueen = combinedCards.includes('A') && combinedCards.includes('Q');
+  const hasAceJack = combinedCards.includes('A') && combinedCards.includes('J');
+  const hasKingJack = combinedCards.includes('K') && combinedCards.includes('J');
+  
+  if (hasAceQueen && !combinedCards.includes('K')) {
+    finesseAnalysis.hasFinesseOpportunity = true;
+    finesseAnalysis.finesseType = 'AQ_vs_K';
+    finesseAnalysis.successProbability = 0.5; // 50% chance King is in right position
+    finesseAnalysis.playSequence = ['Play low towards Queen', 'If King appears, play Ace'];
+  } else if (hasAceJack && !combinedCards.includes('K') && !combinedCards.includes('Q')) {
+    finesseAnalysis.hasFinesseOpportunity = true;
+    finesseAnalysis.finesseType = 'AJ_vs_KQ';
+    finesseAnalysis.successProbability = 0.25; // 25% chance both honors are well-placed
+    finesseAnalysis.playSequence = ['Play low towards Jack', 'Hope both K and Q are in right hand'];
+  } else if (hasKingJack && !combinedCards.includes('A') && !combinedCards.includes('Q')) {
+    finesseAnalysis.hasFinesseOpportunity = true;
+    finesseAnalysis.finesseType = 'KJ_vs_AQ';
+    finesseAnalysis.successProbability = 0.25;
+    finesseAnalysis.playSequence = ['Play Jack towards King', 'Hope A or Q is in wrong position'];
+  }
+  
+  return finesseAnalysis;
+}
+
+/**
+ * Enhanced communication analysis between declarer and dummy
+ * @param {Object} table - Table object
+ * @return {Object} Communication analysis
+ */
+function analyzeCommunication(table) {
+  const declarerHand = table.gameState.hands[table.gameState.declarer];
+  const dummyHand = table.gameState.hands[table.gameState.dummy];
+  const trumpSuit = table.gameState.trumpSuit;
+  
+  const communication = {
+    entries: {
+      declarer: 0,
+      dummy: 0
+    },
+    suits: {},
+    recommendations: []
+  };
+  
+  // Count entries (high cards that can win tricks)
+  for (const suit of CARD_SUITS) {
+    const declarerSuit = declarerHand[suit] || [];
+    const dummySuit = dummyHand[suit] || [];
+    
+    // Count potential entries
+    const declarerEntries = declarerSuit.filter(card => ['A', 'K'].includes(card)).length;
+    const dummyEntries = dummySuit.filter(card => ['A', 'K'].includes(card)).length;
+    
+    communication.entries.declarer += declarerEntries;
+    communication.entries.dummy += dummyEntries;
+    
+    communication.suits[suit] = {
+      declarerLength: declarerSuit.length,
+      dummyLength: dummySuit.length,
+      combinedLength: declarerSuit.length + dummySuit.length,
+      entries: declarerEntries + dummyEntries,
+      balanced: Math.abs(declarerSuit.length - dummySuit.length) <= 1
+    };
+  }
+  
+  // Generate recommendations
+  if (communication.entries.dummy === 0) {
+    communication.recommendations.push('Dummy has no entries - be careful about entry management');
+  }
+  
+  if (communication.entries.declarer > communication.entries.dummy * 2) {
+    communication.recommendations.push('Declarer hand is entry-rich - consider advanced plays');
+  }
+  
+  return communication;
+}
+
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Enhanced BridgeCircle Server with Advanced GIB AI running on port ${PORT}`);
   console.log('Features enabled:');
-  console.log('- Real GIB API Integration with Fallback');
   console.log('- Opening Lead Tables');
   console.log('- Bidding Conventions (Stayman, Blackwood, Transfers)');
   console.log('- Dummy Play Analysis');
   console.log('- Monte Carlo Simulation');
   console.log('- Squeeze Play Recognition');
   console.log('- Enhanced Card Play Logic');
-  console.log(`- GIB API: ${GIB_API_CONFIG.enabled ? 'Enabled' : 'Disabled'}`);
-  console.log(`- GIB Cache: ${GIB_API_CONFIG.enableCaching ? 'Enabled' : 'Disabled'}`);
-  console.log('COMPATIBILITY FIXES APPLIED:');
-  console.log('- Fixed sendToTablePlayers message format');
-  console.log('- Fixed filterGameState for solo games');
-  console.log('- Maintained frontend compatibility');
-});
+}); 
