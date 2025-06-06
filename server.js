@@ -3075,7 +3075,7 @@ function sendError(socket, message) {
 }
 
 /**
- * Send message to all players in table
+ * KORJATTU: Send message to all players in table
  * @param {Object} table - Table object
  * @param {Object} message - Message to send
  */
@@ -3084,7 +3084,9 @@ function sendToTablePlayers(table, message) {
     if (playerData && playerData.id) {
       const player = players.get(playerData.id);
       if (player && player.socket) {
-        player.socket.emit(message.type, message);
+        // KORJATTU: Poista type kenttä ennen lähetystä
+        const { type, ...data } = message;
+        player.socket.emit(type, data);
       }
     }
   }
@@ -3235,20 +3237,23 @@ function filterTablePlayers(tablePlayers) {
 }
 
 /**
- * Filter game state for client
+ * KORJATTU: Filter game state for client
  * @param {Object} gameState - Game state
  * @param {string|null} position - Player's position
  * @return {Object} Filtered game state
  */
 function filterGameState(gameState, position) {
-  // If gameState doesn't exist or position is null/undefined, return general version
   if (!gameState) return null;
   
-  // Copy basic info
   const filteredState = { ...gameState };
   
-  // Remove hands info (sent separately)
-  delete filteredState.hands;
+  // KORJATTU: Säilytä hands tieto solo-peleissä
+  // Poista hands tieto vain multiplayer-peleissä jos position on määritelty
+  if (position !== null && position !== undefined) {
+    // Multiplayer-peli - poista hands tieto (lähetetään erikseen)
+    delete filteredState.hands;
+  }
+  // Solo-pelissä (position === null) säilytetään hands tieto
   
   return filteredState;
 }
@@ -3353,4 +3358,8 @@ server.listen(PORT, () => {
   console.log('- Enhanced Card Play Logic');
   console.log(`- GIB API: ${GIB_API_CONFIG.enabled ? 'Enabled' : 'Disabled'}`);
   console.log(`- GIB Cache: ${GIB_API_CONFIG.enableCaching ? 'Enabled' : 'Disabled'}`);
+  console.log('COMPATIBILITY FIXES APPLIED:');
+  console.log('- Fixed sendToTablePlayers message format');
+  console.log('- Fixed filterGameState for solo games');
+  console.log('- Maintained frontend compatibility');
 });
