@@ -11,6 +11,7 @@ const socketIO = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
+const gibClient = require('./lib/gib-client');
 
 // Initialize Express app and server
 const app = express();
@@ -1311,29 +1312,218 @@ function determineTrickWinnerSimulation(trick, trumpSuit) {
 }
 
 /**
- * Enhanced GIB bid making with conventions
+ * Enhanced GIB bid making with real GIB AI
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
-function makeAdvancedGIBBid(table, position) {
-  const possibleBids = getPossibleBids(table.biddingState.highestBid);
-  const bid = calculateAdvancedBid(table, position, possibleBids);
-  
-  processBid(table, position, bid);
+async function makeAdvancedGIBBid(table, position) {
+  try {
+    // Prepare game state for GIB
+    const gameState = {
+      position: position,
+      gamePhase: 'bidding',
+      hands: table.gameState.hands,
+      biddingHistory: table.biddingState.bidHistory.map(b => b.bid),
+      dealer: table.biddingState.dealer,
+      vulnerable: getVulnerability(table, position)
+    };
+
+    console.log(`Getting GIB bid for ${position}...`);
+    const gibResponse = await gibClient.getRobotMove(gameState);
+    
+    if (gibResponse && gibResponse.bid) {
+      console.log(`GIB ${position} bids: ${gibResponse.bid}`);
+      processBid(table, position, gibResponse.bid);
+    } else {
+      console.log(`GIB ${position} failed, using fallback bid`);
+      // Fallback to simple logic
+      const possibleBids = getPossibleBids(table.biddingState.highestBid);
+      const fallbackBid = possibleBids.includes('P') ? 'P' : possibleBids[0];
+      processBid(table, position, fallbackBid);
+    }
+  } catch (error) {
+    console.error(`Error getting GIB bid for ${position}:`, error.message);
+    
+    // Fallback to pass or simple bid
+    const possibleBids = getPossibleBids(table.biddingState.highestBid);
+    const fallbackBid = possibleBids.includes('P') ? 'P' : possibleBids[0];
+    console.log(`Using fallback bid: ${fallbackBid}`);
+    processBid(table, position, fallbackBid);
+  }
 }
 
 /**
- * Enhanced GIB card play
+ * Enhanced GIB card play with real GIB AI
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
-function makeAdvancedGIBMove(table, position) {
-  const bestMove = calculateAdvancedCardPlay(table, position);
+async function makeAdvancedGIBMove(table, position) {
+  try {
+    // Prepare game state for GIB
+    const gameState = {
+      position: position,
+      gamePhase: 'play',
+      hands: table.gameState.hands,
+      biddingHistory: table.biddingState.bidHistory.map(b => b.bid),
+      playedCards: table.gameState.playedCards,
+      currentTrick: table.gameState.currentTrick,
+      contract: table.gameState.contract,
+      declarer: table.gameState.declarer,
+      dealer: table.biddingState.dealer,
+      vulnerable: getVulnerability(table, position)
+    };
+
+    console.log(`Getting GIB move for ${position}...`);
+    const gibResponse = await gibClient.getRobotMove(gameState);
+    
+    if (gibResponse && gibResponse.suit && gibResponse.card) {
+      console.log(`GIB ${position} plays: ${gibResponse.suit} ${gibResponse.card}`);
+      
+      // Validate the move
+      const hand = table.gameState.hands[position];
+      if (hand[gibResponse.suit] && hand[gibResponse.suit].includes(gibResponse.card)) {
+        // Check if move is legal (following suit rules)
+        if (isValidCardPlay(table, position, gibResponse.suit, gibResponse.card)) {
+          processCardPlay(table, position, gibResponse.suit, gibResponse.card);
+          return;
+        } else {
+          console.log(`GIB move invalid (suit following), using fallback`);
+        }
+      } else {
+        console.log(`GIB move invalid (card not in hand), using fallback`);
+      }
+    }
+    
+    // Fallback to simple logic
+    console.log(`Using fallback move for ${position}`);
+    const fallbackMove = calculateSimpleCardPlay(table, position);
+    if (fallbackMove) {
+      processCardPlay(table, position, fallbackMove.suit, fallbackMove.card);
+    } else {
+      console.error(`No fallback move available for ${position}`);
+    }
+    
+  } catch (error) {
+    console.error(`Error getting GIB move for ${position}:`, error.message);
+    
+    // Fallback to simple logic
+    const fallbackMove = calculateSimpleCardPlay(table, position);
+    if (fallbackMove) {
+      console.log(`Using fallback move: ${fallbackMove.suit} ${fallbackMove.card}`);
+      processCardPlay(table, position, fallbackMove.suit, fallbackMove.card);
+    } else {
+      console.error(`No fallback move available for ${position}`);
+    }
+  }
+}
+
+/**
+ * Get vulnerability for position
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @return {string} Vulnerability (-/N/E/B)
+ */
+function getVulnerability(table, position) {
+  // Simplified vulnerability - you can implement proper vulnerability rotation
+  return '-'; // None vulnerable
+}
+
+/**
+ * Validate if card play is legal
+ * @param {Object} table - Table object
+ * @param {string} position - Player position  
+ * @param {string} suit - Card suit
+ * @param {string} card - Card value
+ * @return {boolean} Is valid
+ */
+function isValidCardPlay(table, position, suit, card) {
+  const hand = table.gameState.hands[position];
+  const currentTrick = table.gameState.currentTrick;
   
-  if (bestMove) {
-    processCardPlay(table, position, bestMove.suit, bestMove.card);
-  } else {
-    console.error(`Advanced GIB player ${position} has no legal moves!`);
+  // Check if player has the card
+  if (!hand[suit] || !hand[suit].includes(card)) {
+    return false;
+  }
+  
+  // If leading, any card is valid
+  if (currentTrick.length === 0) {
+    return true;
+  }
+  
+  // Must follow suit if possible
+  const leadSuit = currentTrick[0].suit;
+  if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Simple fallback card play logic
+ * @param {Object} table - Table object
+ * @param {string} position - Player position
+ * @return {Object|null} Card to play
+ */
+function calculateSimpleCardPlay(table, position) {
+  const hand = table.gameState.hands[position];
+  const currentTrick = table.gameState.currentTrick;
+  const trumpSuit = table.gameState.trumpSuit;
+  
+  // Get legal moves
+  const legalMoves = getLegalMoves(hand, currentTrick, trumpSuit);
+  
+  if (legalMoves.length === 0) {
+    return null;
+  }
+  
+  // If leading, play highest card from longest suit
+  if (currentTrick.length === 0) {
+    let longestSuit = 'spades';
+    let maxLength = 0;
+    
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+      if (hand[suit] && hand[suit].length > maxLength) {
+        longestSuit = suit;
+        maxLength = hand[suit].length;
+      }
+    }
+    
+    const suitMoves = legalMoves.filter(m => m.suit === longestSuit);
+    if (suitMoves.length > 0) {
+      // Play highest card
+      return suitMoves.reduce((highest, move) => 
+        compareCardValues(move.card, highest.card) > 0 ? move : highest
+      );
+    }
+  }
+  
+  // Otherwise play lowest legal card
+  return legalMoves.reduce((lowest, move) => 
+    compareCardValues(move.card, lowest.card) < 0 ? move : lowest
+  );
+}
+
+/**
+ * Deal cards using GIB dealer (optional)
+ * @param {Object} table - Table object
+ * @return {Object} Dealt hands
+ */
+async function dealCardsWithGIB(table) {
+  try {
+    console.log('Dealing cards with GIB...');
+    const dealResult = await gibClient.dealCards();
+    
+    if (dealResult && dealResult.hands) {
+      console.log('GIB deal successful');
+      return dealResult.hands;
+    } else {
+      console.log('GIB deal failed, using fallback');
+      return dealCards(); // Fallback to original function
+    }
+  } catch (error) {
+    console.error('Error dealing with GIB:', error.message);
+    return dealCards(); // Fallback to original function
   }
 }
 
@@ -1642,11 +1832,11 @@ function replacePlayer(table, position) {
   // If replaced player was current player, GIB's turn
   if (table.gameState && table.gameState.currentPlayer === position) {
     setTimeout(() => {
-      makeAdvancedGIBMove(table, position); // Use enhanced GIB
+      await makeAdvancedGIBMove(table, position); // Use enhanced GIB
     }, 1500);
   } else if (table.biddingState && table.biddingState.currentBidder === position) {
     setTimeout(() => {
-      makeAdvancedGIBBid(table, position); // Use enhanced GIB
+      await makeAdvancedGIBBid(table, position); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -1657,7 +1847,7 @@ function replacePlayer(table, position) {
  * @param {string} playerId - Player's ID
  * @param {Object} data - Game start data
  */
-function startGame(socket, playerId, data) {
+async function startGame(socket, playerId, data) {
   const { tableCode } = data;
   
   if (!tableCode) {
@@ -1695,7 +1885,7 @@ function startGame(socket, playerId, data) {
   
   try {
     // Deal cards
-    table.gameState = createGameState(table);
+table.gameState = await createGameState(table);
     table.biddingState = createBiddingState(table);
     
     // Send game state to all players
@@ -1724,7 +1914,7 @@ function startGame(socket, playerId, data) {
     // If first bidder is GIB, handle GIB's turn
     if (table.players[table.biddingState.currentBidder].type === 'gib') {
       setTimeout(() => {
-        makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
+        await makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
       }, 1500);
     }
   } catch (error) {
@@ -1869,7 +2059,7 @@ function processBid(table, position, bid) {
     // If next bidder is GIB, make GIB's bid
     if (table.players[table.biddingState.currentBidder].type === 'gib') {
       setTimeout(() => {
-        makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
+        await makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
       }, 1500);
     }
   }
@@ -2116,7 +2306,7 @@ if (
   // If first player is GIB, make GIB's move
   if (table.players[table.gameState.currentPlayer].type === 'gib') {
     setTimeout(() => {
-      makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
+      await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -2234,7 +2424,7 @@ function processCardPlay(table, position, suit, card) {
     // If next player is GIB, make GIB's move
     if (table.players[table.gameState.currentPlayer].type === 'gib') {
       setTimeout(() => {
-        makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
+        await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
       }, 1500);
     }
   }
@@ -2246,7 +2436,7 @@ function processCardPlay(table, position, suit, card) {
  * @param {string} position - GIB's position
  */
 function makeGIBBid(table, position) {
-  makeAdvancedGIBBid(table, position);
+  await makeAdvancedGIBBid(table, position);
 }
 
 /**
@@ -2255,7 +2445,7 @@ function makeGIBBid(table, position) {
  * @param {string} position - GIB's position
  */
 function makeGIBMove(table, position) {
-  makeAdvancedGIBMove(table, position);
+  await makeAdvancedGIBMove(table, position);
 }
 
 /**
@@ -2385,7 +2575,7 @@ function processTrick(table) {
   // If next player is GIB, make GIB's move
   if (table.players[table.gameState.currentPlayer].type === 'gib') {
     setTimeout(() => {
-      makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
+      await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
     }, 1500);
   }
 }
@@ -2524,7 +2714,7 @@ function startNewGame(socket, playerId, data) {
  * @param {string} playerId - Player's ID
  * @param {Object} data - Solo game creation data
  */
-function createSoloGame(socket, playerId, data) {
+async function createSoloGame(socket, playerId, data) {
   const { playerName } = data;
   
   if (!playerName) {
@@ -2573,8 +2763,7 @@ function createSoloGame(socket, playerId, data) {
   });
   
   // Start game immediately
-  startGame(socket, playerId, { tableCode });
-  
+await startGame(socket, playerId, { tableCode });  
   console.log(`Solo game ${tableCode} created, player ${playerName}`);
 }
 
@@ -2584,7 +2773,7 @@ function createSoloGame(socket, playerId, data) {
  * @param {string} playerId - Player's ID
  * @param {Object} data - Solo game reset data
  */
-function resetSoloGame(socket, playerId, data) {
+async function resetSoloGame(socket, playerId, data) {
   const { tableCode } = data;
   
   if (!tableCode) {
@@ -2618,7 +2807,7 @@ function resetSoloGame(socket, playerId, data) {
   table.lastActivity = Date.now();
   
   // Start game again
-  startGame(socket, playerId, { tableCode });
+await startGame(socket, playerId, { tableCode });
 }
 
 /**
@@ -2691,13 +2880,26 @@ function createTableCode() {
 }
 
 /**
- * Create new game state
+ * Create new game state (with optional GIB dealing)
  * @param {Object} table - Table object
- * @return {Object} Game state object
+ * @return {Promise<Object>} Game state object
  */
-function createGameState(table) {
-  // Deal cards
-  const cards = dealCards();
+async function createGameState(table) {
+  // Deal cards - try GIB first, fallback to local dealing
+  let cards;
+  
+  try {
+    if (process.env.USE_GIB_DEALER === 'true') {
+      cards = await dealCardsWithGIB(table);
+      console.log('Using GIB-dealt cards');
+    } else {
+      cards = dealCards();
+      console.log('Using locally dealt cards');
+    }
+  } catch (error) {
+    console.error('Error in card dealing:', error);
+    cards = dealCards(); // Always fallback to local dealing
+  }
   
   return {
     players: table.players,
