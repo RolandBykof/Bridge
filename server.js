@@ -1312,38 +1312,129 @@ function determineTrickWinnerSimulation(trick, trumpSuit) {
 }
 
 /**
+ * Helper function: Format hand for GIB API
+ * @param {Object} hand - Hand object with suits
+ * @return {string} GIB hand format (e.g., "akq86.ak3.4.ak63")
+ */
+function formatHandForGIB(hand) {
+  const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
+  return suits.map(suit => {
+    const cards = hand[suit] || [];
+    return cards.join('').toLowerCase().replace(/10/g, 't');
+  }).join('.');
+}
+
+/**
  * Enhanced GIB bid making with direct API call and corrected parsing
- * KORVAA: makeAdvancedGIBBid funktio server.js:ssä (säilytä sama nimi!)
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
 async function makeAdvancedGIBBid(table, position) {
   try {
-    console.log(`Getting GIB bid for ${position} using lib module...`);
+    console.log(`Getting GIB bid for ${position}...`);
     
-    // Luo rajoitettu pelidata GIB:lle
-    const limitedGameState = createLimitedGameStateForGIB(table, position);
-    limitedGameState.gamePhase = 'bidding';
+    // Import axios for direct HTTP call
+    const axios = require('axios');
     
-    console.log(`Sending limited game state to GIB for bidding by ${position}`);
-    
-    // Käytä korjattua lib-modulia purkka.js:n sijaan
-    const gibResponse = await gibClient.getRobotMove(limitedGameState);
-    
-    if (gibResponse && gibResponse.type === 'bid' && gibResponse.bid) {
-      console.log(`✅ GIB ${position} bids: ${gibResponse.bid}`);
+    // Build parameters for GIB API
+    const params = {
+      sc: 'tp',                    // Scoring type (total points)
+      pov: position.charAt(0).toUpperCase(), // Point of view (N, E, S, W)
+      d: 'S',                      // Dealer (simplified to South for now)
+      v: '-',                      // Vulnerability (none for now)
       
-      // Validoi bidi
-      const possibleBids = getPossibleBids(table.biddingState.highestBid);
-      if (possibleBids.includes(gibResponse.bid)) {
-        processBid(table, position, gibResponse.bid);
-        return;
-      } else {
-        console.log(`❌ GIB bid ${gibResponse.bid} is not valid, using local AI fallback`);
+      // Bidding history
+      h: table.biddingState.bidHistory.length > 0 ? 
+         table.biddingState.bidHistory.map(b => b.bid.toLowerCase()).join('-') : 
+         'p',
+      
+      // All hands (GIB needs complete information for smart bidding)
+      s: formatHandForGIB(table.gameState.hands.south),
+      w: formatHandForGIB(table.gameState.hands.west), 
+      n: formatHandForGIB(table.gameState.hands.north),
+      e: formatHandForGIB(table.gameState.hands.east)
+    };
+    
+    console.log(`Calling GIB directly with params for ${position}:`, {
+      ...params,
+      // Hide hands in log for brevity, but show they exist
+      s: params.s ? `${params.s.length} chars` : 'empty',
+      w: params.w ? `${params.w.length} chars` : 'empty',
+      n: params.n ? `${params.n.length} chars` : 'empty',
+      e: params.e ? `${params.e.length} chars` : 'empty'
+    });
+    
+    // Make direct HTTP call to GIB API
+    const response = await axios.get('http://gibrest.bridgebase.com/u_bm/robot.php', {
+      params,
+      timeout: 20000,  // 20 seconds timeout
+      headers: {
+        'User-Agent': 'BridgeCircle/2.0.0'
       }
-    } else {
-      console.log(`❌ GIB ${position} failed to return valid bid, using local AI fallback`);
+    });
+    
+    console.log(`GIB response received for ${position}:`, response.data);
+    
+    // CORRECTED: Parse GIB XML response
+    if (response.data) {
+      // PRIMARY: GIB returns actual bid in <r> element's bid attribute
+      const bidMatch = response.data.match(/<r[^>]*bid="([^"]+)"/);
+      
+      if (bidMatch && bidMatch[1]) {
+        let gibBid = bidMatch[1].toUpperCase();
+        
+        // Convert GIB bid format to bridge format
+        if (gibBid === 'PASS') gibBid = 'P';
+        if (gibBid === 'DBL') gibBid = 'X';  
+        if (gibBid === 'RDBL') gibBid = 'XX';
+        
+        // Validate bid format
+        const validBidPattern = /^([1-7][CDHSN]|P|X|XX)$/;
+        if (validBidPattern.test(gibBid)) {
+          console.log(`✅ GIB ${position} bids: ${gibBid}`);
+          processBid(table, position, gibBid);
+          return;
+        } else {
+          console.log(`❌ Invalid GIB bid format: "${gibBid}"`);
+        }
+      } else {
+        console.log(`❌ GIB returned no bid recommendation for ${position}`);
+      }
+      
+      // FALLBACK: Try old c="..." parsing as backup
+      const fallbackMatch = response.data.match(/c="([^"]+)"/);
+      if (fallbackMatch && fallbackMatch[1] && fallbackMatch[1] !== '?' && fallbackMatch[1] !== 'n') {
+        let gibBid = fallbackMatch[1].toUpperCase();
+        if (gibBid === 'PASS') gibBid = 'P';
+        if (gibBid === 'DBL') gibBid = 'X';
+        if (gibBid === 'RDBL') gibBid = 'XX';
+        
+        const validBidPattern = /^([1-7][CDHSN]|P|X|XX)$/;
+        if (validBidPattern.test(gibBid)) {
+          console.log(`✅ GIB ${position} bids (fallback): ${gibBid}`);
+          processBid(table, position, gibBid);
+          return;
+        }
+      }
+      
+      // ALTERNATIVE: Try alternative parsing - sometimes GIB uses different format
+      const alternativeMatch = response.data.match(/<bid[^>]*>([^<]+)<\/bid>/);
+      if (alternativeMatch && alternativeMatch[1]) {
+        let gibBid = alternativeMatch[1].toUpperCase();
+        if (gibBid === 'PASS') gibBid = 'P';
+        if (gibBid === 'DBL') gibBid = 'X';
+        if (gibBid === 'RDBL') gibBid = 'XX';
+        
+        const validBidPattern = /^([1-7][CDHSN]|P|X|XX)$/;
+        if (validBidPattern.test(gibBid)) {
+          console.log(`✅ GIB ${position} bids (alternative): ${gibBid}`);
+          processBid(table, position, gibBid);
+          return;
+        }
+      }
     }
+    
+    console.log(`❌ GIB parsing failed for ${position}, using local AI fallback`);
     
   } catch (error) {
     console.error(`❌ GIB API error for ${position}:`, {
@@ -1357,7 +1448,7 @@ async function makeAdvancedGIBBid(table, position) {
     }
   }
   
-  // Fallback: Use local AI (sama kuin ennenkin)
+  // Fallback: Use local AI
   try {
     const possibleBids = getPossibleBids(table.biddingState.highestBid);
     const calculatedBid = calculateAdvancedBid(table, position, possibleBids);
@@ -1376,13 +1467,12 @@ async function makeAdvancedGIBBid(table, position) {
 
 /**
  * Enhanced GIB card play with real GIB AI
- * KORVAA: makeAdvancedGIBMove funktio server.js:ssä (säilytä sama nimi!)
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
 async function makeAdvancedGIBMove(table, position) {
   try {
-    console.log(`Getting GIB move for ${position} using lib module...`);
+    console.log(`Getting GIB move for ${position}...`);
     
     // Tarkista onko GIB käytössä
     const useGIB = process.env.USE_GIB_DEALER === 'true';
@@ -1390,96 +1480,47 @@ async function makeAdvancedGIBMove(table, position) {
     if (useGIB) {
       // Luo rajoitettu pelidata
       const limitedGameState = createLimitedGameStateForGIB(table, position);
-      limitedGameState.gamePhase = 'play';
       
-      console.log(`Sending limited game state to GIB for card play by ${position}`);
-      
-      // Käytä korjattua lib-modulia purkka.js:n sijaan
+      console.log(`Sending limited game state to GIB for ${position}`);
       const gibResponse = await gibClient.getRobotMove(limitedGameState);
       
-      if (gibResponse && gibResponse.type === 'play' && gibResponse.suit && gibResponse.card) {
-        console.log(`✅ GIB ${position} plays: ${gibResponse.suit} ${gibResponse.card}`);
+      if (gibResponse && gibResponse.suit && gibResponse.card) {
+        console.log(`GIB ${position} plays: ${gibResponse.suit} ${gibResponse.card}`);
         
         // Validoi siirto
         if (isValidCardPlay(table, position, gibResponse.suit, gibResponse.card)) {
           processCardPlay(table, position, gibResponse.suit, gibResponse.card);
           return;
         } else {
-          console.log(`❌ GIB move invalid, using fallback`);
+          console.log(`GIB move invalid, using fallback`);
         }
       } else {
-        console.log(`❌ GIB ${position} failed to return valid move, using fallback`);
+        console.log(`GIB ${position} failed, using fallback move`);
       }
     }
     
-    // Varasuunnitelma: käytä paikallista AI:ta (sama kuin ennenkin)
+    // Varasuunnitelma: käytä paikallista AI:ta
     const fallbackMove = calculateAdvancedCardPlay(table, position);
     if (fallbackMove) {
-      console.log(`🤖 Local AI ${position} plays: ${fallbackMove.suit} ${fallbackMove.card}`);
+      console.log(`Local AI ${position} plays: ${fallbackMove.suit} ${fallbackMove.card}`);
       processCardPlay(table, position, fallbackMove.suit, fallbackMove.card);
     } else {
-      console.error(`❌ No move available for ${position}`);
+      console.error(`No move available for ${position}`);
     }
     
   } catch (error) {
-    console.error(`❌ Error getting GIB move for ${position}:`, error.message);
+    console.error(`Error getting GIB move for ${position}:`, error.message);
     
-    // Viimeinen varasuunnitelma (sama kuin ennenkin)
+    // Viimeinen varasuunnitelma
     const fallbackMove = calculateSimpleCardPlay(table, position);
     if (fallbackMove) {
-      console.log(`🆘 Using emergency fallback move: ${fallbackMove.suit} ${fallbackMove.card}`);
+      console.log(`Using emergency fallback move: ${fallbackMove.suit} ${fallbackMove.card}`);
       processCardPlay(table, position, fallbackMove.suit, fallbackMove.card);
     } else {
-      console.error(`❌ No fallback move available for ${position}`);
+      console.error(`No fallback move available for ${position}`);
     }
   }
 }
-
-/**
- * Get bid meanings using corrected lib module
- * UUSI FUNKTIO - lisää tämä server.js:ään
- */
-async function getBidMeanings(table, auctionString) {
-  try {
-    console.log(`Getting bid meanings for auction: ${auctionString}`);
-    
-    const bidMeanings = await gibClient.getBidMeanings(auctionString, 'g');
-    
-    console.log('✅ Bid meanings retrieved using lib module');
-    return bidMeanings;
-    
-  } catch (error) {
-    console.error('❌ Error getting bid meanings:', error.message);
-    
-    // Fallback: return empty meanings
-    return {
-      bids: [],
-      explanations: {}
-    };
-  }
-}
-
-/**
- * Test GIB connection
- * UUSI FUNKTIO - lisää tämä server.js:ään
- */
-async function testGIBConnection() {
-  try {
-    console.log('🧪 Testing GIB connection using lib module...');
-    
-    // Testaa yksinkertainen bid meanings kutsu
-    const testAuction = 'p-p-1s-p';
-    await gibClient.getBidMeanings(testAuction);
-    console.log('✅ GIB connection test passed');
-    
-    return true;
-    
-  } catch (error) {
-    console.error('❌ GIB connection test failed:', error.message);
-    return false;
-  }
-}
-
 
 /**
  * Get vulnerability for position
@@ -1523,8 +1564,11 @@ function isValidCardPlay(table, position, suit, card) {
   return true;
 }
 
-
 /**
+ * Luo GIB:lle rajoitettu pelidata (ei huijausta)
+ * @param {Object} table - Table object
+ * @param {string} gibPosition - GIB:n positio
+ * @return {Object} Rajoitettu pelidata
  */
 function createLimitedGameStateForGIB(table, gibPosition) {
   const gameState = {
@@ -1537,7 +1581,7 @@ function createLimitedGameStateForGIB(table, gibPosition) {
     },
     
     // Julkiset tiedot
-    biddingHistory: table.biddingState ? table.biddingState.bidHistory : [],
+    biddingHistory: table.biddingState ? table.biddingState.bidHistory.map(b => b.bid) : [],
     playedCards: table.gameState ? table.gameState.playedCards : [],
     currentTrick: table.gameState ? table.gameState.currentTrick : [],
     
@@ -1608,27 +1652,10 @@ function calculateSimpleCardPlay(table, position) {
  */
 async function dealCardsWithGIB(table) {
   try {
-    console.log('Dealing cards using GIB lib module...');
-    
-    const useGIB = process.env.USE_GIB_DEALER === 'true';
-    
-    if (useGIB) {
-      // Käytä korjattua lib-modulia korttien jakamiseen
-      const dealResult = await gibClient.dealCards('', 1);
-      
-      if (dealResult && dealResult.hands) {
-        console.log('✅ Cards dealt using GIB lib module');
-        return dealResult.hands;
-      } else {
-        console.log('❌ GIB dealing failed, using local dealing');
-      }
-    }
-    
-    // Fallback paikalliseen jakamiseen (sama kuin ennenkin)
-    return dealCards();
-    
+    console.log('Dealing cards...');
+    return dealCards(); // Use local dealing for now
   } catch (error) {
-    console.error('❌ Error dealing cards with GIB lib module:', error.message);
+    console.error('Error dealing cards:', error.message);
     return dealCards(); // Fallback to original function
   }
 }
