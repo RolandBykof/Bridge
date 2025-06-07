@@ -1311,51 +1311,55 @@ function determineTrickWinnerSimulation(trick, trumpSuit) {
   ).player;
 }
 
-/**
- * Enhanced GIB bid making with real GIB AI
- * @param {Object} table - Table object
- * @param {string} position - GIB position
- */
 async function makeAdvancedGIBBid(table, position) {
   try {
     console.log(`Getting GIB bid for ${position}...`);
     
-    // Tarkista onko GIB käytössä
-    const useGIB = process.env.USE_GIB_DEALER === 'true';
+    // SUORA GIB-KUTSU (kuten gib.js:ssä)
+    const axios = require('axios');
     
-    if (useGIB) {
-      // Luo rajoitettu pelidata
-      const limitedGameState = createLimitedGameStateForGIB(table, position);
-      
-      console.log(`Sending limited game state to GIB for ${position}`);
-      const gibResponse = await gibClient.getRobotMove(limitedGameState);
-      
-      if (gibResponse && gibResponse.bid) {
-        console.log(`GIB ${position} bids: ${gibResponse.bid}`);
-        processBid(table, position, gibResponse.bid);
+    const params = {
+      sc: 'tp',
+      pov: position.charAt(0).toUpperCase(), // N, E, S, W
+      d: 'S', // Dealer
+      v: '-', // Vulnerability
+      h: table.biddingState.bidHistory.map(b => b.bid.toLowerCase()).join('-') || 'p'
+    };
+    
+    console.log(`Calling GIB directly with params:`, params);
+    
+    const response = await axios.get('http://gibrest.bridgebase.com/u_bm/robot.php', {
+      params,
+      timeout: 15000 // Pidennä timeout
+    });
+    
+    console.log(`GIB response received for ${position}:`, response.data);
+    
+    // Parse XML response (yksinkertaistettu)
+    if (response.data && response.data.includes('bid')) {
+      // Etsi bid XML:stä
+      const bidMatch = response.data.match(/<bid[^>]*>([^<]+)<\/bid>/);
+      if (bidMatch) {
+        const gibBid = bidMatch[1].toUpperCase();
+        console.log(`GIB ${position} bids: ${gibBid}`);
+        processBid(table, position, gibBid);
         return;
-      } else {
-        console.log(`GIB ${position} failed, using fallback bid`);
       }
     }
     
-    // Varasuunnitelma: käytä paikallista AI:ta
-    const possibleBids = getPossibleBids(table.biddingState.highestBid);
-    const calculatedBid = calculateAdvancedBid(table, position, possibleBids);
-    
-    console.log(`Local AI ${position} bids: ${calculatedBid}`);
-    processBid(table, position, calculatedBid);
+    console.log(`GIB parse failed for ${position}, using fallback`);
     
   } catch (error) {
-    console.error(`Error getting GIB bid for ${position}:`, error.message);
-    
-    // Viimeinen varasuunnitelma
-    const possibleBids = getPossibleBids(table.biddingState.highestBid);
-    const fallbackBid = possibleBids.includes('P') ? 'P' : possibleBids[0];
-    console.log(`Using emergency fallback bid: ${fallbackBid}`);
-    processBid(table, position, fallbackBid);
+    console.error(`GIB error for ${position}:`, error.message);
   }
+  
+  // Fallback
+  const possibleBids = getPossibleBids(table.biddingState.highestBid);
+  const calculatedBid = calculateAdvancedBid(table, position, possibleBids);
+  console.log(`Local AI ${position} bids: ${calculatedBid}`);
+  processBid(table, position, calculatedBid);
 }
+
 
 /**
  * Enhanced GIB card play with real GIB AI
