@@ -11,6 +11,8 @@ const socketIO = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
+const GIBClient = require('./lib/gib_client_module.js');
+const gibClient = new GIBClient();
 
 // Initialize Express app and server
 const app = express();
@@ -1311,80 +1313,101 @@ function determineTrickWinnerSimulation(trick, trumpSuit) {
 }
 
 /**
- * Enhanced GIB bid making with simplified AI
+ * Enhanced GIB bid making with real GIB AI
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
 async function makeAdvancedGIBBid(table, position) {
   try {
-    console.log(`Making GIB bid for ${position}...`);
+    console.log(`Getting GIB bid for ${position}...`);
     
+    // Tarkista onko GIB käytössä
+    const useGIB = process.env.USE_GIB_DEALER === 'true';
+    
+    if (useGIB) {
+      // Luo rajoitettu pelidata
+      const limitedGameState = createLimitedGameStateForGIB(table, position);
+      
+      console.log(`Sending limited game state to GIB for ${position}`);
+      const gibResponse = await gibClient.getRobotMove(limitedGameState);
+      
+      if (gibResponse && gibResponse.bid) {
+        console.log(`GIB ${position} bids: ${gibResponse.bid}`);
+        processBid(table, position, gibResponse.bid);
+        return;
+      } else {
+        console.log(`GIB ${position} failed, using fallback bid`);
+      }
+    }
+    
+    // Varasuunnitelma: käytä paikallista AI:ta
     const possibleBids = getPossibleBids(table.biddingState.highestBid);
-    const hand = table.gameState.hands[position];
-    
-    // Use advanced bidding logic
     const calculatedBid = calculateAdvancedBid(table, position, possibleBids);
     
-    console.log(`GIB ${position} bids: ${calculatedBid}`);
+    console.log(`Local AI ${position} bids: ${calculatedBid}`);
     processBid(table, position, calculatedBid);
     
   } catch (error) {
     console.error(`Error getting GIB bid for ${position}:`, error.message);
     
-    // Fallback to pass or simple bid
+    // Viimeinen varasuunnitelma
     const possibleBids = getPossibleBids(table.biddingState.highestBid);
     const fallbackBid = possibleBids.includes('P') ? 'P' : possibleBids[0];
-    console.log(`Using fallback bid: ${fallbackBid}`);
+    console.log(`Using emergency fallback bid: ${fallbackBid}`);
     processBid(table, position, fallbackBid);
   }
 }
 
 /**
- * Enhanced GIB card play with advanced AI
+ * Enhanced GIB card play with real GIB AI
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
 async function makeAdvancedGIBMove(table, position) {
   try {
-    console.log(`Making GIB move for ${position}...`);
+    console.log(`Getting GIB move for ${position}...`);
     
-    // Use advanced card play logic
-    const calculatedMove = calculateAdvancedCardPlay(table, position);
+    // Tarkista onko GIB käytössä
+    const useGIB = process.env.USE_GIB_DEALER === 'true';
     
-    if (calculatedMove) {
-      console.log(`GIB ${position} plays: ${calculatedMove.suit} ${calculatedMove.card}`);
+    if (useGIB) {
+      // Luo rajoitettu pelidata
+      const limitedGameState = createLimitedGameStateForGIB(table, position);
       
-      // Validate the move
-      const hand = table.gameState.hands[position];
-      if (hand[calculatedMove.suit] && hand[calculatedMove.suit].includes(calculatedMove.card)) {
-        // Check if move is legal (following suit rules)
-        if (isValidCardPlay(table, position, calculatedMove.suit, calculatedMove.card)) {
-          processCardPlay(table, position, calculatedMove.suit, calculatedMove.card);
+      console.log(`Sending limited game state to GIB for ${position}`);
+      const gibResponse = await gibClient.getRobotMove(limitedGameState);
+      
+      if (gibResponse && gibResponse.suit && gibResponse.card) {
+        console.log(`GIB ${position} plays: ${gibResponse.suit} ${gibResponse.card}`);
+        
+        // Validoi siirto
+        if (isValidCardPlay(table, position, gibResponse.suit, gibResponse.card)) {
+          processCardPlay(table, position, gibResponse.suit, gibResponse.card);
           return;
         } else {
-          console.log(`GIB move invalid (suit following), using fallback`);
+          console.log(`GIB move invalid, using fallback`);
         }
       } else {
-        console.log(`GIB move invalid (card not in hand), using fallback`);
+        console.log(`GIB ${position} failed, using fallback move`);
       }
     }
     
-    // Fallback to simple logic
-    console.log(`Using fallback move for ${position}`);
-    const fallbackMove = calculateSimpleCardPlay(table, position);
+    // Varasuunnitelma: käytä paikallista AI:ta
+    const fallbackMove = calculateAdvancedCardPlay(table, position);
     if (fallbackMove) {
+      console.log(`Local AI ${position} plays: ${fallbackMove.suit} ${fallbackMove.card}`);
       processCardPlay(table, position, fallbackMove.suit, fallbackMove.card);
     } else {
-      console.error(`No fallback move available for ${position}`);
+      console.error(`No move available for ${position}`);
     }
     
   } catch (error) {
     console.error(`Error getting GIB move for ${position}:`, error.message);
     
-    // Fallback to simple logic
+    // Viimeinen varasuunnitelma
     const fallbackMove = calculateSimpleCardPlay(table, position);
     if (fallbackMove) {
-      console.log(`Using fallback move: ${fallbackMove.suit} ${fallbackMove.card}`);
+      console.log(`Using emergency fallback move: ${fallbackMove.suit} ${fallbackMove.card}`);
       processCardPlay(table, position, fallbackMove.suit, fallbackMove.card);
     } else {
       console.error(`No fallback move available for ${position}`);
@@ -1432,6 +1455,42 @@ function isValidCardPlay(table, position, suit, card) {
   }
   
   return true;
+}
+
+/**
+ * Luo GIB:lle rajoitettu pelidata (ei huijausta)
+ * @param {Object} table - Table object
+ * @param {string} gibPosition - GIB:n positio
+ * @return {Object} Rajoitettu pelidata
+ */
+function createLimitedGameStateForGIB(table, gibPosition) {
+  const gameState = {
+    position: gibPosition,
+    gamePhase: table.gameState ? table.gameState.gamePhase : 'bidding',
+    
+    // VAIN GIB:n omat kortit
+    hands: {
+      [gibPosition]: table.gameState.hands[gibPosition]
+    },
+    
+    // Julkiset tiedot
+    biddingHistory: table.biddingState ? table.biddingState.bidHistory.map(b => b.bid) : [],
+    playedCards: table.gameState ? table.gameState.playedCards : [],
+    currentTrick: table.gameState ? table.gameState.currentTrick : [],
+    
+    // Pelitiedot
+    contract: table.gameState ? table.gameState.contract : null,
+    declarer: table.gameState ? table.gameState.declarer : null,
+    dealer: table.biddingState ? table.biddingState.dealer : 'south',
+    vulnerable: getVulnerability(table, gibPosition)
+  };
+  
+  // Dummy näkyy VAIN pelivaiheessa
+  if (table.gameState && table.gameState.gamePhase === 'play' && table.gameState.dummy) {
+    gameState.hands[table.gameState.dummy] = table.gameState.hands[table.gameState.dummy];
+  }
+  
+  return gameState;
 }
 
 /**
