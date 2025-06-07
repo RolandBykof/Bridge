@@ -1325,7 +1325,7 @@ function formatHandForGIB(hand) {
 }
 
 /**
- * Enhanced GIB bid making with direct API call
+ * Enhanced GIB bid making with direct API call and corrected parsing
  * @param {Object} table - Table object
  * @param {string} position - GIB position
  */
@@ -1375,12 +1375,12 @@ async function makeAdvancedGIBBid(table, position) {
     
     console.log(`GIB response received for ${position}:`, response.data);
     
-    // Parse GIB XML response
+    // CORRECTED: Parse GIB XML response
     if (response.data) {
-      // GIB returns bid in "c" attribute of sc_bm element
-      const bidMatch = response.data.match(/c="([^"]+)"/);
+      // PRIMARY: GIB returns actual bid in <r> element's bid attribute
+      const bidMatch = response.data.match(/<r[^>]*bid="([^"]+)"/);
       
-      if (bidMatch && bidMatch[1] && bidMatch[1] !== '?') {
+      if (bidMatch && bidMatch[1]) {
         let gibBid = bidMatch[1].toUpperCase();
         
         // Convert GIB bid format to bridge format
@@ -1398,18 +1398,36 @@ async function makeAdvancedGIBBid(table, position) {
           console.log(`❌ Invalid GIB bid format: "${gibBid}"`);
         }
       } else {
-        console.log(`❌ GIB returned uncertain bid (c="?") for ${position}`);
+        console.log(`❌ GIB returned no bid recommendation for ${position}`);
       }
       
-      // Try alternative parsing - sometimes GIB uses different format
+      // FALLBACK: Try old c="..." parsing as backup
+      const fallbackMatch = response.data.match(/c="([^"]+)"/);
+      if (fallbackMatch && fallbackMatch[1] && fallbackMatch[1] !== '?' && fallbackMatch[1] !== 'n') {
+        let gibBid = fallbackMatch[1].toUpperCase();
+        if (gibBid === 'PASS') gibBid = 'P';
+        if (gibBid === 'DBL') gibBid = 'X';
+        if (gibBid === 'RDBL') gibBid = 'XX';
+        
+        const validBidPattern = /^([1-7][CDHSN]|P|X|XX)$/;
+        if (validBidPattern.test(gibBid)) {
+          console.log(`✅ GIB ${position} bids (fallback): ${gibBid}`);
+          processBid(table, position, gibBid);
+          return;
+        }
+      }
+      
+      // ALTERNATIVE: Try alternative parsing - sometimes GIB uses different format
       const alternativeMatch = response.data.match(/<bid[^>]*>([^<]+)<\/bid>/);
       if (alternativeMatch && alternativeMatch[1]) {
         let gibBid = alternativeMatch[1].toUpperCase();
         if (gibBid === 'PASS') gibBid = 'P';
+        if (gibBid === 'DBL') gibBid = 'X';
+        if (gibBid === 'RDBL') gibBid = 'XX';
         
         const validBidPattern = /^([1-7][CDHSN]|P|X|XX)$/;
         if (validBidPattern.test(gibBid)) {
-          console.log(`✅ GIB ${position} bids (alternative parsing): ${gibBid}`);
+          console.log(`✅ GIB ${position} bids (alternative): ${gibBid}`);
           processBid(table, position, gibBid);
           return;
         }
