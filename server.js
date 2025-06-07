@@ -11,8 +11,7 @@ const socketIO = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
-const GIBClient = require('./lib/gib_client_module.js');
-const gibClient = new GIBClient();
+const gibClient = require('./lib/gib_client_module.js');
 
 // Initialize Express app and server
 const app = express();
