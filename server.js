@@ -2620,7 +2620,7 @@ const dummy = table.biddingState.dummy;
 const declarerPlayer = table.players[declarer];
 const dummyPlayer = table.players[dummy];
 
-console.log(`Play phase starting. Declarer: ${declarer}, Dummy: ${dummy}`);}
+console.log(`Play phase starting. Declarer: ${declarer}, Dummy: ${dummy}`);
 
   // Set first player (left of declarer)
   const positions = ['north', 'east', 'south', 'west'];
