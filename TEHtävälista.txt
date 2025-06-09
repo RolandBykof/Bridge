@@ -1,2 +1,7 @@
 Saavutettavuuskysymys, Kun pelaan kortin, ruudunlukuohjelma sanoo ensin ikkunan otsikon Bridgecircle-accessible bridge ja vasta sitten pelatun kortin. Voiko tähän vaikuttaa niin, että nvda ei puhuisi aina ikkunan otsikkoa. Voisiko asian kiertää jotenkin Tämä saattaa olla ruudunlukuohjelman ominaisuus, mutta voisiko sen kiertää niin, että kun kortti pelataan, focus siirretään tyhjään kohtaan, missä ruudunluvulla ei ole mitään puhuttavaa. Mitä ajattelet tästä. Onko sinulla jokin parempi ehdotus
 
+GIB-prosessi jokaiselle tarjoukselle:
+1. Simuloi 1000+ käsijakoa vastustajille
+2. Pelaa tarjoussekvenssi loppuun jokaisessa jakossa  
+3. Arvioi lopullisen sopimuksen onnistumismahdollisuus
+4. Valitsee tarjouksen PARHAALLA ODOTUSARVOLLA
