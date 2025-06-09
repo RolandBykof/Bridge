@@ -423,14 +423,14 @@
             { key: 'd', alt: true, description: 'Read your diamonds', action: () => announceHandSuit('south', 'diamonds') },
             { key: 'f', alt: true, description: 'Read your clubs', action: () => announceHandSuit('south', 'clubs') },
             { key: 'g', alt: true, description: 'Read all your cards', action: () => announceEntireHand('south') },
-            
-            // Card viewing shortcuts (Dummy's cards)
-            { key: 'q', alt: true, description: 'Read dummy spades', action: () => announceHandSuit('north', 'spades') },
-            { key: 'w', alt: true, description: 'Read dummy hearts', action: () => announceHandSuit('north', 'hearts') },
-            { key: 'e', alt: true, description: 'Read dummy diamonds', action: () => announceHandSuit('north', 'diamonds') },
-            { key: 'r', alt: true, description: 'Read dummy clubs', action: () => announceHandSuit('north', 'clubs') },
-            { key: 't', alt: true, description: 'Read all dummy cards', action: () => announceEntireHand('north') },
-            
+
+// Card viewing shortcuts (Dummy's cards)
+{ key: 'q', alt: true, description: 'Read dummy spades', action: () => announceHandSuit(gameState?.dummy, 'spades') },
+{ key: 'w', alt: true, description: 'Read dummy hearts', action: () => announceHandSuit(gameState?.dummy, 'hearts') },
+{ key: 'e', alt: true, description: 'Read dummy diamonds', action: () => announceHandSuit(gameState?.dummy, 'diamonds') },
+{ key: 'r', alt: true, description: 'Read dummy clubs', action: () => announceHandSuit(gameState?.dummy, 'clubs') },
+{ key: 't', alt: true, description: 'Read all dummy cards', action: () => announceEntireHand(gameState?.dummy) },            
+
             // Game state shortcuts
             { key: 'z', alt: true, description: 'Read current trick', action: () => announceCurrentTrick() },
             { key: 'x', alt: true, description: 'Read game state', action: () => announceGameState() },
@@ -568,36 +568,36 @@
         /**
          * KORJATTU: Check if we can view cards for a position
          */
-        function canViewHandCards(position) {
-            if (position === 'south') return true; // Always can view own cards
-            
-            // KORJATTU: Can view dummy's cards if we're declarer and in play phase
-            if (position === 'north' && gameState && gameState.gamePhase === 'play') {
-                // Jos olemme declarer, voimme nähdä dummyn kortit
-                if (gameState.declarer === 'south') {
-                    return true;
-                }
-            }
-            
-            return false;
+function canViewHandCards(position) {
+    if (position === 'south') return true; // Always can view own cards
+    
+    // Bridge-säännöt: dummy-kortit näkyvät ensimmäisen kortin pelaamisen jälkeen
+    if (gameState && gameState.gamePhase === 'play' && gameState.dummy === position) {
+        // Tarkista onko ainakin yksi kortti pelattu (opening lead tehty)
+        const hasPlayedCards = (gameState.playedCards && gameState.playedCards.length > 0) ||
+                              (gameState.currentTrick && gameState.currentTrick.length > 0);
+        
+        if (hasPlayedCards) {
+            return true; // Dummy-kortit näkyvät aina opening lead:in jälkeen
         }
+    }
+    
+    return false;
+}
 
-        /**
-         * KORJATTU: Check if we can play cards from a position
-         */
-        function canPlayFromPosition(position) {
-            if (!gameState || gameState.gamePhase !== 'play') return false;
-            
-            // Always can play from south (our position)
-            if (position === 'south') return true;
-            
-            // KORJATTU: Can play from north if we're declarer (south) and north is dummy
-            if (position === 'north' && gameState.declarer === 'south' && gameState.dummy === 'north') {
-                return true;
-            }
-            
-            return false;
-        }
+function canPlayFromPosition(position) {
+    if (!gameState || gameState.gamePhase !== 'play') return false;
+    
+    // Always can play from south (our position)
+    if (position === 'south') return true;
+    
+    // KORJATTU: Can play from dummy if we're declarer and position is dummy
+    if (position === gameState.dummy && gameState.declarer === 'south') {
+        return true;
+    }
+    
+    return false;
+}
 
         /**
          * KORJATTU: Check if it's our turn to play from a specific position
@@ -1366,8 +1366,10 @@
                     let playerType = player ? player.type : 'human';
                     
                     // KORJATTU: Näytä oikea status dummylle
-                    if (position === 'north' && gameState.declarer === 'south') {
-                        playerType = 'Dummy (You control)';
+// KORJATTU: Näytä oikea status dummylle
+// KORJATTU: Näytä oikea status dummylle
+if (position === gameState.dummy && gameState.declarer === 'south') {
+    playerType = 'Dummy (You control)';
                     } else if (playerType === 'gib') {
                         playerType = 'GIB';
                     } else {
@@ -1574,7 +1576,20 @@
                 announceToScreenReader('Game started. Bidding phase begins.');
             });
             
-            socket.on('yourCards', (data) => {
+
+socket.on('dummyRevealed', (data) => {
+    // Päivitä gameState dummy-korteilla
+    if (gameState.hands && data.dummyCards) {
+        gameState.hands[data.dummyPosition] = data.dummyCards;
+        
+        // Renderöi dummy-käsi uudelleen
+        renderHand(data.dummyPosition, data.dummyCards);
+        
+        announceToScreenReader(`Dummy cards are now visible: ${positionName(data.dummyPosition)} hand revealed.`);
+    }
+});            
+
+socket.on('yourCards', (data) => {
                 myPosition = data.position;
                 if (!gameState) gameState = {};
                 if (!gameState.hands) gameState.hands = {};
@@ -1655,6 +1670,16 @@
                 updatePlayedCard(data.position, data.suit, data.card);
                 
                 announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`);
+// Jos tämä oli ensimmäinen pelattu kortti, renderöi dummy-käsi uudelleen
+if (gameState.playedCards.length === 0 && gameState.currentTrick.length === 1) {
+    setTimeout(() => {
+        const dummyPosition = gameState.dummy;
+        if (dummyPosition && gameState.hands[dummyPosition]) {
+            renderHand(dummyPosition, gameState.hands[dummyPosition]);
+            announceToScreenReader(`Dummy cards are now visible: ${positionName(dummyPosition)} hand revealed.`);
+        }
+    }, 500);
+}
             });
             
             socket.on('trickComplete', (data) => {

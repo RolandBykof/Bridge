@@ -2644,13 +2644,11 @@ console.log(`Play phase starting. Declarer: ${declarer}, Dummy: ${dummy}`);
     if (playerData.type === 'human' && playerData.id) {
       const player = players.get(playerData.id);
       if (player && player.socket) {
-        player.socket.emit('playPhaseCards', {
-          position,
-          cards: table.gameState.hands[position],
-          // Send dummy's cards to declarer
-          dummyCards: position === table.gameState.declarer ? 
-                        table.gameState.hands[table.gameState.dummy] : null
-        });
+player.socket.emit('playPhaseCards', {
+  position,
+  cards: table.gameState.hands[position]
+  // Dummy cards will be sent after opening lead is played
+});
       }
     }
   }
@@ -2780,6 +2778,17 @@ function processCardPlay(table, position, suit, card) {
       }, 1500);
     }
   }
+// Jos tämä oli ensimmäinen pelattu kortti, lähetä dummy-kortit kaikille
+if (table.gameState.playedCards.length === 1) {
+  const dummyPosition = table.gameState.dummy;
+  if (dummyPosition && table.gameState.hands[dummyPosition]) {
+    sendToTablePlayers(table, {
+      type: 'dummyRevealed',
+      dummyPosition: dummyPosition,
+      dummyCards: table.gameState.hands[dummyPosition]
+    });
+  }
+}
 }
 
 /**
