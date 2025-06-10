@@ -599,14 +599,13 @@
  * Check if we can view cards for a position
  */
 function canViewHandCards(position) {
-    if (position === 'south') return true;
+    if (position === 'south') return true; // Oma käsi näkyy aina
     
+    // Dummy näkyy jos peli on pelivaiheessa ja position on dummy
     if (gameState && 
         gameState.gamePhase === 'play' && 
-        gameState.dummy === position &&
-        ((gameState.playedCards && gameState.playedCards.length > 0) || 
-         (gameState.totalTricks && gameState.totalTricks > 0))) {
-        return true;
+        gameState.dummy === position) {
+        return true; // Yksinkertaisesti: dummy näkyy aina pelivaiheessa
     }
     
     return false;
