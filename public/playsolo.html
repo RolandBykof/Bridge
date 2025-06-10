@@ -424,12 +424,42 @@
             { key: 'f', alt: true, description: 'Read your clubs', action: () => announceHandSuit('south', 'clubs') },
             { key: 'g', alt: true, description: 'Read all your cards', action: () => announceEntireHand('south') },
 
-// Card viewing shortcuts (Dummy's cards)
-{ key: 'q', alt: true, description: 'Read dummy spades', action: () => announceHandSuit(gameState?.dummy, 'spades') },
-{ key: 'w', alt: true, description: 'Read dummy hearts', action: () => announceHandSuit(gameState?.dummy, 'hearts') },
-{ key: 'e', alt: true, description: 'Read dummy diamonds', action: () => announceHandSuit(gameState?.dummy, 'diamonds') },
-{ key: 'r', alt: true, description: 'Read dummy clubs', action: () => announceHandSuit(gameState?.dummy, 'clubs') },
-{ key: 't', alt: true, description: 'Read all dummy cards', action: () => announceEntireHand(gameState?.dummy) },            
+// Card viewing shortcuts (Dummy's cards) - SECURE VERSION
+{ key: 'q', alt: true, description: 'Read dummy spades', action: () => {
+    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+        announceHandSuit(gameState.dummy, 'spades');
+    } else {
+        announceToScreenReader('Cannot view dummy spades at this time.');
+    }
+}},
+{ key: 'w', alt: true, description: 'Read dummy hearts', action: () => {
+    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+        announceHandSuit(gameState.dummy, 'hearts');
+    } else {
+        announceToScreenReader('Cannot view dummy hearts at this time.');
+    }
+}},
+{ key: 'e', alt: true, description: 'Read dummy diamonds', action: () => {
+    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+        announceHandSuit(gameState.dummy, 'diamonds');
+    } else {
+        announceToScreenReader('Cannot view dummy diamonds at this time.');
+    }
+}},
+{ key: 'r', alt: true, description: 'Read dummy clubs', action: () => {
+    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+        announceHandSuit(gameState.dummy, 'clubs');
+    } else {
+        announceToScreenReader('Cannot view dummy clubs at this time.');
+    }
+}},
+{ key: 't', alt: true, description: 'Read all dummy cards', action: () => {
+    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+        announceEntireHand(gameState.dummy);
+    } else {
+        announceToScreenReader('Cannot view all dummy cards at this time.');
+    }
+}},
 
             // Game state shortcuts
             { key: 'z', alt: true, description: 'Read current trick', action: () => announceCurrentTrick() },
@@ -569,20 +599,23 @@
  * Check if we can view cards for a position
  */
 function canViewHandCards(position) {
-    if (position === 'south') return true; // Always can view own cards
+    if (position === 'south') return true; // Vain oma positio
     
-    // Bridge-säännöt: dummy-kortit näkyvät ensimmäisen kortin pelaamisen jälkeen
-    if (gameState && gameState.gamePhase === 'play' && gameState.dummy === position) {
-        // Tarkista onko peli edes aloitettu (ainakin yksi kortti pelattu)
-        const gameHasStarted = (gameState.playedCards && gameState.playedCards.length > 0) ||
-                              (gameState.totalTricks && gameState.totalTricks > 0);
-        
-        if (gameHasStarted) {
-            return true; // Dummy-kortit näkyvät aina kun peli on aloitettu
-        }
+    // Dummy näkyy VAIN jos:
+    // 1. Peli on pelivaiheessa
+    // 2. Position on dummy
+    // 3. ME ollaan declarer
+    // 4. Ainakin yksi kortti on pelattu
+    if (gameState && 
+        gameState.gamePhase === 'play' && 
+        gameState.dummy === position && 
+        gameState.declarer === myPosition &&
+        ((gameState.playedCards && gameState.playedCards.length > 0) || 
+         (gameState.totalTricks && gameState.totalTricks > 0))) {
+        return true;
     }
     
-    return false;
+    return false; // Muuten EI näy
 }
 
 function canPlayFromPosition(position) {
@@ -1562,41 +1595,37 @@ if (position === gameState.dummy && gameState.declarer === 'south') {
                 tableCode = data.tableCode;
             });
             
-            socket.on('gameStarted', (data) => {
-                gameState = data.gameState || {};
-                biddingState = data.biddingState || {};
-                
-                // Initialize game state
-                gameState.gamePhase = 'bidding';
-                
-                // Update UI
-                updateGameUI();
-                renderBiddingUI();
-                
-                announceToScreenReader('Game started. Bidding phase begins.');
-            });
-            
+socket.on('gameStarted', (data) => {
+    gameState = data.gameState || {};
+    biddingState = data.biddingState || {};
+    
+    // ÄLÄ aseta gameState.hands täällä! Kortit tulevat yourCards eventistä
+    
+    gameState.gamePhase = 'bidding';
+    updateGameUI();
+    renderBiddingUI();
+    announceToScreenReader('Game started. Bidding phase begins.');
+});
 
 socket.on('dummyRevealed', (data) => {
-    // Päivitä gameState dummy-korteilla
-    if (gameState.hands && data.dummyCards) {
+    if (gameState.hands && data.dummyCards && gameState.declarer === myPosition) {
+        // TURVALLINEN: Aseta dummy vain jos ollaan declarer
         gameState.hands[data.dummyPosition] = data.dummyCards;
-        
-        // Renderöi dummy-käsi uudelleen
         renderHand(data.dummyPosition, data.dummyCards);
-        
-        announceToScreenReader(`Dummy cards are now visible: ${positionName(data.dummyPosition)} hand revealed.`);
+        announceToScreenReader(`Dummy cards revealed: ${positionName(data.dummyPosition)}.`);
     }
-});            
+});
 
 socket.on('yourCards', (data) => {
-                myPosition = data.position;
-                if (!gameState) gameState = {};
-                if (!gameState.hands) gameState.hands = {};
-                
-                gameState.hands[data.position] = data.cards;
-                renderHand(data.position, data.cards);
-            });
+    myPosition = data.position;
+    if (!gameState) gameState = {};
+    if (!gameState.hands) gameState.hands = {};
+    
+    // TURVALLINEN: Aseta vain oma käsi
+    gameState.hands[data.position] = data.cards;
+    renderHand(data.position, data.cards);
+});
+
             
             socket.on('bidMade', (data) => {
                 biddingState = data.biddingState;

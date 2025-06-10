@@ -2253,14 +2253,14 @@ async function startGame(socket, playerId, data) {
     table.gameState = await createGameState(table);
     table.biddingState = createBiddingState(table);
     
-    // Send game state to all players
-    sendToTablePlayers(table, {
-      type: 'gameStarted',
-      gameState: filterGameState(table.gameState, null),
-      biddingState: table.biddingState,
-      players: filterTablePlayers(table.players)
-    });
-    
+// Send game state to all players
+sendToTablePlayers(table, {
+  type: 'gameStarted',
+  gameState: filterGameState(table.gameState, null), // EI kortteja!
+  biddingState: table.biddingState,
+  players: filterTablePlayers(table.players)
+});    
+
     // Send each player their own cards privately
     for (const [position, playerData] of Object.entries(table.players)) {
       if (playerData.type === 'human' && playerData.id) {
@@ -3415,13 +3415,11 @@ function filterTablePlayers(tablePlayers) {
  * @return {Object} Filtered game state
  */
 function filterGameState(gameState, position) {
-  // If gameState doesn't exist or position is null/undefined, return general version
   if (!gameState) return null;
   
-  // Copy basic info
   const filteredState = { ...gameState };
   
-  // Remove hands info (sent separately)
+  // Remove hands info (sent separately) - KRIITTINEN!
   delete filteredState.hands;
   
   return filteredState;
