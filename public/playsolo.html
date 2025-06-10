@@ -565,20 +565,20 @@
             announceToScreenReader(message);
         }
 
-        /**
-         * KORJATTU: Check if we can view cards for a position
-         */
+/**
+ * Check if we can view cards for a position
+ */
 function canViewHandCards(position) {
     if (position === 'south') return true; // Always can view own cards
     
     // Bridge-säännöt: dummy-kortit näkyvät ensimmäisen kortin pelaamisen jälkeen
     if (gameState && gameState.gamePhase === 'play' && gameState.dummy === position) {
-        // Tarkista onko ainakin yksi kortti pelattu (opening lead tehty)
-        const hasPlayedCards = (gameState.playedCards && gameState.playedCards.length > 0) ||
-                              (gameState.currentTrick && gameState.currentTrick.length > 0);
+        // Tarkista onko peli edes aloitettu (ainakin yksi kortti pelattu)
+        const gameHasStarted = (gameState.playedCards && gameState.playedCards.length > 0) ||
+                              (gameState.totalTricks && gameState.totalTricks > 0);
         
-        if (hasPlayedCards) {
-            return true; // Dummy-kortit näkyvät aina opening lead:in jälkeen
+        if (gameHasStarted) {
+            return true; // Dummy-kortit näkyvät aina kun peli on aloitettu
         }
     }
     
