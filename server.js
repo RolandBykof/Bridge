@@ -2590,16 +2590,21 @@ function determineDeclarerAndDummy(table) {
   
   // Set declarer and dummy
   if (declarerPartnership && firstPlayer) {
-    table.biddingState.declarer = firstPlayer;
-    const dummyIndex = (partnerships[declarerPartnership].indexOf(firstPlayer) + 1) % 2;
-    table.biddingState.dummy = partnerships[declarerPartnership][dummyIndex];
+    // Solo game: Always make South declarer if NS wins
+    if (table.isSoloGame && declarerPartnership === 'north-south') {
+      table.biddingState.declarer = 'south';
+      table.biddingState.dummy = 'north';
+    } else {
+      table.biddingState.declarer = firstPlayer;
+      const dummyIndex = (partnerships[declarerPartnership].indexOf(firstPlayer) + 1) % 2;
+      table.biddingState.dummy = partnerships[declarerPartnership][dummyIndex];
+    }
   } else {
     // Fallback
     table.biddingState.declarer = 'south';
     table.biddingState.dummy = 'north';
   }
 }
-
 /**
  * Move to play phase
  * @param {Object} table - Table object
