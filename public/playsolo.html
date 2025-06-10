@@ -599,23 +599,17 @@
  * Check if we can view cards for a position
  */
 function canViewHandCards(position) {
-    if (position === 'south') return true; // Vain oma positio
+    if (position === 'south') return true;
     
-    // Dummy näkyy VAIN jos:
-    // 1. Peli on pelivaiheessa
-    // 2. Position on dummy
-    // 3. ME ollaan declarer
-    // 4. Ainakin yksi kortti on pelattu
     if (gameState && 
         gameState.gamePhase === 'play' && 
-        gameState.dummy === position && 
-        gameState.declarer === myPosition &&
+        gameState.dummy === position &&
         ((gameState.playedCards && gameState.playedCards.length > 0) || 
          (gameState.totalTricks && gameState.totalTricks > 0))) {
         return true;
     }
     
-    return false; // Muuten EI näy
+    return false;
 }
 
 function canPlayFromPosition(position) {
@@ -1608,8 +1602,8 @@ socket.on('gameStarted', (data) => {
 });
 
 socket.on('dummyRevealed', (data) => {
-    if (gameState.hands && data.dummyCards && gameState.declarer === myPosition) {
-        // TURVALLINEN: Aseta dummy vain jos ollaan declarer
+    if (gameState && data.dummyCards && data.dummyPosition) {
+        if (!gameState.hands) gameState.hands = {};
         gameState.hands[data.dummyPosition] = data.dummyCards;
         renderHand(data.dummyPosition, data.dummyCards);
         announceToScreenReader(`Dummy cards revealed: ${positionName(data.dummyPosition)}.`);
