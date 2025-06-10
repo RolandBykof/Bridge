@@ -2590,14 +2590,39 @@ function determineDeclarerAndDummy(table) {
   
   // Set declarer and dummy
   if (declarerPartnership && firstPlayer) {
-    table.biddingState.declarer = firstPlayer;
-    const dummyIndex = (partnerships[declarerPartnership].indexOf(firstPlayer) + 1) % 2;
-    table.biddingState.dummy = partnerships[declarerPartnership][dummyIndex];
+    // Solo game: Always make South declarer if NS wins
+    if (table.isSoloGame && declarerPartnership === 'north-south') {
+      table.biddingState.declarer = 'south';
+      table.biddingState.dummy = 'north';
+    } else {
+      table.biddingState.declarer = firstPlayer;
+      const dummyIndex = (partnerships[declarerPartnership].indexOf(firstPlayer) + 1) % 2;
+      table.biddingState.dummy = partnerships[declarerPartnership][dummyIndex];
+    }
   } else {
     // Fallback
     table.biddingState.declarer = 'south';
     table.biddingState.dummy = 'north';
   }
+}
+
+/**
+ * Check if GIB can play from a position
+ * @param {Object} table - Table object
+ * @param {string} position - Position to check
+ * @return {boolean} Can GIB play
+ */
+function canGIBPlayFromPosition(table, position) {
+  // GIB can't play if position is dummy controlled by human declarer
+  if (table.gameState && 
+      table.gameState.dummy === position && 
+      table.players[table.gameState.declarer] && 
+      table.players[table.gameState.declarer].type === 'human') {
+    return false;
+  }
+  
+  // Otherwise GIB can play if it's a GIB position
+  return table.players[position] && table.players[position].type === 'gib';
 }
 
 /**
@@ -2644,19 +2669,17 @@ console.log(`Play phase starting. Declarer: ${declarer}, Dummy: ${dummy}`);
     if (playerData.type === 'human' && playerData.id) {
       const player = players.get(playerData.id);
       if (player && player.socket) {
-        player.socket.emit('playPhaseCards', {
-          position,
-          cards: table.gameState.hands[position],
-          // Send dummy's cards to declarer
-          dummyCards: position === table.gameState.declarer ? 
-                        table.gameState.hands[table.gameState.dummy] : null
-        });
+player.socket.emit('playPhaseCards', {
+  position,
+  cards: table.gameState.hands[position]
+  // Dummy cards will be sent after opening lead is played
+});
       }
     }
   }
   
   // If first player is GIB, make GIB's move
-  if (table.players[table.gameState.currentPlayer].type === 'gib') {
+if (canGIBPlayFromPosition(table, table.gameState.currentPlayer)) {
     setTimeout(async () => {
       await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
     }, 1500);
@@ -2774,12 +2797,23 @@ function processCardPlay(table, position, suit, card) {
     });
     
     // If next player is GIB, make GIB's move
-    if (table.players[table.gameState.currentPlayer].type === 'gib') {
+if (canGIBPlayFromPosition(table, table.gameState.currentPlayer)) {
       setTimeout(async () => {
         await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
       }, 1500);
     }
   }
+// Jos tämä oli ensimmäinen pelattu kortti, lähetä dummy-kortit kaikille
+if (table.gameState.playedCards.length === 1) {
+  const dummyPosition = table.gameState.dummy;
+  if (dummyPosition && table.gameState.hands[dummyPosition]) {
+    sendToTablePlayers(table, {
+      type: 'dummyRevealed',
+      dummyPosition: dummyPosition,
+      dummyCards: table.gameState.hands[dummyPosition]
+    });
+  }
+}
 }
 
 /**
@@ -2925,7 +2959,7 @@ async function processTrick(table) {
   });
   
   // If next player is GIB, make GIB's move
-  if (table.players[table.gameState.currentPlayer].type === 'gib') {
+if (canGIBPlayFromPosition(table, table.gameState.currentPlayer)) {
     setTimeout(async () => {
       await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
     }, 1500);
