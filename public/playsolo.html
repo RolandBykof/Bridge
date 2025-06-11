@@ -925,16 +925,12 @@ function canPlayFromPosition(position) {
             }
         }
 
-        /**
-         * Restarts the game
-         */
         function restartGame() {
             if (confirm("Are you sure you want to restart the game?")) {
                 dealNewCards();
                 announceToScreenReader('Game restarted. New cards dealt.');
             }
         }
-
         /**
          * Helper functions for naming
          */
@@ -994,14 +990,18 @@ function canPlayFromPosition(position) {
             }
         }
         
-        // Deal new cards
+// Deal new cards
         function dealNewCards() {
+            // Clear game state
             gameState = null;
             biddingState = null;
+            
+            // Clear announcement queue
             announcementQueue.clear();
-            document.getElementById('bidding-area').style.display = 'none';
-                        resetPlayedCardsContainer();
-
+            
+            // Reset entire game view
+            resetGameView();
+            
             if (tableCode) {
                 socket.emit('resetSoloGame', {
                     tableCode: tableCode
@@ -1012,7 +1012,7 @@ function canPlayFromPosition(position) {
             
             announceToScreenReader('Dealing new cards...');
         }
-        
+
         // Fullscreen mode
         function fullscreen() {
             if (!document.fullscreenElement) {
@@ -1028,6 +1028,7 @@ function canPlayFromPosition(position) {
         
         // Initialize solo game
         function initializeSoloGame() {
+            resetGameView();
             const playerName = localStorage.getItem('playerName') || 'Player';
             
             socket.emit('createSoloGame', {
@@ -1551,6 +1552,62 @@ if (position === gameState.dummy && gameState.declarer === 'south') {
                 container.innerHTML = '<p class="text-gray-500">No cards played in current trick yet.</p>';
             }
         }
+/**
+         * Reset entire game view to clean state
+         */
+        function resetGameView() {
+            // Reset all hand displays
+            const handElements = [
+                document.getElementById('north-hand'),
+                document.getElementById('east-hand'), 
+                document.getElementById('south-hand'),
+                document.getElementById('west-hand')
+            ];
+            
+            handElements.forEach((element, index) => {
+                if (element) {
+                    const positions = ['north', 'east', 'south', 'west'];
+                    const position = positions[index];
+                    
+                    if (position === 'south') {
+                        element.innerHTML = `<h3>Your Hand (South)</h3><p>Waiting for cards...</p>`;
+                    } else {
+                        const positionName = position.charAt(0).toUpperCase() + position.slice(1);
+                        element.innerHTML = `<h3>${positionName} (GIB)</h3><p>Cards: ?</p>`;
+                    }
+                }
+            });
+            
+            // Reset center area
+            const centerArea = document.getElementById('center-area');
+            if (centerArea) {
+                centerArea.innerHTML = '<p>Click "Deal New Cards" to start a game</p>';
+            }
+            
+            // Reset status area
+            const statusArea = document.getElementById('status-area');
+            if (statusArea) {
+                statusArea.textContent = 'Welcome to BridgeCircle Solo Play';
+            }
+            
+            // Reset players area
+            const playersArea = document.getElementById('players-area');
+            if (playersArea) {
+                playersArea.innerHTML = '<p>Preparing game...</p>';
+            }
+            
+            // Hide bidding area
+            const biddingArea = document.getElementById('bidding-area');
+            if (biddingArea) {
+                biddingArea.style.display = 'none';
+            }
+            
+            // Reset played cards container
+            resetPlayedCardsContainer();
+            
+            console.log('Game view reset to clean state');
+        }
+
 
         // Direct function for navigation
         function navigate(page) {
@@ -1615,7 +1672,8 @@ if (position === gameState.dummy && gameState.declarer === 'south') {
         document.addEventListener('DOMContentLoaded', function() {
             // Set solo mode flag
             window.isSoloMode = true;
-            
+                        resetGameView();
+
             // Set up keyboard listeners
             setupKeyboardListeners();
             
