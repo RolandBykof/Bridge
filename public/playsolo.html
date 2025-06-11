@@ -1695,7 +1695,7 @@ socket.on('gameStarted', (data) => {
     // ÄLÄ aseta gameState.hands täällä! Kortit tulevat yourCards eventistä
     
     gameState.gamePhase = 'bidding';
-    updatGameUI();
+    updateGameUI();
     renderBiddingUI();
 
     resetPlayedCardsContainer();
