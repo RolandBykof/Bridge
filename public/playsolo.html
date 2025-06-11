@@ -106,11 +106,11 @@
             </div>
         </div>
         
-        <!-- Played cards -->
+<!-- Current trick cards -->
         <section class="section" id="played-cards-area">
-            <h2>Played Cards</h2>
+            <h2>Current Trick</h2>
             <div id="played-cards-container">
-                <p class="text-gray-500">No cards played yet.</p>
+                <p class="text-gray-500">No cards played in current trick yet.</p>
             </div>
         </section>
     </div>
@@ -752,35 +752,29 @@ function canPlayFromPosition(position) {
             }
         }
 
-        /**
-         * Announces the last completed trick
+/**
+         * Announces the last completed trick (modified for current trick only mode)
          */
         function announceLastTrick() {
-            if (!gameState || !gameState.playedCards || gameState.playedCards.length === 0) {
-                announceToScreenReader('No tricks have been played yet.');
+            // PÄIVITETTY: Koska näytämme vain nykyisen tikin, edelliset tikit eivät ole näkyvissä
+            // Tämä on realistista - oikeassa bridgessä edelliset tikit kerätään pois eikä niitä näe
+            
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader('The game is not in play phase yet.');
                 return;
             }
             
-            const currentTrickIds = gameState.currentTrick ? gameState.currentTrick.map(card => `${card.player}:${card.suit}:${card.card}`) : [];
-            const pastCards = gameState.playedCards.filter(card => 
-                !currentTrickIds.includes(`${card.player}:${card.suit}:${card.card}`)
-            );
-            
-            if (pastCards.length === 0) {
-                announceToScreenReader('No previous tricks to announce.');
-                return;
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                // Jos nykyisessä tikissä on kortteja, anna ne tiedoksi
+                let message = 'Current trick in progress: ';
+                for (const card of gameState.currentTrick) {
+                    message += `${getPositionName(card.player)} played ${getSuitName(card.suit)} ${card.card}. `;
+                }
+                announceToScreenReader(message);
+            } else {
+                // Ei edellistä tikkiä näkyvissä (realistinen bridgen simulaatio)
+                announceToScreenReader('Previous tricks are not visible - they have been collected. Only the current trick is shown.');
             }
-            
-            const startIndex = Math.max(0, pastCards.length - (pastCards.length % 4 === 0 ? 4 : pastCards.length % 4));
-            const lastTrick = pastCards.slice(startIndex);
-            
-            let message = 'Last played trick: ';
-            
-            for (const card of lastTrick) {
-                message += `${getPositionName(card.player)} played ${getSuitName(card.suit)} ${card.card}. `;
-            }
-            
-            announceToScreenReader(message);
         }
 
         /**
@@ -1006,7 +1000,8 @@ function canPlayFromPosition(position) {
             biddingState = null;
             announcementQueue.clear();
             document.getElementById('bidding-area').style.display = 'none';
-            
+                        resetPlayedCardsContainer();
+
             if (tableCode) {
                 socket.emit('resetSoloGame', {
                     tableCode: tableCode
@@ -1509,7 +1504,54 @@ if (position === gameState.dummy && gameState.declarer === 'south') {
             
             centerArea.innerHTML = html;
         }
-        
+        /**
+         * Update played cards container to show only current trick cards
+         */
+        function updatePlayedCardsContainer() {
+            const container = elements.playedCardsContainer;
+            if (!container) return;
+            
+            if (!gameState || !gameState.currentTrick || gameState.currentTrick.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No cards played in current trick yet.</p>';
+                return;
+            }
+            
+            let html = '<div class="current-trick-display">';
+            html += '<h3>Current Trick</h3>';
+            html += '<div class="trick-cards">';
+            
+            for (const card of gameState.currentTrick) {
+                const suitColor = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'red-card' : 'black-card';
+                html += `
+                    <div class="played-card-item ${suitColor}">
+                        <span class="player-name">${positionName(card.player)}:</span>
+                        <span class="card-display">${getSuitSymbol(card.suit)}${card.card}</span>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            
+            // Show how many cards are still needed to complete the trick
+            const cardsRemaining = 4 - gameState.currentTrick.length;
+            if (cardsRemaining > 0) {
+                html += `<p class="trick-status">${cardsRemaining} more card${cardsRemaining > 1 ? 's' : ''} needed to complete trick.</p>`;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        /**
+         * Reset played cards display for new game
+         */
+        function resetPlayedCardsContainer() {
+            const container = elements.playedCardsContainer;
+            if (container) {
+                container.innerHTML = '<p class="text-gray-500">No cards played in current trick yet.</p>';
+            }
+        }
+
         // Direct function for navigation
         function navigate(page) {
             window.location.href = page;
@@ -1595,8 +1637,10 @@ socket.on('gameStarted', (data) => {
     // ÄLÄ aseta gameState.hands täällä! Kortit tulevat yourCards eventistä
     
     gameState.gamePhase = 'bidding';
-    updateGameUI();
+    updatGameUI();
     renderBiddingUI();
+
+    resetPlayedCardsContainer();
     announceToScreenReader('Game started. Bidding phase begins.');
 });
 
@@ -1673,7 +1717,7 @@ socket.on('yourCards', (data) => {
                 renderAllHands();
             });
             
-            socket.on('cardPlayed', (data) => {
+socket.on('cardPlayed', (data) => {
                 if (!gameState.currentTrick) gameState.currentTrick = [];
                 
                 gameState.currentTrick = data.currentTrick;
@@ -1691,6 +1735,9 @@ socket.on('yourCards', (data) => {
                 renderHand(data.position, gameState.hands[data.position]);
                 updatePlayedCard(data.position, data.suit, data.card);
                 
+                // LISÄTTY: Päivitä current trick näyttö
+                updatePlayedCardsContainer();
+                
                 announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`);
             });
 
@@ -1701,8 +1748,11 @@ socket.on('yourCards', (data) => {
                 
                 updateCenterArea();
                 updateGameUI();
+                                // LISÄTTY: Tyhjennä current trick näyttö kun tikki on valmis
+                resetPlayedCardsContainer();
                 
                 const winner = positionName(data.winner);
+
                 const next = positionName(data.nextPlayer);
                 
                 // KORJATTU: Check if next player is controlled by us (declarer controlling dummy)
