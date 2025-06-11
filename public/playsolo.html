@@ -1692,18 +1692,8 @@ socket.on('yourCards', (data) => {
                 updatePlayedCard(data.position, data.suit, data.card);
                 
                 announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`);
-// Jos tämä oli ensimmäinen pelattu kortti, renderöi dummy-käsi uudelleen
-if (gameState.playedCards.length === 0 && gameState.currentTrick.length === 1) {
-    setTimeout(() => {
-        const dummyPosition = gameState.dummy;
-        if (dummyPosition && gameState.hands[dummyPosition]) {
-            renderHand(dummyPosition, gameState.hands[dummyPosition]);
-            announceToScreenReader(`Dummy cards are now visible: ${positionName(dummyPosition)} hand revealed.`);
-        }
-    }, 500);
-}
             });
-            
+
             socket.on('trickComplete', (data) => {
                 gameState.currentTrick = [];
                 gameState.tricks = data.tricks;

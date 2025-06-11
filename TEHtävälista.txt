@@ -1,5 +1,5 @@
 Jos tarjousvaiheen aikana tuplataan, tuplaus pitää kumoutua, jos joku tarjoaa jotain. Nyt tuplaus jää voimaan
-
+dummy-viestin paljastus toistetaan. 
 GIB-prosessi jokaiselle tarjoukselle:
 1. Simuloi 1000+ käsijakoa vastustajille
 2. Pelaa tarjoussekvenssi loppuun jokaisessa jakossa  
