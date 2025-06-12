@@ -123,7 +123,8 @@
         let gameState = null;
         let biddingState = null;
         let myPosition = 'south'; // Always south in solo play
-        
+        let trickClearTimeout = null;
+
         // UI state for keyboard shortcuts
         const uiState = {
             showHelp: false,
@@ -1776,6 +1777,11 @@ socket.on('yourCards', (data) => {
             });
             
 socket.on('cardPlayed', (data) => {
+// Peruuta pending timeout jos uusi tikki alkaa
+if (trickClearTimeout) {
+    clearTimeout(trickClearTimeout);
+    trickClearTimeout = null;
+}
                 if (!gameState.currentTrick) gameState.currentTrick = [];
                 
                 gameState.currentTrick = data.currentTrick;
@@ -1807,7 +1813,6 @@ socket.on('cardPlayed', (data) => {
                 updateCenterArea();
                 updateGameUI();
                                 // LISÄTTY: Tyhjennä current trick näyttö kun tikki on valmis
-                resetPlayedCardsContainer();
                 
                 const winner = positionName(data.winner);
 
@@ -1825,6 +1830,16 @@ socket.on('cardPlayed', (data) => {
                 }
                 
                 announceToScreenReader(message);
+// Peruuta vanha timeout jos sellainen on käynnissä
+if (trickClearTimeout) {
+    clearTimeout(trickClearTimeout);
+}
+
+// Aseta uusi timeout ja tallenna viittaus
+trickClearTimeout = setTimeout(() => {
+    resetPlayedCardsContainer();
+    trickClearTimeout = null;
+}, 3000);
             });
             
             socket.on('nextPlayer', (data) => {

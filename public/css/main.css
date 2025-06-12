@@ -6,13 +6,17 @@
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
+               'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 
+               'Segoe UI Emoji', 'Segoe UI Symbol';
   line-height: 1.6;
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
   color: #333;
   background-color: #f9f9f9;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Saavutettavuustyylit */
@@ -41,7 +45,9 @@ textarea:focus {
 
 /* Typografia */
 h1 {
-  font-size: 1.8rem;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
   margin-bottom: 1rem;
   color: #202020;
   text-align: center;
@@ -52,13 +58,15 @@ h1 {
 }
 
 h2 {
-  font-size: 1.4rem;
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
+  font-weight: 500;
   margin-bottom: 0.8rem;
   color: #000000;
 }
 
 h3 {
-  font-size: 1.2rem;
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  font-weight: 500;
   margin-bottom: 0.5rem;
   color: #000000;
 }
@@ -101,6 +109,8 @@ a:visited {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   color: #000000;
   font-style: italic;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 /* Painikkeet */
@@ -165,7 +175,8 @@ input[disabled] {
   padding: 0.8rem;
   margin: 1rem 0;
   text-align: center;
-  font-weight: bold;
+  font-weight: 500;
+  font-size: 15px;
 }
 
 /* Action buttons */
@@ -273,6 +284,8 @@ input[disabled] {
   padding: 10px;
   background-color: #FFFFFF;
   margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .chat-message {
@@ -282,7 +295,8 @@ input[disabled] {
 }
 
 .chat-sender {
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 13px;
   color: #005fcc;
 }
 
@@ -323,6 +337,9 @@ input[disabled] {
   width: 100%;
   border-collapse: collapse;
   margin-top: 10px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .bidding-table th, .bidding-table td {
@@ -351,7 +368,9 @@ input[disabled] {
   background-color: #f8f9fa;
   cursor: pointer;
   transition: all 0.2s;
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.2;
 }
 
 .bid-button:hover:not([disabled]) {
@@ -403,8 +422,9 @@ input[disabled] {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
   background-color: #FFFFFF;
   border: 1px solid #000000;
   border-radius: 6px;
@@ -426,6 +446,11 @@ input[disabled] {
   outline: 3px solid #005fcc;
   background-color: #000000;
   color: #FFFFFF !important;
+}
+
+.game-table .card-button {
+  font-size: 20px;
+  font-weight: 800;
 }
 
 /* Played cards */
@@ -629,6 +654,14 @@ kbd {
   .hand {
     margin-bottom: 15px;
   }
+  
+  .card-button {
+    font-size: 16px;
+  }
+  
+  .game-table .card-button {
+    font-size: 18px;
+  }
 }
 
 /* Keskikokoiset näytöt (tabletit) */
@@ -651,6 +684,8 @@ kbd {
   body {
     background-color: #ffffff;
     color: #000000;
+    font-family: 'Times New Roman', serif;
+    font-size: 12pt;
   }
   
   .container, .section {
@@ -665,5 +700,10 @@ kbd {
   a {
     color: #000000;
     text-decoration: none;
+  }
+  
+  .card-button {
+    font-size: 14pt;
+    font-weight: bold;
   }
 }
