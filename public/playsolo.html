@@ -323,64 +323,6 @@
         }
 
         /**
-         * UUSI OMINAISUUS: Siirtää fokuksen automaattisesti pyydetyn maan pienimmälle kortille
-         * kun joku pelaa kortin ja siitä tulee uusi lead suit
-         */
-        function autoFocusOnLeadSuit() {
-            // Tarkista että on pelivaihe ja meillä on tiedot käsissä
-            if (!gameState || gameState.gamePhase !== 'play' || !gameState.hands) {
-                return;
-            }
-            
-            // Tarkista että tikissä on kortteja ja voimme määrittää lead suitin
-            if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
-                return;
-            }
-            
-            const leadSuit = gameState.currentTrick[0].suit;
-            const currentPlayer = gameState.currentPlayer;
-            
-            // KORJATTU: Tarkista että voimme kontrolloida nykyistä pelaajaa
-            const canControlCurrentPlayer = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
-            
-            if (!canControlCurrentPlayer) {
-                console.log('Cannot control current player for auto-focus:', currentPlayer);
-                return;
-            }
-            
-            // Hae nykyisen pelaajan käsi
-            const hand = gameState.hands[currentPlayer];
-            if (!hand || !hand[leadSuit] || hand[leadSuit].length === 0) {
-                // Ei ole pyydetyn maan kortteja, ei siirretä fokusta
-                console.log('No cards in lead suit for auto-focus:', leadSuit);
-                return;
-            }
-            
-            // Etsi pienin kortti lead suitista
-            const lowestCard = findLowestCard(hand[leadSuit]);
-            if (!lowestCard) {
-                return;
-            }
-            
-            // Etsi oikea käsi-elementti
-            const handElement = currentPlayer === 'south' ? elements.southHand : elements.northHand;
-            
-            // Etsi kortin painike
-            const cardButton = handElement.querySelector(`button[data-suit="${leadSuit}"][data-card="${lowestCard}"]`);
-            
-            if (cardButton) {
-                // Siirretään fokus lyhyen viiveen jälkeen (annetaan renderöinnin valmistua)
-                setTimeout(() => {
-                    cardButton.focus();
-                    console.log(`Auto-focused on ${getSuitName(leadSuit)} ${lowestCard} for player ${currentPlayer}`);
-                    
-                    // Ilmoita käyttäjälle että fokus siirtyi
-                    announceToScreenReader(`Focus moved to ${getSuitName(leadSuit)} ${lowestCard}.`);
-                }, 250);
-            }
-        }
-
-        /**
          * Etsii pienimmän kortin listasta käyttäen bridge-järjestystä
          */
         function findLowestCard(cards) {
@@ -416,51 +358,91 @@
             return sortedCards[0];
         }
 
+        /**
+         * Siirtää fokuksen pienimpään korttiin mainitussa maassa
+         */
+        function focusOnLowestCard(position, suit) {
+            if (!gameState || !gameState.hands || !gameState.hands[position]) {
+                return;
+            }
+            
+            const hand = gameState.hands[position];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                return;
+            }
+            
+            const lowestCard = findLowestCard(cards);
+            if (!lowestCard) {
+                return;
+            }
+            
+            // Etsi oikea käsi-elementti
+            const handElement = position === 'south' ? elements.southHand : 
+                               position === 'north' ? elements.northHand : null;
+            
+            if (!handElement) {
+                return;
+            }
+            
+            // Etsi kortin painike
+            const cardButton = handElement.querySelector(`button[data-suit="${suit}"][data-card="${lowestCard}"]`);
+            
+            if (cardButton) {
+                // Siirretään fokus lyhyen viiveen jälkeen (annetaan renderöinnin valmistua)
+                setTimeout(() => {
+                    cardButton.focus();
+                    console.log(`Focused on ${getSuitName(suit)} ${lowestCard} for player ${position}`);
+                }, 250);
+            }
+        }
+
         // Keyboard shortcuts configuration
         const keyboardShortcuts = [
-            // Card viewing shortcuts (Own cards)
-            { key: 'a', alt: true, description: 'Read your spades', action: () => announceHandSuit('south', 'spades') },
-            { key: 's', alt: true, description: 'Read your hearts', action: () => announceHandSuit('south', 'hearts') },
-            { key: 'd', alt: true, description: 'Read your diamonds', action: () => announceHandSuit('south', 'diamonds') },
-            { key: 'f', alt: true, description: 'Read your clubs', action: () => announceHandSuit('south', 'clubs') },
+            // Card viewing shortcuts (Own cards) - PÄIVITETTY: fokuksen siirto mukana
+            { key: 'a', alt: true, description: 'Read your spades and focus on lowest', action: () => announceHandSuitWithFocus('south', 'spades') },
+            { key: 's', alt: true, description: 'Read your hearts and focus on lowest', action: () => announceHandSuitWithFocus('south', 'hearts') },
+            { key: 'd', alt: true, description: 'Read your diamonds and focus on lowest', action: () => announceHandSuitWithFocus('south', 'diamonds') },
+            { key: 'f', alt: true, description: 'Read your clubs and focus on lowest', action: () => announceHandSuitWithFocus('south', 'clubs') },
             { key: 'g', alt: true, description: 'Read all your cards', action: () => announceEntireHand('south') },
 
-// Card viewing shortcuts (Dummy's cards) - SECURE VERSION
-{ key: 'q', alt: true, description: 'Read dummy spades', action: () => {
-    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-        announceHandSuit(gameState.dummy, 'spades');
-    } else {
-        announceToScreenReader('Cannot view dummy spades at this time.');
-    }
-}},
-{ key: 'w', alt: true, description: 'Read dummy hearts', action: () => {
-    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-        announceHandSuit(gameState.dummy, 'hearts');
-    } else {
-        announceToScreenReader('Cannot view dummy hearts at this time.');
-    }
-}},
-{ key: 'e', alt: true, description: 'Read dummy diamonds', action: () => {
-    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-        announceHandSuit(gameState.dummy, 'diamonds');
-    } else {
-        announceToScreenReader('Cannot view dummy diamonds at this time.');
-    }
-}},
-{ key: 'r', alt: true, description: 'Read dummy clubs', action: () => {
-    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-        announceHandSuit(gameState.dummy, 'clubs');
-    } else {
-        announceToScreenReader('Cannot view dummy clubs at this time.');
-    }
-}},
-{ key: 't', alt: true, description: 'Read all dummy cards', action: () => {
-    if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-        announceEntireHand(gameState.dummy);
-    } else {
-        announceToScreenReader('Cannot view all dummy cards at this time.');
-    }
-}},
+            // Card viewing shortcuts (Dummy's cards) - PÄIVITETTY: fokuksen siirto mukana
+            { key: 'q', alt: true, description: 'Read dummy spades and focus on lowest', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceHandSuitWithFocus(gameState.dummy, 'spades');
+                } else {
+                    announceToScreenReader('Cannot view dummy spades at this time.');
+                }
+            }},
+            { key: 'w', alt: true, description: 'Read dummy hearts and focus on lowest', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceHandSuitWithFocus(gameState.dummy, 'hearts');
+                } else {
+                    announceToScreenReader('Cannot view dummy hearts at this time.');
+                }
+            }},
+            { key: 'e', alt: true, description: 'Read dummy diamonds and focus on lowest', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceHandSuitWithFocus(gameState.dummy, 'diamonds');
+                } else {
+                    announceToScreenReader('Cannot view dummy diamonds at this time.');
+                }
+            }},
+            { key: 'r', alt: true, description: 'Read dummy clubs and focus on lowest', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceHandSuitWithFocus(gameState.dummy, 'clubs');
+                } else {
+                    announceToScreenReader('Cannot view dummy clubs at this time.');
+                }
+            }},
+            { key: 't', alt: true, description: 'Read all dummy cards', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceEntireHand(gameState.dummy);
+                } else {
+                    announceToScreenReader('Cannot view all dummy cards at this time.');
+                }
+            }},
 
             // Game state shortcuts
             { key: 'z', alt: true, description: 'Read current trick', action: () => announceCurrentTrick() },
@@ -473,11 +455,17 @@
             { key: 'd', alt: true, description: 'Bid Double', action: () => makeBidShortcut('X') },
             { key: 'f', alt: true, description: 'Bid Redouble', action: () => makeBidShortcut('XX') },
             
-            // Card playing shortcuts - high cards only
+            // Card playing shortcuts - high cards
             { key: '1', ctrl: true, description: 'Play highest spade', action: () => playHighestCard('spades') },
             { key: '2', ctrl: true, description: 'Play highest heart', action: () => playHighestCard('hearts') },
             { key: '3', ctrl: true, description: 'Play highest diamond', action: () => playHighestCard('diamonds') },
             { key: '4', ctrl: true, description: 'Play highest club', action: () => playHighestCard('clubs') },
+            
+            // Card playing shortcuts - low cards (NEW)
+            { key: '1', ctrl: true, shift: true, description: 'Play lowest spade', action: () => playLowestCard('spades') },
+            { key: '2', ctrl: true, shift: true, description: 'Play lowest heart', action: () => playLowestCard('hearts') },
+            { key: '3', ctrl: true, shift: true, description: 'Play lowest diamond', action: () => playLowestCard('diamonds') },
+            { key: '4', ctrl: true, shift: true, description: 'Play lowest club', action: () => playLowestCard('clubs') },
             
             // General shortcuts
             { key: 'h', alt: true, description: 'Show/hide help', action: () => toggleHelp() },
@@ -567,7 +555,40 @@
         }
 
         /**
-         * Announces cards in a specific suit from a hand
+         * PÄIVITETTY: Announces cards in a specific suit from a hand AND focuses on lowest card
+         */
+        function announceHandSuitWithFocus(position, suit) {
+            const canViewCards = canViewHandCards(position);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${getPositionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${getPositionName(position)}.`);
+                return;
+            }
+            
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                const message = `${getPositionName(position)} has no ${getSuitName(suit)}s.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const message = `${getPositionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
+            announceToScreenReader(message);
+            
+            // UUSI: Siirretään fokus pienimpään korttiin
+            focusOnLowestCard(position, suit);
+        }
+
+        /**
+         * Announces cards in a specific suit from a hand (perinteinen versio ilman fokusta)
          */
         function announceHandSuit(position, suit) {
             const canViewCards = canViewHandCards(position);
@@ -596,35 +617,35 @@
             announceToScreenReader(message);
         }
 
-/**
- * Check if we can view cards for a position
- */
-function canViewHandCards(position) {
-    if (position === 'south') return true; // Oma käsi näkyy aina
-    
-    // Dummy näkyy jos peli on pelivaiheessa ja position on dummy
-    if (gameState && 
-        gameState.gamePhase === 'play' && 
-        gameState.dummy === position) {
-        return true; // Yksinkertaisesti: dummy näkyy aina pelivaiheessa
-    }
-    
-    return false;
-}
+        /**
+         * Check if we can view cards for a position
+         */
+        function canViewHandCards(position) {
+            if (position === 'south') return true; // Oma käsi näkyy aina
+            
+            // Dummy näkyy jos peli on pelivaiheessa ja position on dummy
+            if (gameState && 
+                gameState.gamePhase === 'play' && 
+                gameState.dummy === position) {
+                return true; // Yksinkertaisesti: dummy näkyy aina pelivaiheessa
+            }
+            
+            return false;
+        }
 
-function canPlayFromPosition(position) {
-    if (!gameState || gameState.gamePhase !== 'play') return false;
-    
-    // Always can play from south (our position)
-    if (position === 'south') return true;
-    
-    // KORJATTU: Can play from dummy if we're declarer and position is dummy
-    if (position === gameState.dummy && gameState.declarer === 'south') {
-        return true;
-    }
-    
-    return false;
-}
+        function canPlayFromPosition(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return false;
+            
+            // Always can play from south (our position)
+            if (position === 'south') return true;
+            
+            // KORJATTU: Can play from dummy if we're declarer and position is dummy
+            if (position === gameState.dummy && gameState.declarer === 'south') {
+                return true;
+            }
+            
+            return false;
+        }
 
         /**
          * KORJATTU: Check if it's our turn to play from a specific position
@@ -753,7 +774,7 @@ function canPlayFromPosition(position) {
             }
         }
 
-/**
+        /**
          * Announces the last completed trick (modified for current trick only mode)
          */
         function announceLastTrick() {
@@ -912,6 +933,51 @@ function canPlayFromPosition(position) {
             if (highestCard) {
                 // Play the card
                 attemptToPlayCard(suit, highestCard, currentPlayer);
+            }
+        }
+
+        /**
+         * UUSI: Plays the lowest card of a suit
+         */
+        function playLowestCard(suit) {
+            const currentPlayer = gameState?.currentPlayer;
+            
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader("Game is not in play phase.");
+                return;
+            }
+            
+            // Check if we can control the current player
+            const canControl = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
+            
+            if (!canControl) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            const hand = gameState.hands[currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                return;
+            }
+            
+            // Check if player must follow suit
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
+                    return;
+                }
+            }
+            
+            // Get the lowest card
+            const lowestCard = findLowestCard(cards);
+            
+            if (lowestCard) {
+                // Play the card
+                attemptToPlayCard(suit, lowestCard, currentPlayer);
             }
         }
 
@@ -1389,10 +1455,8 @@ function canPlayFromPosition(position) {
                     let playerType = player ? player.type : 'human';
                     
                     // KORJATTU: Näytä oikea status dummylle
-// KORJATTU: Näytä oikea status dummylle
-// KORJATTU: Näytä oikea status dummylle
-if (position === gameState.dummy && gameState.declarer === 'south') {
-    playerType = 'Dummy (You control)';
+                    if (position === gameState.dummy && gameState.declarer === 'south') {
+                        playerType = 'Dummy (You control)';
                     } else if (playerType === 'gib') {
                         playerType = 'GIB';
                     } else {
@@ -1636,7 +1700,6 @@ if (position === gameState.dummy && gameState.declarer === 'south') {
                 
                 // Handle s, h, d, c keys with dual purpose:
                 // 1. In bidding phase: suit selection for bidding
-                // 2. In play phase: focus on lowest card of that suit
                 const suitKey = e.key.toLowerCase();
                 if (['s', 'h', 'd', 'c'].includes(suitKey) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
                     e.preventDefault();
@@ -1849,8 +1912,7 @@ trickClearTimeout = setTimeout(() => {
                 // KORJATTU: Re-render hands when current player changes to update button states
                 renderAllHands();
                 
-                // Siirretään fokus automaattisesti pyydetyn maan korttiin kun tulee meidän vuoro
-                autoFocusOnLeadSuit();
+                // POISTETTU: autoFocusOnLeadSuit() - ei enää automaattista fokuksen siirtoa
             });
 
             socket.on('gameOver', (data) => {
