@@ -349,23 +349,32 @@ function createTable() {
         return;
     }
 
-    // Tarkistetaan valittu positio – oletuksena south
+    // Oletetaan, että positio on tallennettu globaalimuuttujaan tai radio-napilla valittu
     const position = window.selectedPosition || 'south';
 
-    // Yhdistetään palvelimeen, jos ei vielä yhdistetty
+    // Yhdistetään palvelimeen (jos ei vielä yhdistetty)
     connectToServer();
 
-    // Lähetetään pöydän luontipyyntö palvelimelle
+    // Tallennetaan pelaajatiedot localStorageen, jotta waitingroom.html osaa lähettää joinTable
+    localStorage.setItem('playerName', playerName);
+    localStorage.setItem('position', position);
+
+    // Luodaan pöytä ja ilmoitetaan serverille
     socket.emit('createTable', {
         playerName: playerName,
         position: position,
         tableName: tableName
     });
 
-    // (Valinnainen) Näytetään statusviesti
+    // Näytetään statusviesti käyttäjälle
     const statusElement = document.getElementById('creation-status');
     if (statusElement) {
         statusElement.style.display = 'block';
         statusElement.textContent = 'Creating table...';
     }
+
+    // Kuunnellaan vastaus serveriltä ja siirrytään odotushuoneeseen oikealla koodilla
+    socket.on('tableCreated', ({ tableCode }) => {
+        window.location.href = `waitingroom.html?code=${tableCode}`;
+    });
 }

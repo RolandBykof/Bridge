@@ -489,32 +489,42 @@
         }
         
         // Initialize page when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set up keyboard listeners
-            setupKeyboardListeners();
-            
-            // Connect to server
-            connectToServer();
-            
-            // Check URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('code')) {
-                tableCode = urlParams.get('code');
-                
-                // Display code
-                document.getElementById('table-code-title').textContent = tableCode;
-                document.getElementById('share-table-code').textContent = tableCode;
-                
-                // Get table info
-                socket.emit('getTableInfo', { tableCode: tableCode });
-                
-                announceToScreenReader(`Joined table ${tableCode}. Waiting for other players.`);
-            } else {
-                // Redirect to home page if no code
-                showErrorWithAnnouncement('No table code provided. Redirecting to home page.');
-                setTimeout(() => navigate('/'), 2000);
-            }
-            
+document.addEventListener('DOMContentLoaded', function() {
+    const queryParams = new URLSearchParams(window.location.search);
+tableCode = queryParams.get('code');
+
+    if (!tableCode) {
+        showErrorWithAnnouncement('No table code provided in URL. Redirecting to home.');
+        setTimeout(() => navigate('/'), 2000);
+        return;
+    }
+
+    const playerName = localStorage.getItem('playerName');
+    const position = localStorage.getItem('position') || 'south';
+
+    if (playerName && position) {
+        connectToServer(); // yhdistetään socket-palvelimeen
+        socket.emit('joinTable', {
+            tableCode: tableCode,
+            playerName: playerName,
+            position: position
+        });
+    } else {
+        showErrorWithAnnouncement('Player information missing. Redirecting to home.');
+        setTimeout(() => navigate('/'), 2000);
+        return;
+    }
+
+    // Näytetään pöytäkoodi
+    const tableCodeElement = document.getElementById('table-code');
+    if (tableCodeElement) {
+        tableCodeElement.textContent = tableCode;
+    }
+
+    // Pyydetään pöydän tiedot
+    socket.emit('getTableInfo', { tableCode: tableCode });
+
+
             // Socket events
             socket.on('tableInfo', (data) => {
                 updateWaitingRoomPositions(data.table);
