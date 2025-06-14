@@ -336,3 +336,36 @@ async function sendData(url, data, method = 'POST') {
         throw error;
     }
 }
+
+function createTable() {
+    const nameInput = document.getElementById('name-input');
+    const tableNameInput = document.getElementById('table-name-input');
+
+    const playerName = nameInput ? nameInput.value.trim() : '';
+    const tableName = tableNameInput ? tableNameInput.value.trim() : '';
+
+    if (!playerName) {
+        showError('Please enter your name.');
+        return;
+    }
+
+    // Tarkistetaan valittu positio – oletuksena south
+    const position = window.selectedPosition || 'south';
+
+    // Yhdistetään palvelimeen, jos ei vielä yhdistetty
+    connectToServer();
+
+    // Lähetetään pöydän luontipyyntö palvelimelle
+    socket.emit('createTable', {
+        playerName: playerName,
+        position: position,
+        tableName: tableName
+    });
+
+    // (Valinnainen) Näytetään statusviesti
+    const statusElement = document.getElementById('creation-status');
+    if (statusElement) {
+        statusElement.style.display = 'block';
+        statusElement.textContent = 'Creating table...';
+    }
+}
