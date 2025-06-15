@@ -163,10 +163,36 @@ io.on('connection', (socket) => {
     sendActiveTables(socket);
   });
   
-  socket.on('createTable', (data) => {
-    createTable(socket, playerId, data);
-  });
-  
+socket.on('createTable', ({ playerName, position, tableName }) => {
+    const tableCode = generateTableCode();
+
+    const table = {
+        code: tableCode,
+        name: tableName || null,
+        players: {},
+        created: new Date(),
+        started: false
+    };
+
+    // Lisää luoja pelaajaksi
+    table.players[position] = {
+        name: playerName,
+        socketId: socket.id
+    };
+
+    tables[tableCode] = table;
+
+    // Socket liittyy huoneeseen
+    socket.join(tableCode);
+
+    // Ilmoitetaan pöydän luomisesta
+    socket.emit('tableCreated', { tableCode });
+
+    // Lähetetään heti pöydän tila
+    io.to(tableCode).emit('tableState', table);
+});
+
+
   socket.on('joinTable', (data) => {
     joinTable(socket, playerId, data);
   });
