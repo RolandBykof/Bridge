@@ -5,6 +5,7 @@
 
 // Socket.io connection
 let socket = null;
+let socketEventListenersSetup = false;
 
 // Common functions and helper methods
 
@@ -12,70 +13,176 @@ let socket = null;
  * Connect to Socket.io server
  */
 function connectToServer() {
-    if (socket) {
-        // If connection already exists, do nothing
+    // Jos socket on jo olemassa ja yhdistetty, palauta se
+    if (socket && socket.connected && !socket.disconnected) {
+        console.log('Socket already connected, reusing existing connection');
         return socket;
     }
     
+    // Jos socket on olemassa mutta ei yhdistetty, puhdista se
+    if (socket) {
+        console.log('Cleaning up existing socket...');
+        cleanupSocket();
+    }
+    
+    console.log('Creating new socket connection...');
+    
+    // Luo uusi socket-yhteys
     socket = io({
-        transports: ['websocket', 'polling'],
-        timeout: 10000
+        transports: ['websocket', 'polling'], // Websocket ensin, polling fallback
+        timeout: 10000,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+        maxReconnectionAttempts: 5
     });
     
-    // Basic listeners
-    socket.on('connect', () => {
-        console.log('Socket.IO connected successfully, ID:', socket.id);
-        announce("Connected to server.");
-    });
-    
-    socket.on('connect_error', (error) => {
-        console.error('Socket.IO connection error:', error);
-        showError('Failed to connect to server. Please try again later.');
-    });
-    
-    socket.on('disconnect', () => {
-        console.log('Connection to server lost.');
-        announce("Connection to server lost.");
-    });
-    
-    socket.on('error', (data) => {
-        showError(data.message);
-    });
-    
-    // Table events
-    socket.on('tableCreated', (data) => {
-        window.location.href = `/waitingroom.html?code=${data.tableCode}`;
-    });
-    
-    // Get active tables if we're on home page
-    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-        getTables();
+    // Aseta event listenerit vain kerran
+    if (!socketEventListenersSetup) {
+        setupBasicSocketListeners();
+        socketEventListenersSetup = true;
     }
     
     return socket;
 }
 
 /**
+ * Puhdista socket ja sen event listenerit
+ */
+function cleanupSocket() {
+    if (socket) {
+        socket.removeAllListeners();
+        if (socket.connected) {
+            socket.disconnect();
+        }
+        socket = null;
+        socketEventListenersSetup = false;
+    }
+}
+
+/**
+ * Aseta perus socket event listenerit (vain kerran)
+ */
+function setupBasicSocketListeners() {
+    if (!socket) return;
+    
+    socket.on('connect', () => {
+        console.log('Socket.IO connected successfully, ID:', socket.id);
+        updateConnectionStatus('connected');
+    });
+    
+    socket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error);
+        updateConnectionStatus('connecting');
+        
+        // Yritä polling:ia jos websocket epäonnistuu
+        if (error.message && error.message.includes('websocket')) {
+            console.log('Switching to polling transport...');
+            socket.io.opts.transports = ['polling'];
+        }
+        
+        // Näytä virhe vain jos se ei ole websocket fallback
+        if (!error.message || !error.message.includes('websocket')) {
+            showError('Failed to connect to server. Please try again later.');
+        }
+    });
+    
+    socket.on('disconnect', (reason) => {
+        console.log('Disconnected from server, reason:', reason);
+        updateConnectionStatus('disconnected');
+        
+        // Automaattinen reconnect tietyissä tilanteissa
+        if (reason === 'io server disconnect') {
+            console.log('Server disconnected, attempting manual reconnect...');
+            setTimeout(() => {
+                if (socket && !socket.connected) {
+                    socket.connect();
+                }
+            }, 1000);
+        }
+    });
+    
+    socket.on('reconnect', (attemptNumber) => {
+        console.log('Reconnected after', attemptNumber, 'attempts');
+        updateConnectionStatus('connected');
+    });
+    
+    socket.on('reconnecting', (attemptNumber) => {
+        console.log('Reconnecting, attempt:', attemptNumber);
+        updateConnectionStatus('connecting');
+    });
+    
+    socket.on('error', (data) => {
+        console.error('Socket error:', data);
+        const message = data && data.message ? data.message : 'Socket error occurred';
+        showError(message);
+    });
+    
+    // Table creation event
+    socket.on('tableCreated', (data) => {
+        console.log('Table created:', data);
+        if (data && data.tableCode) {
+            // Siirrä waitingroom:iin
+            window.location.href = `/waitingroom.html?code=${data.tableCode}`;
+        }
+    });
+}
+
+/**
+ * Päivitä connection status UI:ssä
+ */
+function updateConnectionStatus(status) {
+    const statusElement = document.querySelector('.connection-status') || 
+                         document.getElementById('connection-status');
+    
+    if (statusElement) {
+        statusElement.className = `connection-status status-${status}`;
+        statusElement.textContent = status === 'connected' ? 'Connected' : 
+                                   status === 'disconnected' ? 'Disconnected' : 
+                                   status === 'connecting' ? 'Connecting...' :
+                                   'Unknown';
+    }
+    
+    // Päivitä myös mahdollinen status bar
+    const statusBar = document.getElementById('connection-status-bar');
+    if (statusBar) {
+        statusBar.className = `connection-status-bar ${status}`;
+        statusBar.setAttribute('aria-label', `Connection status: ${status}`);
+    }
+}
+
+/**
  * Get active tables
  */
 function getTables() {
-    if (!socket) return;
+    if (!socket || !socket.connected) {
+        console.warn('No socket connection available for getTables');
+        return;
+    }
     
     socket.emit('getActiveTables');
     
-    socket.on('activeTablesList', (data) => {
+    // Käytä once() välttääksesi kumulatiivisia listenereitä
+    socket.once('activeTablesList', (data) => {
+        if (!data || !data.tables) {
+            console.warn('Invalid tables data received:', data);
+            return;
+        }
+        
         // Update table count in UI
-        if (document.getElementById('tables-count')) {
-            document.getElementById('tables-count').textContent = data.tables.length;
+        const tablesCountElement = document.getElementById('tables-count');
+        if (tablesCountElement) {
+            tablesCountElement.textContent = data.tables.length;
         }
         
         // Update player count if possible
-        if (document.getElementById('players-count')) {
+        const playersCountElement = document.getElementById('players-count');
+        if (playersCountElement) {
             let playerCount = 0;
             for (const table of data.tables) {
-                playerCount += table.players;
+                playerCount += table.players || 0;
             }
-            document.getElementById('players-count').textContent = playerCount;
+            playersCountElement.textContent = playerCount;
         }
     });
 }
@@ -94,15 +201,21 @@ function showError(message, duration = 5000) {
         errorArea = document.createElement('div');
         errorArea.id = 'error-area';
         errorArea.className = 'error-message';
-        document.body.insertBefore(errorArea, document.body.firstChild);
+        errorArea.style.cssText = 'padding: 10px; margin: 10px 0; background: #ffebee; color: #c62828; border: 1px solid #ef5350; border-radius: 4px;';
+        
+        // Insert at top of container or body
+        const container = document.querySelector('.container') || document.body;
+        container.insertBefore(errorArea, container.firstChild);
     }
     
     errorArea.textContent = message;
     errorArea.style.display = 'block';
     
-    // Hide after duration
+    // Auto-hide after duration
     setTimeout(() => {
-        errorArea.style.display = 'none';
+        if (errorArea) {
+            errorArea.style.display = 'none';
+        }
     }, duration);
 }
 
@@ -337,21 +450,33 @@ async function sendData(url, data, method = 'POST') {
     }
 }
 
+/**
+ * Create new table - FIXED VERSION
+ */
 function createTable() {
     const nameInput = document.getElementById('name-input');
     const tableNameInput = document.getElementById('table-name-input');
 
     const playerName = nameInput ? nameInput.value.trim() : '';
     const tableName = tableNameInput ? tableNameInput.value.trim() : '';
-    const position = selectedPosition || 'south';
+    const position = window.selectedPosition || 'south';
 
     if (!playerName) {
-        showErrorWithAnnouncement('Please enter your name.');
+        showError('Please enter your name.');
+        // Jos on showErrorWithAnnouncement funktio, käytä sitä
+        if (typeof showErrorWithAnnouncement === 'function') {
+            showErrorWithAnnouncement('Please enter your name.');
+        }
         return;
     }
 
-    // Yhdistetään palvelimeen, jos ei vielä yhdistetty
+    // Yhdistetään palvelimeen
     connectToServer();
+
+    if (!socket) {
+        showError('Failed to connect to server. Please try again.');
+        return;
+    }
 
     // Tallennetaan tiedot localStorageen seuraavaa sivua varten
     localStorage.setItem('playerName', playerName);
@@ -364,20 +489,64 @@ function createTable() {
         statusElement.textContent = 'Creating table...';
     }
 
-    // Lähetetään pöydän luontipyyntö palvelimelle
-    socket.emit('createTable', {
-        playerName: playerName,
-        position: position,
-        tableName: tableName || null
-    });
+    // Määritä yksittäiskäyttöiset event handlerit
+    const handleTableCreated = (data) => {
+        console.log('Table created successfully:', data);
+        if (statusElement) {
+            statusElement.textContent = 'Table created! Redirecting...';
+        }
+        
+        if (data && data.tableCode) {
+            window.location.href = `waitingroom.html?code=${data.tableCode}`;
+        } else {
+            showError('Invalid response from server.');
+        }
+        
+        // Cleanup
+        socket.off('error', handleError);
+    };
 
-    // Odotetaan vastaus ja siirrytään odotushuoneeseen
-    socket.once('tableCreated', ({ tableCode }) => {
-        window.location.href = `waitingroom.html?code=${tableCode}`;
-    });
+    const handleError = (data) => {
+        console.error('Error creating table:', data);
+        const message = data && data.message ? data.message : 'Unknown error occurred';
+        showError('Error creating table: ' + message);
+        
+        if (statusElement) {
+            statusElement.style.display = 'none';
+        }
+        
+        // Cleanup
+        socket.off('tableCreated', handleTableCreated);
+    };
 
-    // Jos server vastaa virheellä
-    socket.once('error', ({ message }) => {
-        showErrorWithAnnouncement('Error creating table: ' + message);
-    });
+    // Aseta event handlerit
+    socket.once('tableCreated', handleTableCreated);
+    socket.once('error', handleError);
+
+    // Lähetä pöydän luontipyyntö palvelimelle
+    try {
+        socket.emit('createTable', {
+            playerName: playerName,
+            position: position,
+            tableName: tableName || null
+        });
+    } catch (error) {
+        console.error('Error sending createTable:', error);
+        showError('Failed to send request to server.');
+        
+        // Cleanup handlerit jos lähetys epäonnistuu
+        socket.off('tableCreated', handleTableCreated);
+        socket.off('error', handleError);
+        
+        if (statusElement) {
+            statusElement.style.display = 'none';
+        }
+    }
 }
+
+// Cleanup function for page unload
+window.addEventListener('beforeunload', () => {
+    if (socket) {
+        cleanupSocket();
+    }
+});

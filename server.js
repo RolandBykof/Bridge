@@ -163,35 +163,58 @@ io.on('connection', (socket) => {
     sendActiveTables(socket);
   });
   
+// KORJATTU createTable event handler server.js:ssä (rivi ~765)
+
 socket.on('createTable', ({ playerName, position, tableName }) => {
-    const tableCode = generateTableCode();
+    console.log(`Creating table for ${playerName} at position ${position}`);
+    
+    const tableCode = createTableCode(); 
 
     const table = {
         code: tableCode,
         name: tableName || null,
-        players: {},
-        created: new Date(),
-        started: false
+        players: {
+            north: null,
+            east: null,
+            south: null,
+            west: null
+        },
+        state: 'waiting', // KORJAUS 2: Lisää state
+        gameState: null,
+        biddingState: null,
+        created: Date.now(), // KORJAUS 3: Käytä Date.now() eikä new Date()
+        lastActivity: Date.now(),
+        creator: socket.id,
+        isSoloGame: false
     };
 
-    // Lisää luoja pelaajaksi
     table.players[position] = {
         name: playerName,
-        socketId: socket.id
+        id: socket.id, // KORJAUS: id eikä socketId
+        type: 'human'
     };
 
-    tables[tableCode] = table;
+    tables.set(tableCode, table); // Oli: tables[tableCode] = table; - VIRHE!
+
+    // KORJAUS 6: Päivitä player-objekti
+    const player = players.get(socket.id);
+    if (player) {
+        player.table = tableCode;
+        player.name = playerName;
+        player.position = position;
+    }
 
     // Socket liittyy huoneeseen
     socket.join(tableCode);
 
     // Ilmoitetaan pöydän luomisesta
-    socket.emit('tableCreated', { tableCode });
+    socket.emit('tableCreated', { 
+        tableCode,
+        table: filterTable(table) // KORJAUS 7: Käytä filterTable()
+    });
 
-    // Lähetetään heti pöydän tila
-    io.to(tableCode).emit('tableState', table);
+    console.log(`Table ${tableCode} created successfully`);
 });
-
 
   socket.on('joinTable', (data) => {
     joinTable(socket, playerId, data);
@@ -1944,71 +1967,6 @@ async function handleDisconnect(playerId) {
   
   // Remove player
   players.delete(playerId);
-}
-
-/**
- * Create a new table
- * @param {Object} socket - Socket.IO socket
- * @param {string} playerId - Player's ID
- * @param {Object} data - Table creation data
- */
-function createTable(socket, playerId, data) {
-  const { playerName, position } = data;
-  
-  if (!playerName || !position) {
-    sendError(socket, 'Name or position missing');
-    return;
-  }
-  
-  const player = players.get(playerId);
-  
-  // Check if player is already in a table
-  if (player.table) {
-    sendError(socket, 'You are already in a table');
-    return;
-  }
-  
-  // Create table code
-  const tableCode = createTableCode();
-  
-  // Create table object
-  const table = {
-    code: tableCode,
-    players: {
-      north: null,
-      east: null,
-      south: null,
-      west: null
-    },
-    state: 'waiting', // 'waiting', 'playing', 'ended'
-    gameState: null,
-    biddingState: null,
-    created: Date.now(),
-    lastActivity: Date.now(),
-    creator: playerId,
-    isSoloGame: false
-  };
-  
-  // Add player to table
-  table.players[position] = {
-    name: playerName,
-    id: playerId,
-    type: 'human'
-  };
-  
-  // Save table and update player info
-  tables.set(tableCode, table);
-  player.table = tableCode;
-  player.name = playerName;
-  player.position = position;
-  
-  // Send successful table creation message
-  socket.emit('tableCreated', {
-    tableCode,
-    table: filterTable(table)
-  });
-  
-  console.log(`Table ${tableCode} created, player ${playerName} (${position})`);
 }
 
 /**

@@ -455,62 +455,108 @@
             };
         }
         
-        // Table creation
-        function createTable() {
-            if (uiState.isCreating) {
-                announceToScreenReader('Table creation already in progress.');
-                return;
-            }
-            
-            const validation = validateForm();
-            
-            if (!validation.isValid) {
-                const errorMessage = 'Form validation failed: ' + validation.errors.join(', ');
-                showErrorWithAnnouncement(errorMessage);
-                
-                // Focus on first error field
-                if (validation.errors.some(e => e.includes('Name'))) {
-                    elements.nameInput.focus();
-                } else {
-                    document.getElementById(`pos-${selectedPosition}`).focus();
-                }
-                return;
-            }
-            
-            const name = elements.nameInput.value.trim();
-            const tableName = elements.tableNameInput.value.trim();
-            
-            // Save name for later use
-            localStorage.setItem('playerName', name);
-localStorage.setItem('position', selectedPosition); // tämä lisätään
-            if (tableName) {
-                localStorage.setItem('lastTableName', tableName);
-            }
-            
-            // Show creation progress
-            uiState.isCreating = true;
-            elements.createButton.disabled = true;
-            elements.createButton.textContent = 'Creating...';
-            elements.creationStatus.style.display = 'block';
-            
-            announceToScreenReader('Creating table, please wait...');
-            
-            // Send table creation request to server
-            socket.emit('createTable', {
-                playerName: name,
-                position: selectedPosition,
-                tableName: tableName || null
-            });
-        }
+function createTable() {
+    if (uiState.isCreating) {
+        announceToScreenReader('Table creation already in progress.');
+        return;
+    }
+    
+    const validation = validateForm();
+    
+    if (!validation.isValid) {
+        const errorMessage = 'Form validation failed: ' + validation.errors.join(', ');
+        showErrorWithAnnouncement(errorMessage);
         
-        // Reset creation UI
-        function resetCreationUI() {
-            uiState.isCreating = false;
-            elements.createButton.disabled = false;
-            elements.createButton.textContent = 'Create Table';
-            elements.creationStatus.style.display = 'none';
+        // Focus on first error field
+        if (validation.errors.some(e => e.includes('Name'))) {
+            elements.nameInput.focus();
+        } else {
+            document.getElementById(`pos-${selectedPosition}`).focus();
         }
+        return;
+    }
+    
+    const name = elements.nameInput.value.trim();
+    const tableName = elements.tableNameInput.value.trim();
+    
+    // KORJAUS: Varmista että selectedPosition on määritelty
+    const position = selectedPosition || 'south';
+    
+    // Save name for later use
+    localStorage.setItem('playerName', name);
+    localStorage.setItem('position', position);
+    if (tableName) {
+        localStorage.setItem('lastTableName', tableName);
+    }
+    
+    // Show creation progress
+    uiState.isCreating = true;
+    elements.createButton.disabled = true;
+    elements.createButton.textContent = 'Creating...';
+    elements.creationStatus.style.display = 'block';
+    
+    announceToScreenReader('Creating table, please wait...');
+    
+    // KORJAUS: Varmista socket-yhteys ennen lähettämistä
+    if (!socket || !socket.connected) {
+        console.log('Socket not connected, attempting to connect...');
+        connectToServer();
         
+        // Odota yhteyttä enintään 5 sekuntia
+        let attempts = 0;
+        const waitForConnection = setInterval(() => {
+            attempts++;
+            if (socket && socket.connected) {
+                clearInterval(waitForConnection);
+                sendCreateTableRequest(name, position, tableName);
+            } else if (attempts >= 10) { // 10 * 500ms = 5 sekuntia
+                clearInterval(waitForConnection);
+                resetCreationUI();
+                showErrorWithAnnouncement('Could not connect to server. Please try again.');
+            }
+        }, 500);
+    } else {
+        // Socket on jo yhdistetty
+        sendCreateTableRequest(name, position, tableName);
+    }
+}
+
+// UUSI: Erillinen funktio socket-viestin lähettämiseen
+function sendCreateTableRequest(playerName, position, tableName) {
+    console.log('Sending createTable request:', { playerName, position, tableName });
+    
+    // KORJAUS: Lisää error ja success handlerit ennen lähettämistä
+    socket.once('tableCreated', (data) => {
+        console.log('Table created successfully:', data);
+        announceToScreenReader(`Table ${data.tableCode} created successfully! Redirecting to waiting room.`);
+        resetCreationUI();
+        // Siirry waitingroom:iin
+        window.location.href = `/waitingroom.html?code=${data.tableCode}`;
+    });
+    
+    socket.once('error', (data) => {
+        console.error('Create table error:', data);
+        resetCreationUI();
+        showErrorWithAnnouncement(data.message || 'Failed to create table');
+    });
+    
+    // Lähetä pöydän luontipyyntö
+    socket.emit('createTable', {
+        playerName: playerName,
+        position: position,
+        tableName: tableName || null
+    });
+    
+    console.log('CreateTable request sent');
+}
+
+function resetCreationUI() {
+    uiState.isCreating = false;
+    elements.createButton.disabled = false;
+    elements.createButton.textContent = 'Create Table';
+    elements.creationStatus.style.display = 'none';
+}
+
         // Initialize page when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             // Set up keyboard listeners

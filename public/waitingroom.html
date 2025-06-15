@@ -487,71 +487,174 @@
         function navigate(page) {
             window.location.href = page;
         }
-        
-        // Initialize page when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    const queryParams = new URLSearchParams(window.location.search);
-tableCode = queryParams.get('code');
 
-    if (!tableCode) {
-        showErrorWithAnnouncement('No table code provided in URL. Redirecting to home.');
-        setTimeout(() => navigate('/'), 2000);
-        return;
-    }
+        // FIXED: Retry logic for joinTable
+        function joinTableWithRetry(tableCode, playerName, position, attempts = 0) {
+            if (attempts >= 3) {
+                showErrorWithAnnouncement('Failed to join table after multiple attempts. Please try again.');
+                return;
+            }
+            
+            console.log(`Attempting to join table ${tableCode} (attempt ${attempts + 1})`);
+            
+            // Request table info first to check table state
+            socket.emit('getTableInfo', { tableCode: tableCode });
+            
+            // Wait for table info response
+            const handleTableInfo = (data) => {
+                console.log('Received table info:', data);
+                
+                if (data && data.table) {
+                    // Check if position is available
+                    if (data.table.players[position]) {
+                        showErrorWithAnnouncement(`Position ${position} is already taken.`);
+                        return;
+                    }
+                    
+                    // Send join request using selectPosition
+                    socket.emit('selectPosition', {
+                        tableCode: tableCode,
+                        position: position,
+                        playerName: playerName
+                    });
+                } else {
+                    console.error('Invalid table info received');
+                    if (attempts < 2) {
+                        setTimeout(() => {
+                            joinTableWithRetry(tableCode, playerName, position, attempts + 1);
+                        }, 2000);
+                    } else {
+                        showErrorWithAnnouncement('Table not found or invalid table code.');
+                    }
+                }
+                
+                // Remove this specific listener
+                socket.off('tableInfo', handleTableInfo);
+            };
+            
+            // Set up one-time listener for table info
+            socket.on('tableInfo', handleTableInfo);
+            
+            // If no response in 3 seconds, retry
+            setTimeout(() => {
+                socket.off('tableInfo', handleTableInfo);
+                if (attempts < 2) {
+                    joinTableWithRetry(tableCode, playerName, position, attempts + 1);
+                }
+            }, 3000);
+        }
 
-    const playerName = localStorage.getItem('playerName');
-    const position = localStorage.getItem('position') || 'south';
-
-    if (playerName && position) {
-        connectToServer(); // yhdistetään socket-palvelimeen
-        socket.emit('joinTable', {
-            tableCode: tableCode,
-            playerName: playerName,
-            position: position
-        });
-    } else {
-        showErrorWithAnnouncement('Player information missing. Redirecting to home.');
-        setTimeout(() => navigate('/'), 2000);
-        return;
-    }
-
-    // Näytetään pöytäkoodi
-    const tableCodeElement = document.getElementById('table-code');
-    if (tableCodeElement) {
-        tableCodeElement.textContent = tableCode;
-    }
-
-    // Pyydetään pöydän tiedot
-    socket.emit('getTableInfo', { tableCode: tableCode });
-
-
-            // Socket events
+        // FIXED: Socket event handlers setup
+        function setupSocketEventHandlers() {
             socket.on('tableInfo', (data) => {
-                updateWaitingRoomPositions(data.table);
-                if (data.table.created) {
-                    updateTableCreationTime(data.table.created);
+                console.log('Table info received:', data);
+                if (data && data.table) {
+                    updateWaitingRoomPositions(data.table);
+                    if (data.table.created) {
+                        updateTableCreationTime(data.table.created);
+                    }
                 }
             });
             
             socket.on('playerJoined', (data) => {
-                updateWaitingRoomPositions(data.table);
-                addSystemMessage(`${data.playerName} joined as ${positionName(data.position)}.`);
+                console.log('Player joined:', data);
+                if (data && data.table) {
+                    updateWaitingRoomPositions(data.table);
+                    if (data.playerName && data.position) {
+                        addSystemMessage(`${data.playerName} joined as ${positionName(data.position)}.`);
+                    }
+                }
             });
             
             socket.on('playerLeft', (data) => {
-                updateWaitingRoomPositions(data.table);
-                addSystemMessage(`Player left from ${positionName(data.position)}.`);
+                console.log('Player left:', data);
+                if (data && data.table) {
+                    updateWaitingRoomPositions(data.table);
+                    if (data.position) {
+                        addSystemMessage(`Player left from ${positionName(data.position)}.`);
+                    }
+                }
             });
             
             socket.on('gameStarted', (data) => {
                 announceToScreenReader('Game is starting! Redirecting to game view.');
-                // Redirect to game view
                 navigate(`/game.html?code=${tableCode}`);
             });
             
             socket.on('chatMessage', (data) => {
-                addChatMessage(data.sender, data.position, data.message);
+                if (data && data.sender && data.position && data.message) {
+                    addChatMessage(data.sender, data.position, data.message);
+                }
             });
+            
+            socket.on('error', (data) => {
+                console.error('Socket error:', data);
+                const message = data.message || data.error || 'An error occurred';
+                showErrorWithAnnouncement(message);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Socket disconnected');
+                showErrorWithAnnouncement('Connection lost. Attempting to reconnect...');
+            });
+
+            socket.on('reconnect', () => {
+                console.log('Socket reconnected');
+                announceToScreenReader('Connection restored.');
+                // Re-request table info after reconnection
+                if (tableCode) {
+                    socket.emit('getTableInfo', { tableCode: tableCode });
+                }
+            });
+        }
+        
+        // FIXED: Initialize page when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const queryParams = new URLSearchParams(window.location.search);
+            tableCode = queryParams.get('code');
+
+            if (!tableCode) {
+                showErrorWithAnnouncement('No table code provided in URL. Redirecting to home.');
+                setTimeout(() => navigate('/'), 2000);
+                return;
+            }
+            
+            // Display table code in UI
+            document.getElementById('table-code-title').textContent = tableCode;
+            document.getElementById('share-table-code').textContent = tableCode;
+
+            const playerName = localStorage.getItem('playerName');
+            const position = localStorage.getItem('position') || 'south';
+
+            if (!playerName) {
+                showErrorWithAnnouncement('Player information missing. Redirecting to home.');
+                setTimeout(() => navigate('/'), 2000);
+                return;
+            }
+
+            // Set up keyboard listeners
+            setupKeyboardListeners();
+            
+            // FIXED: Connect to server first, then join table
+            connectToServer();
+            
+            // Set up socket event handlers
+            setupSocketEventHandlers();
+            
+            // FIXED: Wait for socket connection before joining table
+            if (socket && socket.connected) {
+                joinTableWithRetry(tableCode, playerName, position);
+            } else {
+                socket.on('connect', () => {
+                    console.log('Socket connected, joining table...');
+                    joinTableWithRetry(tableCode, playerName, position);
+                });
+                
+                socket.on('connect_error', (error) => {
+                    console.error('Socket connection error:', error);
+                    showErrorWithAnnouncement('Failed to connect to server: ' + (error.message || 'Unknown error'));
+                });
+            }
             
             // Enter key for chat message
             elements.chatInput.addEventListener('keypress', function(event) {
