@@ -165,8 +165,9 @@ io.on('connection', (socket) => {
   
 // KORJATTU createTable event handler server.js:ssä (rivi ~765)
 
+
 socket.on('createTable', ({ playerName, position, tableName }) => {
-    console.log(`Creating table for ${playerName} at position ${position}`);
+    console.log(`🎯 Creating table for ${playerName} at position ${position}`);
     
     const tableCode = createTableCode(); 
 
@@ -179,44 +180,48 @@ socket.on('createTable', ({ playerName, position, tableName }) => {
             south: null,
             west: null
         },
-        state: 'waiting', // KORJAUS 2: Lisää state
+        state: 'waiting',
         gameState: null,
         biddingState: null,
-        created: Date.now(), // KORJAUS 3: Käytä Date.now() eikä new Date()
+        created: Date.now(),
         lastActivity: Date.now(),
         creator: socket.id,
         isSoloGame: false
     };
 
+    // Add player to table
     table.players[position] = {
         name: playerName,
-        id: socket.id, // KORJAUS: id eikä socketId
+        id: socket.id,
         type: 'human'
     };
 
-    tables.set(tableCode, table); // Oli: tables[tableCode] = table; - VIRHE!
+    // Store table
+    tables.set(tableCode, table);
+    console.log(`📋 Table ${tableCode} stored. Total tables:`, tables.size);
 
-    // KORJAUS 6: Päivitä player-objekti
+    // Update player object
     const player = players.get(socket.id);
     if (player) {
         player.table = tableCode;
         player.name = playerName;
         player.position = position;
+        console.log(`👤 Player ${socket.id} updated:`, { name: playerName, position });
     }
 
-    // Socket liittyy huoneeseen
+    // Socket joins room
     socket.join(tableCode);
 
-    // Ilmoitetaan pöydän luomisesta
+    // Notify table creation
     socket.emit('tableCreated', { 
         tableCode,
-        table: filterTable(table) // KORJAUS 7: Käytä filterTable()
+        table: filterTable(table)
     });
 
-    console.log(`Table ${tableCode} created successfully`);
-});
+    console.log(`✅ Table ${tableCode} created successfully`);
+});  
 
-  socket.on('joinTable', (data) => {
+socket.on('joinTable', (data) => {
     joinTable(socket, playerId, data);
   });
   
@@ -2030,71 +2035,144 @@ function joinTable(socket, playerId, data) {
  * @param {Object} data - Position selection data
  */
 function selectPosition(socket, playerId, data) {
-  const { tableCode, position, playerName } = data;
-  
-  if (!tableCode || !position || !playerName) {
-    sendError(socket, 'Incomplete information');
-    return;
-  }
-  
-  const table = tables.get(tableCode);
-  if (!table) {
-    sendError(socket, 'Table not found');
-    return;
-  }
-  
-  if (table.players[position]) {
-    sendError(socket, 'Position is already taken');
-    return;
-  }
-  
-  const player = players.get(playerId);
-  
-  // Add player to table
-  table.players[position] = {
-    name: playerName,
-    id: playerId,
-    type: 'human'
-  };
-  
-  // Update player info
-  player.table = tableCode;
-  player.position = position;
-  
-  // Notify all players in the table
-  sendToTablePlayers(table, {
-    type: 'playerJoined',
-    position,
-    playerName,
-    table: filterTable(table)
-  });
-  
-  console.log(`Player ${playerName} joined table ${tableCode} at position ${position}`);
+    const { tableCode, position, playerName } = data;
+    
+    console.log(`🎯 selectPosition: ${playerName} wants ${position} in table ${tableCode}`);
+    
+    if (!tableCode || !position || !playerName) {
+        sendError(socket, 'Incomplete information');
+        return;
+    }
+    
+    const table = tables.get(tableCode);
+    if (!table) {
+        sendError(socket, 'Table not found');
+        return;
+    }
+    
+    // Check if same player is trying to rejoin
+    const existingPlayer = table.players[position];
+    if (existingPlayer) {
+        if (existingPlayer.id === playerId || existingPlayer.name === playerName) {
+            console.log(`🔄 Player ${playerName} already in position ${position}, updating connection`);
+            // Update socket.id if needed
+            table.players[position].id = playerId;
+            
+            const player = players.get(playerId);
+            if (player) {
+                player.table = tableCode;
+                player.position = position;
+                player.name = playerName;
+            }
+            
+            // Join socket to room
+            socket.join(tableCode);
+            
+            // Send current table state
+            socket.emit('tableInfo', {
+                table: filterTable(table),
+                playerPosition: position
+            });
+            
+            return; // Don't send playerJoined message
+        } else {
+            sendError(socket, 'Position is already taken');
+            return;
+        }
+    }
+    
+    const player = players.get(playerId);
+    
+    // Add player to table
+    table.players[position] = {
+        name: playerName,
+        id: playerId,
+        type: 'human'
+    };
+    
+    // Update player info
+    if (player) {
+        player.table = tableCode;
+        player.position = position;
+        player.name = playerName;
+    }
+    
+    // Join socket to room
+    socket.join(tableCode);
+    
+    // Notify all players in table
+    sendToTablePlayers(table, {
+        type: 'playerJoined',
+        position,
+        playerName,
+        table: filterTable(table)
+    });
+    
+    console.log(`✅ Player ${playerName} joined table ${tableCode} at position ${position}`);
 }
 
-/**
- * Get table information
- * @param {Object} socket - Socket.IO socket
- * @param {string} playerId - Player's ID
- * @param {Object} data - Table info request data
- */
 function getTableInfo(socket, playerId, data) {
-  const { tableCode } = data;
-  
-  if (!tableCode) {
-    sendError(socket, 'Table code missing');
-    return;
-  }
-  
-  const table = tables.get(tableCode);
-  if (!table) {
-    sendError(socket, 'Table not found');
-    return;
-  }
-  
-  socket.emit('tableInfo', {
-    table: filterTable(table)
-  });
+    const { tableCode } = data;
+    
+    console.log(`🔍 getTableInfo: tableCode=${tableCode}, playerId=${playerId}`);
+    
+    if (!tableCode) {
+        console.log(`❌ Table code missing`);
+        sendError(socket, 'Table code missing');
+        return;
+    }
+    
+    const table = tables.get(tableCode);
+    if (!table) {
+        console.log(`❌ Table ${tableCode} not found. Available tables:`, Array.from(tables.keys()));
+        sendError(socket, 'Table not found');
+        return;
+    }
+    
+    console.log(`✅ Table ${tableCode} found`);
+    
+    // Check if player is already in table (socket.id might have changed)
+    let playerAlreadyInTable = false;
+    let existingPosition = null;
+    
+    for (const [pos, player] of Object.entries(table.players)) {
+        if (player && player.id === playerId) {
+            playerAlreadyInTable = true;
+            existingPosition = pos;
+            console.log(`🔄 Player ${playerId} already in table at position ${pos}`);
+            break;
+        }
+    }
+    
+    // If not found by socket.id, try to find by name (fallback for socket.id changes)
+    if (!playerAlreadyInTable) {
+        const currentPlayer = players.get(playerId);
+        if (currentPlayer && currentPlayer.name) {
+            for (const [pos, tablePlayer] of Object.entries(table.players)) {
+                if (tablePlayer && 
+                    tablePlayer.name === currentPlayer.name && 
+                    tablePlayer.type === 'human') {
+                    console.log(`🔄 Found player by name: ${currentPlayer.name} at position ${pos}, updating socket.id`);
+                    table.players[pos].id = playerId; // Update socket.id
+                    currentPlayer.table = tableCode;
+                    currentPlayer.position = pos;
+                    playerAlreadyInTable = true;
+                    existingPosition = pos;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Join socket to room
+    socket.join(tableCode);
+    
+    socket.emit('tableInfo', {
+        table: filterTable(table),
+        playerPosition: existingPosition // Tell client which position player has
+    });
+    
+    console.log(`📤 Sent tableInfo for ${tableCode} to ${playerId}`);
 }
 
 /**

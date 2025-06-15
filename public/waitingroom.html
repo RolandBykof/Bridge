@@ -488,62 +488,6 @@
             window.location.href = page;
         }
 
-        // FIXED: Retry logic for joinTable
-        function joinTableWithRetry(tableCode, playerName, position, attempts = 0) {
-            if (attempts >= 3) {
-                showErrorWithAnnouncement('Failed to join table after multiple attempts. Please try again.');
-                return;
-            }
-            
-            console.log(`Attempting to join table ${tableCode} (attempt ${attempts + 1})`);
-            
-            // Request table info first to check table state
-            socket.emit('getTableInfo', { tableCode: tableCode });
-            
-            // Wait for table info response
-            const handleTableInfo = (data) => {
-                console.log('Received table info:', data);
-                
-                if (data && data.table) {
-                    // Check if position is available
-                    if (data.table.players[position]) {
-                        showErrorWithAnnouncement(`Position ${position} is already taken.`);
-                        return;
-                    }
-                    
-                    // Send join request using selectPosition
-                    socket.emit('selectPosition', {
-                        tableCode: tableCode,
-                        position: position,
-                        playerName: playerName
-                    });
-                } else {
-                    console.error('Invalid table info received');
-                    if (attempts < 2) {
-                        setTimeout(() => {
-                            joinTableWithRetry(tableCode, playerName, position, attempts + 1);
-                        }, 2000);
-                    } else {
-                        showErrorWithAnnouncement('Table not found or invalid table code.');
-                    }
-                }
-                
-                // Remove this specific listener
-                socket.off('tableInfo', handleTableInfo);
-            };
-            
-            // Set up one-time listener for table info
-            socket.on('tableInfo', handleTableInfo);
-            
-            // If no response in 3 seconds, retry
-            setTimeout(() => {
-                socket.off('tableInfo', handleTableInfo);
-                if (attempts < 2) {
-                    joinTableWithRetry(tableCode, playerName, position, attempts + 1);
-                }
-            }, 3000);
-        }
-
         // FIXED: Socket event handlers setup
         function setupSocketEventHandlers() {
             socket.on('tableInfo', (data) => {
@@ -552,6 +496,30 @@
                     updateWaitingRoomPositions(data.table);
                     if (data.table.created) {
                         updateTableCreationTime(data.table.created);
+                    }
+                    
+                    // FIXED: Handle playerPosition from server
+                    if (data.playerPosition) {
+                        console.log(`Player is already in table at position: ${data.playerPosition}`);
+                        announceToScreenReader(`You are seated at ${positionName(data.playerPosition)} position.`);
+                    } else {
+                        // Player not in table yet, try to join
+                        const playerName = localStorage.getItem('playerName');
+                        const position = localStorage.getItem('position') || 'south';
+                        
+                        if (playerName && position) {
+                            // Check if position is available
+                            if (!data.table.players[position]) {
+                                console.log(`Position ${position} is available, joining...`);
+                                socket.emit('selectPosition', {
+                                    tableCode: tableCode,
+                                    position: position,
+                                    playerName: playerName
+                                });
+                            } else {
+                                showErrorWithAnnouncement(`Position ${position} is already taken.`);
+                            }
+                        }
                     }
                 }
             });
@@ -589,7 +557,7 @@
             
             socket.on('error', (data) => {
                 console.error('Socket error:', data);
-                const message = data.message || data.error || 'An error occurred';
+                const message = data && data.message ? data.message : 'An error occurred';
                 showErrorWithAnnouncement(message);
             });
 
@@ -635,19 +603,19 @@
             // Set up keyboard listeners
             setupKeyboardListeners();
             
-            // FIXED: Connect to server first, then join table
+            // FIXED: Connect to server first
             connectToServer();
             
             // Set up socket event handlers
             setupSocketEventHandlers();
             
-            // FIXED: Wait for socket connection before joining table
+            // FIXED: Get table info instead of trying to join immediately
             if (socket && socket.connected) {
-                joinTableWithRetry(tableCode, playerName, position);
+                socket.emit('getTableInfo', { tableCode: tableCode });
             } else {
                 socket.on('connect', () => {
-                    console.log('Socket connected, joining table...');
-                    joinTableWithRetry(tableCode, playerName, position);
+                    console.log('Socket connected, getting table info...');
+                    socket.emit('getTableInfo', { tableCode: tableCode });
                 });
                 
                 socket.on('connect_error', (error) => {

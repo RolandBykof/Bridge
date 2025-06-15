@@ -12,6 +12,7 @@ let socketEventListenersSetup = false;
 /**
  * Connect to Socket.io server
  */
+
 function connectToServer() {
     // Jos socket on jo olemassa ja yhdistetty, palauta se
     if (socket && socket.connected && !socket.disconnected) {
@@ -29,7 +30,7 @@ function connectToServer() {
     
     // Luo uusi socket-yhteys
     socket = io({
-        transports: ['websocket', 'polling'], // Websocket ensin, polling fallback
+        transports: ['websocket', 'polling'],
         timeout: 10000,
         reconnection: true,
         reconnectionDelay: 1000,
@@ -66,27 +67,25 @@ function cleanupSocket() {
 function setupBasicSocketListeners() {
     if (!socket) return;
     
-    socket.on('connect', () => {
-        console.log('Socket.IO connected successfully, ID:', socket.id);
-        updateConnectionStatus('connected');
-    });
+socket.on('connect', () => {
+    console.log('Socket.IO connected successfully, ID:', socket.id);
+    updateConnectionStatus('connected');
+});
     
-    socket.on('connect_error', (error) => {
-        console.error('Socket.IO connection error:', error);
-        updateConnectionStatus('connecting');
-        
-        // Yritä polling:ia jos websocket epäonnistuu
-        if (error.message && error.message.includes('websocket')) {
-            console.log('Switching to polling transport...');
-            socket.io.opts.transports = ['polling'];
-        }
-        
-        // Näytä virhe vain jos se ei ole websocket fallback
-        if (!error.message || !error.message.includes('websocket')) {
-            showError('Failed to connect to server. Please try again later.');
-        }
-    });
+socket.on('connect_error', (error) => {
+    console.error('Socket.IO connection error:', error);
+    updateConnectionStatus('connecting');
     
+    if (error.message && error.message.includes('websocket')) {
+        console.log('Switching to polling transport...');
+        socket.io.opts.transports = ['polling'];
+    }
+    
+    if (!error.message || !error.message.includes('websocket')) {
+        showError('Failed to connect to server. Please try again later.');
+    }
+});
+
     socket.on('disconnect', (reason) => {
         console.log('Disconnected from server, reason:', reason);
         updateConnectionStatus('disconnected');
