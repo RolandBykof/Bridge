@@ -1,0 +1,2167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BridgeCircle - Multiplayer</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/multiplayer.css">
+    <meta name="description" content="Bridge multiplayer game with table creation, joining, and gameplay">
+</head>
+<body>
+    <div class="container" id="multiplayer-app">
+        <h1>BridgeCircle - Multiplayer</h1>
+        
+        <!-- ARIA Live area for announcements -->
+        <div id="status-announcer" aria-live="polite" class="sr-only"></div>
+        
+        <!-- Error message container -->
+        <div id="error-area" class="error-message" style="display: none;"></div>
+        
+        <!-- Status message -->
+        <div class="status-bar" id="status-area" role="status">
+            Welcome to BridgeCircle Multiplayer
+        </div>
+        
+        <!-- Action buttons (global) -->
+        <div class="action-buttons">
+            <button onclick="toggleHelp()" id="toggle-help-button" class="button button-secondary" aria-expanded="false">
+                Show Help
+            </button>
+            
+            <button onclick="navigate('/')" class="button button-secondary" id="back-button">
+                Back to Lobby
+            </button>
+            
+            <button onclick="fullscreen()" id="fullscreen-button" class="button button-secondary">
+                Full Screen
+            </button>
+        </div>
+        
+        <!-- Help section (hidden initially) -->
+        <section class="help-section" id="help-section" style="display: none;" role="dialog" aria-labelledby="help-title">
+            <h2 id="help-title">Keyboard Shortcuts</h2>
+            <ul class="help-list" id="help-list">
+                <!-- Will be populated by JavaScript based on current view -->
+            </ul>
+            <button onclick="closeHelp()" id="close-help-button" class="button">
+                Close Help
+            </button>
+        </section>
+
+        <!-- VIEW 1: Start Menu -->
+        <div class="section" id="start-menu-view">
+            <h2>Multiplayer Bridge</h2>
+            <p class="intro-text">Create a new table or join an existing one to play bridge with friends.</p>
+            
+            <div class="game-mode-selection">
+                <div class="game-mode-card featured">
+                    <h3>Create Table</h3>
+                    <p>Start a new bridge table and invite your friends to join using a table code.</p>
+                    <button onclick="showCreateTable()" class="button">Create New Table</button>
+                </div>
+                
+                <div class="game-mode-card">
+                    <h3>Join Table</h3>
+                    <p>Join an existing bridge table using a 4-digit table code shared by a friend.</p>
+                    <button onclick="showJoinTable()" class="button">Join Existing Table</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: Create Table -->
+        <div class="section" id="create-table-view" style="display: none;">
+            <h2>Create New Bridge Table</h2>
+            
+            <form id="create-table-form" action="javascript:void(0);" novalidate>
+                <div class="form-group">
+                    <label for="create-name-input">Your Name:</label>
+                    <input type="text" id="create-name-input" class="form-input" 
+                           placeholder="Enter your name" required 
+                           aria-required="true"
+                           maxlength="50"
+                           autocomplete="username">
+                    <div class="help-text">
+                        Enter the name you want to use in the game (up to 50 characters)
+                    </div>
+                </div>
+                
+                <fieldset class="form-group">
+                    <legend>Select Your Position:</legend>
+                    <div class="position-selector" role="radiogroup" aria-label="Choose your seating position">
+                        <div class="position-row">
+                            <div></div>
+                            <div>
+                                <button type="button" 
+                                        class="position-button" 
+                                        id="create-pos-north"
+                                        role="radio" 
+                                        aria-checked="false"
+                                        onclick="selectCreatePosition('north')"
+                                        aria-describedby="create-north-description">
+                                    <span class="position-name">North</span>
+                                    <span class="position-icon" aria-hidden="true">▲</span>
+                                </button>
+                                <div id="create-north-description" class="sr-only">North position, top of table</div>
+                            </div>
+                            <div></div>
+                        </div>
+                        <div class="position-row">
+                            <div>
+                                <button type="button" 
+                                        class="position-button" 
+                                        id="create-pos-west"
+                                        role="radio" 
+                                        aria-checked="false"
+                                        onclick="selectCreatePosition('west')"
+                                        aria-describedby="create-west-description">
+                                    <span class="position-name">West</span>
+                                    <span class="position-icon" aria-hidden="true">◄</span>
+                                </button>
+                                <div id="create-west-description" class="sr-only">West position, left side of table</div>
+                            </div>
+                            <div class="position-center">
+                                <div class="position-table" aria-hidden="true">
+                                    <span class="table-label">Bridge Table</span>
+                                </div>
+                            </div>
+                            <div>
+                                <button type="button" 
+                                        class="position-button" 
+                                        id="create-pos-east"
+                                        role="radio" 
+                                        aria-checked="false"
+                                        onclick="selectCreatePosition('east')"
+                                        aria-describedby="create-east-description">
+                                    <span class="position-name">East</span>
+                                    <span class="position-icon" aria-hidden="true">►</span>
+                                </button>
+                                <div id="create-east-description" class="sr-only">East position, right side of table</div>
+                            </div>
+                        </div>
+                        <div class="position-row">
+                            <div></div>
+                            <div>
+                                <button type="button" 
+                                        class="position-button" 
+                                        id="create-pos-south"
+                                        role="radio" 
+                                        aria-checked="true"
+                                        onclick="selectCreatePosition('south')"
+                                        aria-describedby="create-south-description">
+                                    <span class="position-name">South</span>
+                                    <span class="position-icon" aria-hidden="true">▼</span>
+                                </button>
+                                <div id="create-south-description" class="sr-only">South position, bottom of table</div>
+                            </div>
+                            <div></div>
+                        </div>
+                    </div>
+                    <div class="position-help">
+                        <p><strong>Selected:</strong> <span id="create-selected-position-name">South</span></p>
+                        <p class="help-text">South is recommended for new players</p>
+                    </div>
+                </fieldset>
+                
+                <div class="form-group">
+                    <label for="table-name-input">Table Name (Optional):</label>
+                    <input type="text" id="table-name-input" class="form-input" 
+                           placeholder="e.g., 'Friday Night Bridge'" 
+                           maxlength="100">
+                    <div class="help-text">
+                        Give your table a friendly name (optional, up to 100 characters)
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button type="submit" onclick="createTable()" class="button" id="create-table-button">
+                        Create Table
+                    </button>
+                    
+                    <button type="button" onclick="showStartMenu()" class="button button-secondary">
+                        Back
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- VIEW 3: Join Table -->
+        <div class="section" id="join-table-view" style="display: none;">
+            <h2>Join Existing Table</h2>
+            
+            <form id="join-table-form" action="javascript:void(0);" novalidate>
+                <div class="form-group">
+                    <label for="join-name-input">Your Name:</label>
+                    <input type="text" id="join-name-input" class="form-input" 
+                           placeholder="Enter your name" required 
+                           aria-required="true"
+                           maxlength="50"
+                           autocomplete="username">
+                    <div class="help-text">
+                        Enter the name you want to use in the game (up to 50 characters)
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="table-code-input">Table Code:</label>
+                    <input type="text" id="table-code-input" class="form-input" 
+                           placeholder="Enter 4-digit code" required 
+                           maxlength="4" pattern="[0-9]{4}"
+                           aria-required="true"
+                           autocomplete="off"
+                           inputmode="numeric">
+                    <div class="help-text">
+                        Enter the 4-digit table code shared by the table creator
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button type="submit" onclick="joinTable()" class="button" id="join-table-button">
+                        Join Table
+                    </button>
+                    
+                    <button type="button" onclick="showStartMenu()" class="button button-secondary">
+                        Back
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- VIEW 4: Position Selection (for joining) -->
+        <div class="section" id="position-selection-view" style="display: none;">
+            <h2>Select Your Position</h2>
+            <div class="table-info">
+                <p>Table Code: <strong id="join-table-code-display" class="table-code-display"></strong></p>
+                <p id="join-table-status">Loading table information...</p>
+            </div>
+            
+            <fieldset class="form-group">
+                <legend>Choose an available position:</legend>
+                <div id="join-available-positions-container" class="player-positions" role="radiogroup" aria-label="Available table positions">
+                    <!-- Positions will be added here with JavaScript -->
+                </div>
+            </fieldset>
+            
+            <div class="action-buttons">
+                <button type="button" onclick="cancelJoin()" class="button button-secondary">
+                    Cancel
+                </button>
+            </div>
+        </div>
+
+        <!-- VIEW 5: Waiting Room -->
+        <div class="section" id="waiting-room-view" style="display: none;">
+            <h2>Table <span id="waiting-table-code-title"></span></h2>
+            
+            <div class="table-info">
+                <p>Share this code with your friends: <strong id="share-table-code" class="table-code-display"></strong></p>
+                <button onclick="copyTableCode()" class="button button-secondary" id="copy-code-button">
+                    Copy Code
+                </button>
+            </div>
+            
+            <div class="player-status">
+                <h3>Players at Table</h3>
+                <div class="player-positions" role="group" aria-label="Player positions">
+                    <div class="position-card" id="waiting-position-north" role="group" aria-labelledby="waiting-north-title">
+                        <h4 id="waiting-north-title">North</h4>
+                        <p class="player-name" aria-live="polite">Waiting...</p>
+                        <span class="player-status-indicator" aria-hidden="true"></span>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-position-east" role="group" aria-labelledby="waiting-east-title">
+                        <h4 id="waiting-east-title">East</h4>
+                        <p class="player-name" aria-live="polite">Waiting...</p>
+                        <span class="player-status-indicator" aria-hidden="true"></span>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-position-south" role="group" aria-labelledby="waiting-south-title">
+                        <h4 id="waiting-south-title">South</h4>
+                        <p class="player-name" aria-live="polite">Waiting...</p>
+                        <span class="player-status-indicator" aria-hidden="true"></span>
+                    </div>
+                    
+                    <div class="position-card" id="waiting-position-west" role="group" aria-labelledby="waiting-west-title">
+                        <h4 id="waiting-west-title">West</h4>
+                        <p class="player-name" aria-live="polite">Waiting...</p>
+                        <span class="player-status-indicator" aria-hidden="true"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-stats">
+                <p>Players joined: <span id="waiting-player-count">0</span>/4</p>
+                <p>Table created: <span id="waiting-table-creation-time">Loading...</span></p>
+            </div>
+
+            <div class="action-buttons">
+                <button onclick="startGameFromWaiting()" id="start-game-button" class="button">
+                    Start Game (GIB for missing players)
+                </button>
+                
+                <button onclick="leaveTableFromWaiting()" class="button button-secondary">
+                    Leave Table
+                </button>
+            </div>
+            
+            <!-- Chat Section -->
+            <div class="chat-section">
+                <h3>Table Chat</h3>
+                <div id="waiting-chat-messages" class="chat-messages" aria-live="polite" aria-label="Chat messages"></div>
+                <div class="chat-input-container">
+                    <label for="waiting-chat-input" class="sr-only">Type a message</label>
+                    <input type="text" id="waiting-chat-input" class="chat-input" 
+                           placeholder="Type a message..." 
+                           aria-describedby="waiting-chat-help">
+                    <button onclick="sendWaitingChatMessage()" class="button" id="waiting-send-chat-button">Send</button>
+                </div>
+                <div id="waiting-chat-help" class="help-text">
+                    Press Enter to send message, Alt+C to focus on chat input
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 6: Game Play -->
+        <div id="game-view" style="display: none;">
+            <div class="section">
+                <h2>Players</h2>
+                <div class="player-controls" id="game-players-area">
+                    <!-- Player information will be added here with JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Bidding area -->
+            <section class="section" id="game-bidding-area" style="display: none;">
+                <h2>Bidding Phase</h2>
+                <div id="game-bidding-history" class="bidding-history">
+                    <h3>Bidding History</h3>
+                    <p>No bids yet.</p>
+                </div>
+                <div id="game-bidding-controls" class="bidding-controls">
+                    <h3>Your Bid</h3>
+                    <p>Waiting for bidding to start...</p>
+                </div>
+            </section>
+            
+            <!-- Game table -->
+            <div class="game-table">
+                <!-- North (top) -->
+                <div class="hand north-hand" id="game-north-hand">
+                    <h3>North</h3>
+                </div>
+                
+                <!-- East (right) -->
+                <div class="hand east-hand" id="game-east-hand">
+                    <h3>East</h3>
+                    <p>Cards: ?</p>
+                </div>
+                
+                <!-- Center area -->
+                <div class="center-area" id="game-center-area">
+                    <p>Wait for game to start...</p>
+                </div>
+                
+                <!-- West (left) -->
+                <div class="hand west-hand" id="game-west-hand">
+                    <h3>West</h3>
+                    <p>Cards: ?</p>
+                </div>
+                
+                <!-- South (bottom - player's hand) -->
+                <div class="hand south-hand" id="game-south-hand">
+                    <h3>Your Hand</h3>
+                </div>
+            </div>
+            
+            <!-- Current trick cards -->
+            <section class="section" id="game-played-cards-area">
+                <h2>Current Trick</h2>
+                <div id="game-played-cards-container">
+                    <p class="text-gray-500">No cards played in current trick yet.</p>
+                </div>
+            </section>
+
+            <!-- Game Actions -->
+            <div class="action-buttons">
+                <button onclick="startNewGameFromGame()" id="game-new-game-button" class="button" style="display: none;">
+                    Start New Game
+                </button>
+                
+                <button onclick="leaveGameFromGame()" class="button button-secondary">
+                    Leave Game
+                </button>
+            </div>
+            
+            <!-- Game Chat Section -->
+            <div class="section">
+                <h3>Game Chat</h3>
+                <div id="game-chat-messages" class="chat-messages" aria-live="polite"></div>
+                <div class="chat-input-container">
+                    <label for="game-chat-input" class="sr-only">Type a message</label>
+                    <input type="text" id="game-chat-input" class="chat-input" 
+                           placeholder="Type a message...">
+                    <button onclick="sendGameChatMessage()" class="button">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JavaScript files -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/bridge.js"></script>
+    <script>
+        // GLOBAL STATE
+        let currentView = 'start-menu';
+        let tableCode = null;
+        let gameState = null;
+        let biddingState = null;
+        let myPosition = null;
+        let myName = null;
+        let selectedCreatePosition = 'south';
+        let selectedJoinPosition = null;
+        let availableJoinPositions = [];
+        let trickClearTimeout = null;
+
+        // UI state for keyboard shortcuts
+        const uiState = {
+            showHelp: false,
+            lastAnnouncement: '',
+            bidLevel: null,
+        };
+
+        // ANNOUNCEMENT SYSTEM (same as playsolo)
+        const announcementQueue = {
+            queue: [],
+            processing: false,
+            currentTimeout: null,
+
+            add(message) {
+                uiState.lastAnnouncement = message;
+                this.queue.push({
+                    message: message,
+                    timestamp: Date.now(),
+                    estimatedDuration: this.estimateDuration(message)
+                });
+
+                if (!this.processing) {
+                    this.processNext();
+                }
+            },
+
+            estimateDuration(message) {
+                const baseRate = 150;
+                const minDuration = 2000;
+                const maxDuration = 4000;
+                let estimated = message.length * baseRate;
+                const punctuationCount = (message.match(/[.!?;,]/g) || []).length;
+                estimated += punctuationCount * 400;
+                return Math.max(minDuration, Math.min(maxDuration, estimated));
+            },
+
+            processNext() {
+                if (this.queue.length === 0) {
+                    this.processing = false;
+                    return;
+                }
+
+                this.processing = true;
+                const announcement = this.queue.shift();
+                document.getElementById('status-announcer').textContent = '';
+
+                setTimeout(() => {
+                    document.getElementById('status-announcer').textContent = announcement.message;
+                    this.currentTimeout = setTimeout(() => {
+                        this.processNext();
+                    }, announcement.estimatedDuration);
+                }, 100);
+            },
+
+            clear() {
+                this.queue = [];
+                if (this.currentTimeout) {
+                    clearTimeout(this.currentTimeout);
+                    this.currentTimeout = null;
+                }
+                document.getElementById('status-announcer').textContent = '';
+                this.processing = false;
+            },
+
+            repeatLast() {
+                if (uiState.lastAnnouncement) {
+                    this.clear();
+                    this.add(uiState.lastAnnouncement);
+                }
+            }
+        };
+
+        function announceToScreenReader(message) {
+            announcementQueue.add(message);
+        }
+
+        function showErrorWithAnnouncement(message) {
+            showError(message);
+            announceToScreenReader(message);
+        }
+
+        // VIEW MANAGEMENT
+        function showView(viewName) {
+            // Hide all views
+            const views = ['start-menu-view', 'create-table-view', 'join-table-view', 
+                          'position-selection-view', 'waiting-room-view', 'game-view'];
+            
+            views.forEach(view => {
+                const element = document.getElementById(view);
+                if (element) {
+                    element.style.display = 'none';
+                }
+            });
+            
+            // Show requested view
+            const viewElement = document.getElementById(viewName);
+            if (viewElement) {
+                viewElement.style.display = 'block';
+                currentView = viewName.replace('-view', '');
+                updateHelpContent();
+                updateStatus();
+            }
+        }
+
+        function showStartMenu() {
+            showView('start-menu-view');
+            document.getElementById('back-button').textContent = 'Back to Lobby';
+        }
+
+        function showCreateTable() {
+            showView('create-table-view');
+            document.getElementById('back-button').textContent = 'Back';
+            
+            // Load saved name
+            const savedName = localStorage.getItem('playerName');
+            if (savedName) {
+                document.getElementById('create-name-input').value = savedName;
+            }
+            
+            // Reset position selection
+            selectCreatePosition('south');
+            
+            // Focus on name input
+            setTimeout(() => {
+                document.getElementById('create-name-input').focus();
+            }, 100);
+        }
+
+        function showJoinTable() {
+            showView('join-table-view');
+            document.getElementById('back-button').textContent = 'Back';
+            
+            // Load saved name
+            const savedName = localStorage.getItem('playerName');
+            if (savedName) {
+                document.getElementById('join-name-input').value = savedName;
+            }
+            
+            // Check for table code in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('code')) {
+                document.getElementById('table-code-input').value = urlParams.get('code');
+            }
+            
+            // Focus on appropriate input
+            setTimeout(() => {
+                if (document.getElementById('join-name-input').value) {
+                    document.getElementById('table-code-input').focus();
+                } else {
+                    document.getElementById('join-name-input').focus();
+                }
+            }, 100);
+        }
+
+        function showWaitingRoom() {
+            showView('waiting-room-view');
+            document.getElementById('back-button').textContent = 'Leave Table';
+            document.getElementById('waiting-table-code-title').textContent = tableCode;
+            document.getElementById('share-table-code').textContent = tableCode;
+        }
+
+        function showGameView() {
+            showView('game-view');
+            document.getElementById('back-button').textContent = 'Leave Game';
+        }
+
+        function updateStatus() {
+            const statusArea = document.getElementById('status-area');
+            
+            switch(currentView) {
+                case 'start-menu':
+                    statusArea.textContent = 'Welcome to BridgeCircle Multiplayer';
+                    break;
+                case 'create-table':
+                    statusArea.textContent = 'Create a new bridge table';
+                    break;
+                case 'join-table':
+                    statusArea.textContent = 'Join an existing bridge table';
+                    break;
+                case 'position-selection':
+                    statusArea.textContent = 'Select your position at the table';
+                    break;
+                case 'waiting-room':
+                    statusArea.textContent = 'Waiting for players to join...';
+                    break;
+                case 'game':
+                    if (gameState) {
+                        if (gameState.gamePhase === 'bidding') {
+                            statusArea.textContent = 'Bidding phase';
+                        } else if (gameState.gamePhase === 'play') {
+                            let statusText = `Playing: ${formatContract(gameState.contract)}`;
+                            if (gameState.declarer === myPosition) {
+                                statusText += ' (You are declarer)';
+                            }
+                            statusArea.textContent = statusText;
+                        } else {
+                            statusArea.textContent = 'BridgeCircle Multiplayer Game';
+                        }
+                    } else {
+                        statusArea.textContent = 'BridgeCircle Multiplayer Game';
+                    }
+                    break;
+                default:
+                    statusArea.textContent = 'BridgeCircle Multiplayer';
+            }
+        }
+
+        // CREATE TABLE FUNCTIONALITY
+        function selectCreatePosition(position) {
+            // Remove previous selection
+            const positions = ['north', 'east', 'south', 'west'];
+            positions.forEach(pos => {
+                const elem = document.getElementById(`create-pos-${pos}`);
+                if (elem) {
+                    elem.classList.remove('selected');
+                    elem.setAttribute('aria-checked', 'false');
+                }
+            });
+            
+            // Add selection
+            const selectedElement = document.getElementById(`create-pos-${position}`);
+            if (selectedElement) {
+                selectedElement.classList.add('selected');
+                selectedElement.setAttribute('aria-checked', 'true');
+                selectedCreatePosition = position;
+                
+                document.getElementById('create-selected-position-name').textContent = positionName(position);
+                announceToScreenReader(`Selected position: ${positionName(position)}`);
+            }
+        }
+
+        function validateCreateForm() {
+            const name = document.getElementById('create-name-input').value.trim();
+            const errors = [];
+            
+            if (!name) {
+                errors.push('Name is required');
+            } else if (name.length < 2) {
+                errors.push('Name must be at least 2 characters long');
+            } else if (name.length > 50) {
+                errors.push('Name must be 50 characters or less');
+            }
+            
+            return {
+                isValid: errors.length === 0,
+                errors: errors
+            };
+        }
+
+        function createTable() {
+            const validation = validateCreateForm();
+            
+            if (!validation.isValid) {
+                const errorMessage = 'Form validation failed: ' + validation.errors.join(', ');
+                showErrorWithAnnouncement(errorMessage);
+                document.getElementById('create-name-input').focus();
+                return;
+            }
+            
+            const name = document.getElementById('create-name-input').value.trim();
+            const tableName = document.getElementById('table-name-input').value.trim();
+            const position = selectedCreatePosition;
+            
+            // Save for later use
+            localStorage.setItem('playerName', name);
+            localStorage.setItem('position', position);
+            myName = name;
+            myPosition = position;
+            
+            // Show progress
+            document.getElementById('create-table-button').disabled = true;
+            document.getElementById('create-table-button').textContent = 'Creating...';
+            
+            announceToScreenReader('Creating table, please wait...');
+            
+            // Send to server
+            socket.emit('createTable', {
+                playerName: name,
+                position: position,
+                tableName: tableName || null
+            });
+        }
+
+        // JOIN TABLE FUNCTIONALITY
+        function validateJoinForm() {
+            const name = document.getElementById('join-name-input').value.trim();
+            const tableCode = document.getElementById('table-code-input').value.trim();
+            const errors = [];
+            
+            if (!name) {
+                errors.push('Name is required');
+            } else if (name.length < 2) {
+                errors.push('Name must be at least 2 characters long');
+            } else if (name.length > 50) {
+                errors.push('Name must be 50 characters or less');
+            }
+            
+            if (!tableCode) {
+                errors.push('Table code is required');
+            } else if (!/^\d{4}$/.test(tableCode)) {
+                errors.push('Table code must be exactly 4 digits');
+            }
+            
+            return {
+                isValid: errors.length === 0,
+                errors: errors
+            };
+        }
+
+        function joinTable() {
+            const validation = validateJoinForm();
+            
+            if (!validation.isValid) {
+                const errorMessage = 'Form validation failed: ' + validation.errors.join(', ');
+                showErrorWithAnnouncement(errorMessage);
+                
+                if (validation.errors.some(e => e.includes('Name'))) {
+                    document.getElementById('join-name-input').focus();
+                } else {
+                    document.getElementById('table-code-input').focus();
+                }
+                return;
+            }
+            
+            const name = document.getElementById('join-name-input').value.trim();
+            const code = document.getElementById('table-code-input').value.trim();
+            
+            // Save for later use
+            localStorage.setItem('playerName', name);
+            myName = name;
+            
+            // Show progress
+            document.getElementById('join-table-button').disabled = true;
+            document.getElementById('join-table-button').textContent = 'Joining...';
+            
+            announceToScreenReader('Joining table, please wait...');
+            
+            // Send to server
+            socket.emit('joinTable', {
+                playerName: name,
+                tableCode: code
+            });
+        }
+
+        function showPositionSelection(code, positions, tableInfo) {
+            tableCode = code;
+            availableJoinPositions = positions;
+            
+            showView('position-selection-view');
+            
+            document.getElementById('join-table-code-display').textContent = code;
+            
+            const playerCount = Object.values(tableInfo.players || {}).filter(p => p !== null).length;
+            document.getElementById('join-table-status').textContent = 
+                `Table has ${playerCount}/4 players. Choose your position:`;
+            
+            // Clear previous positions
+            const container = document.getElementById('join-available-positions-container');
+            container.innerHTML = '';
+            
+            // Create position selections
+            positions.forEach((position, index) => {
+                const div = document.createElement('div');
+                div.className = 'position-info';
+                div.innerHTML = `
+                    <h4>${positionName(position)}</h4>
+                    <p>Available</p>
+                    <button type="button" 
+                            class="select-position-button" 
+                            data-position="${position}"
+                            role="radio"
+                            aria-checked="false"
+                            onclick="selectJoinPosition('${position}')"
+                            aria-describedby="${position}-join-desc">
+                        Select ${positionName(position)}
+                    </button>
+                    <div id="${position}-join-desc" class="sr-only">
+                        ${positionName(position)} position is available for selection
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            
+            announceToScreenReader(`Table ${code} found with ${positions.length} available positions: ${positions.map(positionName).join(', ')}.`);
+            
+            // Focus on first position
+            setTimeout(() => {
+                const firstButton = container.querySelector('.select-position-button');
+                if (firstButton) {
+                    firstButton.focus();
+                }
+            }, 100);
+        }
+
+        function selectJoinPosition(position) {
+            if (!availableJoinPositions.includes(position)) {
+                announceToScreenReader(`Position ${positionName(position)} is not available.`);
+                return;
+            }
+            
+            selectedJoinPosition = position;
+            myPosition = position;
+            
+            announceToScreenReader(`Joining table as ${positionName(position)}...`);
+            
+            // Send position selection to server
+            socket.emit('selectPosition', {
+                tableCode: tableCode,
+                position: position,
+                playerName: myName
+            });
+        }
+
+        function cancelJoin() {
+            showJoinTable();
+            
+            // Reset join UI
+            document.getElementById('join-table-button').disabled = false;
+            document.getElementById('join-table-button').textContent = 'Join Table';
+            
+            announceToScreenReader('Join cancelled. Returned to join form.');
+        }
+
+        // WAITING ROOM FUNCTIONALITY
+        function updateWaitingRoomPositions(table) {
+            const positions = ['north', 'east', 'south', 'west'];
+            let playerCount = 0;
+            
+            for (const position of positions) {
+                const element = document.getElementById(`waiting-position-${position}`);
+                const player = table.players[position];
+                const nameElement = element.querySelector('.player-name');
+                const statusIndicator = element.querySelector('.player-status-indicator');
+                
+                if (player) {
+                    playerCount++;
+                    element.classList.add('occupied');
+                    statusIndicator.className = 'player-status-indicator occupied';
+                    
+                    // Check if this is the current player
+                    if (player.name === myName || position === myPosition) {
+                        element.classList.add('you');
+                        statusIndicator.className = 'player-status-indicator you';
+                        nameElement.textContent = `${player.name} (You)`;
+                    } else {
+                        element.classList.remove('you');
+                        nameElement.textContent = player.name;
+                    }
+                } else {
+                    element.classList.remove('occupied', 'you');
+                    statusIndicator.className = 'player-status-indicator';
+                    nameElement.textContent = 'Waiting...';
+                }
+            }
+            
+            // Update player count
+            document.getElementById('waiting-player-count').textContent = playerCount;
+            
+            // Update status
+            if (playerCount === 4) {
+                announceToScreenReader('All players have joined. Ready to start the game.');
+            }
+            
+            // Enable/disable start button
+            document.getElementById('start-game-button').disabled = playerCount === 0;
+        }
+
+        function copyTableCode() {
+            const code = document.getElementById('share-table-code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                announceToScreenReader(`Table code ${code} copied to clipboard.`);
+                
+                const button = document.getElementById('copy-code-button');
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.disabled = true;
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }, 2000);
+            }).catch(() => {
+                announceToScreenReader('Could not copy table code to clipboard.');
+            });
+        }
+
+        function startGameFromWaiting() {
+            if (!tableCode) {
+                showErrorWithAnnouncement('No table code available.');
+                return;
+            }
+            
+            socket.emit('startGame', {
+                tableCode: tableCode
+            });
+            
+            announceToScreenReader('Starting game...');
+        }
+
+        function leaveTableFromWaiting() {
+            if (confirm('Are you sure you want to leave the table?')) {
+                socket.emit('leaveTable');
+                announceToScreenReader('Leaving table...');
+                showStartMenu();
+                resetState();
+            }
+        }
+
+        function sendWaitingChatMessage() {
+            const input = document.getElementById('waiting-chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            if (!tableCode) {
+                showErrorWithAnnouncement('No table code available.');
+                return;
+            }
+            
+            socket.emit('sendChatMessage', {
+                tableCode: tableCode,
+                message: message
+            });
+            
+            input.value = '';
+            announceToScreenReader('Message sent.');
+        }
+
+        function addWaitingChatMessage(sender, position, message) {
+            const chatArea = document.getElementById('waiting-chat-messages');
+            if (!chatArea) return;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message';
+            
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageElement.innerHTML = `
+                <span class="chat-sender">${sender} (${positionName(position)}):</span>
+                <span class="chat-time">[${timestamp}]</span>
+                <div class="chat-text">${message}</div>
+            `;
+            
+            chatArea.appendChild(messageElement);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function addWaitingSystemMessage(message) {
+            const chatArea = document.getElementById('waiting-chat-messages');
+            if (!chatArea) return;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message system-message';
+            
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageElement.innerHTML = `
+                <span class="chat-time">[${timestamp}]</span>
+                <div class="chat-text">${message}</div>
+            `;
+            
+            chatArea.appendChild(messageElement);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            
+            announceToScreenReader(message);
+        }
+
+        // GAME FUNCTIONALITY (adapted from playsolo)
+        function attemptToPlayCard(suit, card, fromPosition) {
+            console.log('Attempting to play card:', { suit, card, fromPosition, gameState });
+            
+            if (!tableCode) {
+                showErrorWithAnnouncement('No game in progress.');
+                return;
+            }
+            
+            if (!gameState) {
+                showErrorWithAnnouncement('Game state not available.');
+                return;
+            }
+            
+            if (gameState.gamePhase !== 'play') {
+                showErrorWithAnnouncement('Game is not in play phase.');
+                return;
+            }
+            
+            const actualPosition = fromPosition || myPosition;
+            const currentPlayer = gameState.currentPlayer;
+            
+            // Check if we can control this position
+            let isValidTurn = false;
+            
+            if (currentPlayer === myPosition && actualPosition === myPosition) {
+                isValidTurn = true;
+                console.log('Valid: Playing from our own position');
+            } else if (currentPlayer === gameState.dummy && actualPosition === gameState.dummy) {
+                // Check if we can control dummy
+                if (gameState.declarer === myPosition) {
+                    isValidTurn = true;
+                    console.log('Valid: Playing from dummy as declarer');
+                } else {
+                    console.log('Invalid: Cannot control dummy - not declarer');
+                }
+            } else {
+                console.log('Invalid: Wrong turn or position');
+            }
+            
+            if (!isValidTurn) {
+                const currentPlayerName = positionName(currentPlayer);
+                showErrorWithAnnouncement(`It's ${currentPlayerName}'s turn to play, not yours.`);
+                return;
+            }
+            
+            // Check if we have the card
+            const hand = gameState.hands[actualPosition];
+            if (!hand || !hand[suit] || !hand[suit].includes(card)) {
+                showErrorWithAnnouncement(`You don't have the ${getSuitName(suit)} ${card}.`);
+                return;
+            }
+            
+            // Check suit following rules
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    showErrorWithAnnouncement(`You must follow suit and play a ${getSuitName(leadSuit)}.`);
+                    return;
+                }
+            }
+            
+            console.log('All validations passed, playing card');
+            sendCardToServer(suit, card, actualPosition);
+        }
+        
+        function sendCardToServer(suit, card, position) {
+            socket.emit('playCard', {
+                tableCode: tableCode,
+                position: position,
+                suit: suit,
+                card: card
+            });
+        }
+
+        function renderAllHands() {
+            if (!gameState || !gameState.hands) return;
+            
+            for (const position of ['north', 'south', 'east', 'west']) {
+                if (gameState.hands[position]) {
+                    renderHand(position, gameState.hands[position]);
+                }
+            }
+        }
+        
+        function renderHand(position, hand) {
+            const element = position === 'north' ? document.getElementById('game-north-hand') :
+                           position === 'south' ? document.getElementById('game-south-hand') :
+                           position === 'east' ? document.getElementById('game-east-hand') :
+                           document.getElementById('game-west-hand');
+            
+            if (!element || !hand) return;
+            
+            let positionType = '';
+            let title = '';
+            
+            if (position === myPosition) {
+                title = `Your Hand (${positionName(position)})`;
+                positionType = '';
+            } else {
+                title = positionName(position);
+                if (gameState && position === gameState.dummy && gameState.declarer === myPosition) {
+                    positionType = ' (Dummy - You control)';
+                } else if (gameState && gameState.players && gameState.players[position] && gameState.players[position].type === 'gib') {
+                    positionType = ' (GIB)';
+                } else {
+                    positionType = ' (Human)';
+                }
+            }
+            
+            let html = `<h3>${title}${positionType}</h3>`;
+            
+            // Check if we can view cards
+            const canViewCards = canViewHandCards(position);
+            
+            if (!canViewCards) {
+                html += `<p>Cards will be visible when play begins, if you are declarer or dummy.</p>`;
+                element.innerHTML = html;
+                return;
+            }
+            
+            const canPlayFromThisPosition = canPlayFromPosition(position);
+            const isPlayPhase = gameState && gameState.gamePhase === 'play';
+            
+            Object.entries(hand).forEach(([suit, cards]) => {
+                const suitClass = `suit-${suit}`;
+                
+                html += `
+                    <div class="suit-row">
+                        <div class="suit-label ${suitClass}">
+                            ${getSuitSymbol(suit)} ${getSuitName(suit)}
+                        </div>
+                        <div class="cards-buttons">
+                `;
+                
+                if (cards.length > 0) {
+                    cards.forEach(card => {
+                        const cardClass = `card-${suit}`;
+                        
+                        if (isPlayPhase && canPlayFromThisPosition) {
+                            html += `
+                                <button 
+                                    class="card-button ${cardClass}"
+                                    data-suit="${suit}"
+                                    data-card="${card}"
+                                    onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
+                                    aria-label="Play ${getSuitName(suit)} ${card}"
+                                >
+                                    ${card}
+                                </button>
+                            `;
+                        } else {
+                            html += `
+                                <span class="card-display ${cardClass}" aria-label="${getSuitName(suit)} ${card}">
+                                    ${card}
+                                </span>
+                            `;
+                        }
+                    });
+                } else {
+                    html += `<span class="text-gray-400">(empty)</span>`;
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            element.innerHTML = html;
+        }
+
+        function canViewHandCards(position) {
+            if (position === myPosition) return true; // Our own hand
+            
+            // Dummy is visible if play phase and position is dummy
+            if (gameState && 
+                gameState.gamePhase === 'play' && 
+                gameState.dummy === position) {
+                return true;
+            }
+            
+            return false;
+        }
+
+        function canPlayFromPosition(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return false;
+            
+            // Can play from our own position
+            if (position === myPosition) return true;
+            
+            // Can play from dummy if we're declarer and position is dummy
+            if (position === gameState.dummy && gameState.declarer === myPosition) {
+                return true;
+            }
+            
+            return false;
+        }
+
+        function updateGameUI() {
+            if (!gameState) return;
+            
+            const playersArea = document.getElementById('game-players-area');
+            if (playersArea) {
+                let html = '';
+                
+                const positions = ['north', 'east', 'south', 'west'];
+                for (const position of positions) {
+                    const isCurrentPlayer = gameState.currentPlayer === position;
+                    const player = gameState.players[position];
+                    const playerName = player ? player.name : positionName(position);
+                    let playerType = player ? player.type : 'human';
+                    
+                    if (position === gameState.dummy && gameState.declarer === myPosition) {
+                        playerType = 'Dummy (You control)';
+                    } else if (playerType === 'gib') {
+                        playerType = 'GIB';
+                    } else {
+                        playerType = 'Human';
+                    }
+                    
+                    const isOurPosition = position === myPosition;
+                    
+                    html += `
+                        <div class="player-badge ${isCurrentPlayer ? 'current' : ''} ${isOurPosition ? 'our-position' : ''}">
+                            <div>${positionName(position)}</div>
+                            <div>${playerName}</div>
+                            <div>${playerType}</div>
+                        </div>
+                    `;
+                }
+                
+                playersArea.innerHTML = html;
+            }
+            
+            updateStatus();
+        }
+
+        function makeBid(bid) {
+            if (!tableCode) return;
+            
+            socket.emit('makeBid', {
+                tableCode: tableCode,
+                position: myPosition,
+                bid: bid
+            });
+        }
+
+        function renderBiddingUI() {
+            const biddingArea = document.getElementById('game-bidding-area');
+            if (biddingArea) {
+                biddingArea.style.display = 'block';
+            }
+            
+            renderBiddingHistory();
+            
+            if (biddingState && biddingState.currentBidder === myPosition) {
+                renderBiddingControls();
+            } else {
+                const biddingControls = document.getElementById('game-bidding-controls');
+                if (biddingControls) {
+                    biddingControls.innerHTML = `
+                        <h3>Your Bid</h3>
+                        <p>Waiting for ${positionName(biddingState ? biddingState.currentBidder : 'unknown')} to bid...</p>
+                    `;
+                }
+            }
+        }
+
+        function renderBiddingHistory() {
+            const biddingHistory = document.getElementById('game-bidding-history');
+            if (!biddingHistory) return;
+            
+            let html = '<h3>Bidding History</h3>';
+            
+            if (!biddingState || !biddingState.bidHistory || biddingState.bidHistory.length === 0) {
+                html += '<p>No bids yet.</p>';
+            } else {
+                html += `
+                    <table class="bidding-table">
+                        <thead>
+                            <tr>
+                                <th>West</th>
+                                <th>North</th>
+                                <th>East</th>
+                                <th>South</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                const rounds = [];
+                let currentRound = [];
+                let dealerIndex = ['west', 'north', 'east', 'south'].indexOf(biddingState.dealer || 'south');
+                
+                for (let i = 0; i < dealerIndex; i++) {
+                    currentRound.push(null);
+                }
+                
+                for (const bid of biddingState.bidHistory) {
+                    currentRound.push(bid);
+                    
+                    if (currentRound.length === 4) {
+                        rounds.push([...currentRound]);
+                        currentRound = [];
+                    }
+                }
+                
+                if (currentRound.length > 0) {
+                    rounds.push([...currentRound]);
+                }
+                
+                for (const round of rounds) {
+                    html += '<tr>';
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const bid = round[i];
+                        
+                        if (!bid) {
+                            html += '<td></td>';
+                        } else {
+                            const bidText = formatBidForDisplay(bid.bid);
+                            html += `<td>${bidText}</td>`;
+                        }
+                    }
+                    
+                    html += '</tr>';
+                }
+                
+                html += '</tbody></table>';
+            }
+            
+            biddingHistory.innerHTML = html;
+        }
+
+        function renderBiddingControls() {
+            const biddingControls = document.getElementById('game-bidding-controls');
+            if (!biddingControls) return;
+            
+            const possibleBids = getPossibleBids(biddingState ? biddingState.highestBid : null);
+            
+            let html = '<h3>Your Bid</h3>';
+            html += '<div class="bidding-buttons">';
+            
+            for (const specialBid of ['P', 'X', 'XX']) {
+                if (possibleBids.includes(specialBid)) {
+                    const bidText = specialBid === 'P' ? 'Pass' : 
+                                  specialBid === 'X' ? 'Double (X)' : 'Redouble (XX)';
+                    
+                    html += `
+                        <button class="bid-button" onclick="makeBid('${specialBid}')">
+                            ${bidText}
+                        </button>
+                    `;
+                }
+            }
+            
+            const contractBids = possibleBids.filter(bid => !['P', 'X', 'XX'].includes(bid));
+            const bidsByLevel = {};
+            
+            for (const bid of contractBids) {
+                const level = bid.charAt(0);
+                if (!bidsByLevel[level]) bidsByLevel[level] = [];
+                bidsByLevel[level].push(bid);
+            }
+            
+            for (const level in bidsByLevel) {
+                html += `<div class="bid-level-group">`;
+                
+                for (const bid of bidsByLevel[level]) {
+                    const suit = bid.charAt(1);
+                    let suitSymbol, suitClass;
+                    
+                    switch(suit) {
+                        case 'C': 
+                            suitSymbol = '♣'; 
+                            suitClass = 'bid-clubs';
+                            break;
+                        case 'D': 
+                            suitSymbol = '♦'; 
+                            suitClass = 'bid-diamonds';
+                            break;
+                        case 'H': 
+                            suitSymbol = '♥'; 
+                            suitClass = 'bid-hearts';
+                            break;
+                        case 'S': 
+                            suitSymbol = '♠'; 
+                            suitClass = 'bid-spades';
+                            break;
+                        case 'N': 
+                            suitSymbol = 'NT'; 
+                            suitClass = 'bid-notrump';
+                            break;
+                        default: 
+                            suitSymbol = suit;
+                            suitClass = '';
+                    }
+                    
+                    html += `
+                        <button class="bid-button ${suitClass}" onclick="makeBid('${bid}')">
+                            ${level}${suitSymbol}
+                        </button>
+                    `;
+                }
+                
+                html += `</div>`;
+            }
+            
+            html += '</div>';
+            html += '<div class="bid-meanings">';
+            html += `<p><strong>System:</strong> Natural</p>`;
+            html += '</div>';
+            
+            biddingControls.innerHTML = html;
+        }
+
+        function getPossibleBids(highestBid) {
+            const possibleBids = ['P'];
+            
+            if (highestBid) {
+                possibleBids.push('X');
+            }
+            
+            const levels = ['1', '2', '3', '4', '5', '6', '7'];
+            const suits = ['C', 'D', 'H', 'S', 'N'];
+            
+            if (!highestBid) {
+                for (const level of levels) {
+                    for (const suit of suits) {
+                        possibleBids.push(`${level}${suit}`);
+                    }
+                }
+            } else {
+                const highestLevel = parseInt(highestBid.charAt(0));
+                const highestSuit = highestBid.charAt(1);
+                const highestSuitIndex = suits.indexOf(highestSuit);
+                
+                for (let level = highestLevel; level <= 7; level++) {
+                    for (let suitIndex = 0; suitIndex < suits.length; suitIndex++) {
+                        if (level === highestLevel && suitIndex <= highestSuitIndex) continue;
+                        possibleBids.push(`${level}${suits[suitIndex]}`);
+                    }
+                }
+            }
+            
+            return possibleBids;
+        }
+
+        function formatBidForDisplay(bid) {
+            if (bid === 'P') return 'Pass';
+            if (bid === 'X') return 'X (Double)';
+            if (bid === 'XX') return 'XX (Redouble)';
+            
+            const level = bid.charAt(0);
+            const suit = bid.charAt(1);
+            let suitSymbol;
+            
+            switch(suit) {
+                case 'C': suitSymbol = '♣'; break;
+                case 'D': suitSymbol = '♦'; break;
+                case 'H': suitSymbol = '♥'; break;
+                case 'S': suitSymbol = '♠'; break;
+                case 'N': suitSymbol = 'NT'; break;
+                default: suitSymbol = suit;
+            }
+            
+            return `${level}${suitSymbol}`;
+        }
+
+        function formatContract(contract) {
+            if (!contract) return "No contract";
+            
+            const level = contract.charAt(0);
+            const suit = contract.charAt(1);
+            let suitSymbol;
+            
+            switch(suit) {
+                case 'C': suitSymbol = '♣'; break;
+                case 'D': suitSymbol = '♦'; break;
+                case 'H': suitSymbol = '♥'; break;
+                case 'S': suitSymbol = '♠'; break;
+                case 'N': suitSymbol = 'NT'; break;
+                default: suitSymbol = suit;
+            }
+            
+            let result = `${level}${suitSymbol}`;
+            
+            if (contract.includes('XX')) {
+                result += ' XX';
+            } else if (contract.includes('X')) {
+                result += ' X';
+            }
+            
+            return result;
+        }
+
+        function updatePlayedCardsContainer() {
+            const container = document.getElementById('game-played-cards-container');
+            if (!container) return;
+            
+            if (!gameState || !gameState.currentTrick || gameState.currentTrick.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No cards played in current trick yet.</p>';
+                return;
+            }
+            
+            let html = '<div class="current-trick-display">';
+            html += '<h3>Current Trick</h3>';
+            html += '<div class="trick-cards">';
+            
+            for (const card of gameState.currentTrick) {
+                const suitColor = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'red-card' : 'black-card';
+                html += `
+                    <div class="played-card-item ${suitColor}">
+                        <span class="player-name">${positionName(card.player)}:</span>
+                        <span class="card-display">${getSuitSymbol(card.suit)}${card.card}</span>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            
+            const cardsRemaining = 4 - gameState.currentTrick.length;
+            if (cardsRemaining > 0) {
+                html += `<p class="trick-status">${cardsRemaining} more card${cardsRemaining > 1 ? 's' : ''} needed to complete trick.</p>`;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function resetPlayedCardsContainer() {
+            const container = document.getElementById('game-played-cards-container');
+            if (container) {
+                container.innerHTML = '<p class="text-gray-500">No cards played in current trick yet.</p>';
+            }
+        }
+
+        function sendGameChatMessage() {
+            const input = document.getElementById('game-chat-input');
+            const message = input.value.trim();
+            if (!message || !tableCode) return;
+            
+            socket.emit('sendChatMessage', {
+                tableCode: tableCode,
+                message: message
+            });
+            
+            input.value = '';
+            announceToScreenReader('Message sent.');
+        }
+        
+        function addGameChatMessage(sender, position, message) {
+            const chatArea = document.getElementById('game-chat-messages');
+            if (!chatArea) return;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message';
+            
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageElement.innerHTML = `
+                <span class="chat-sender">${sender} (${positionName(position)}):</span>
+                <span class="chat-time">[${timestamp}]</span>
+                <div class="chat-text">${message}</div>
+            `;
+            
+            chatArea.appendChild(messageElement);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function startNewGameFromGame() {
+            if (!tableCode) return;
+            
+            socket.emit('startNewGame', { tableCode: tableCode });
+            announceToScreenReader('Starting new game...');
+        }
+
+        function leaveGameFromGame() {
+            if(confirm('Are you sure you want to leave the game? You will be replaced by GIB AI.')) {
+                socket.emit('leaveGame');
+                showStartMenu();
+                resetState();
+            }
+        }
+
+        // UTILITY FUNCTIONS
+        function positionName(position) {
+            switch(position) {
+                case 'north': return 'North';
+                case 'east': return 'East';
+                case 'south': return 'South';
+                case 'west': return 'West';
+                default: return position || 'Unknown';
+            }
+        }
+
+        function getSuitName(suit) {
+            const names = {
+                spades: 'Spades',
+                hearts: 'Hearts',
+                diamonds: 'Diamonds',
+                clubs: 'Clubs'
+            };
+            return names[suit] || suit;
+        }
+
+        function getSuitSymbol(suit) {
+            const symbols = { 
+                spades: '♠', 
+                hearts: '♥', 
+                diamonds: '♦', 
+                clubs: '♣' 
+            };
+            return symbols[suit] || suit;
+        }
+
+        function resetState() {
+            tableCode = null;
+            gameState = null;
+            biddingState = null;
+            myPosition = null;
+            myName = null;
+            selectedCreatePosition = 'south';
+            selectedJoinPosition = null;
+            availableJoinPositions = [];
+            
+            // Clear inputs
+            document.getElementById('create-name-input').value = '';
+            document.getElementById('table-name-input').value = '';
+            document.getElementById('join-name-input').value = '';
+            document.getElementById('table-code-input').value = '';
+            
+            // Reset buttons
+            document.getElementById('create-table-button').disabled = false;
+            document.getElementById('create-table-button').textContent = 'Create Table';
+            document.getElementById('join-table-button').disabled = false;
+            document.getElementById('join-table-button').textContent = 'Join Table';
+        }
+
+        // HELP AND UI FUNCTIONS
+        function updateHelpContent() {
+            const helpList = document.getElementById('help-list');
+            helpList.innerHTML = '';
+            
+            const baseShortcuts = [
+                { key: 'Alt + H', desc: 'Show/hide this help' },
+                { key: 'Alt + F', desc: 'Toggle fullscreen' },
+                { key: 'Alt + I', desc: 'Repeat last announcement' },
+                { key: 'Escape', desc: 'Close help dialog' }
+            ];
+            
+            let shortcuts = [...baseShortcuts];
+            
+            switch(currentView) {
+                case 'create-table':
+                    shortcuts.push(
+                        { key: 'Alt + C', desc: 'Create table (if form is valid)' },
+                        { key: 'Alt + B', desc: 'Back to start menu' },
+                        { key: 'Arrow Keys', desc: 'Navigate position selection' }
+                    );
+                    break;
+                case 'join-table':
+                    shortcuts.push(
+                        { key: 'Alt + J', desc: 'Join table (if form is valid)' },
+                        { key: 'Alt + B', desc: 'Back to start menu' }
+                    );
+                    break;
+                case 'waiting-room':
+                    shortcuts.push(
+                        { key: 'Alt + S', desc: 'Start game (if allowed)' },
+                        { key: 'Alt + L', desc: 'Leave table' },
+                        { key: 'Alt + C', desc: 'Focus on chat input' }
+                    );
+                    break;
+                case 'game':
+                    shortcuts.push(
+                        { key: 'Alt + A', desc: 'Read your spades' },
+                        { key: 'Alt + S', desc: 'Read your hearts' },
+                        { key: 'Alt + D', desc: 'Read your diamonds' },
+                        { key: 'Alt + F', desc: 'Read your clubs' },
+                        { key: 'Alt + G', desc: 'Read all your cards' },
+                        { key: 'Alt + Z', desc: 'Read current trick' },
+                        { key: 'Alt + X', desc: 'Read game state' },
+                        { key: 'Alt + C', desc: 'Announce current player' },
+                        { key: 'Alt + O', desc: 'Announce score' },
+                        { key: 'Alt + M', desc: 'Leave game' }
+                    );
+                    break;
+            }
+            
+            shortcuts.forEach(shortcut => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${shortcut.key}</strong>: ${shortcut.desc}`;
+                helpList.appendChild(li);
+            });
+        }
+
+        function toggleHelp() {
+            uiState.showHelp = !uiState.showHelp;
+            document.getElementById('help-section').style.display = uiState.showHelp ? 'block' : 'none';
+            document.getElementById('toggle-help-button').textContent = uiState.showHelp ? 'Hide Help' : 'Show Help';
+            document.getElementById('toggle-help-button').setAttribute('aria-expanded', uiState.showHelp);
+            
+            if (uiState.showHelp) {
+                updateHelpContent();
+                announceToScreenReader('Help dialog opened. Press Escape to close.');
+                setTimeout(() => {
+                    document.getElementById('close-help-button').focus();
+                }, 100);
+            }
+        }
+
+        function closeHelp() {
+            uiState.showHelp = false;
+            document.getElementById('help-section').style.display = 'none';
+            document.getElementById('toggle-help-button').textContent = 'Show Help';
+            document.getElementById('toggle-help-button').setAttribute('aria-expanded', 'false');
+            document.getElementById('toggle-help-button').focus();
+            announceToScreenReader('Help dialog closed.');
+        }
+
+        function fullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error entering fullscreen mode: ${err.message}`);
+                    announceToScreenReader('Could not enter fullscreen mode.');
+                });
+                document.getElementById('fullscreen-button').textContent = 'Exit Fullscreen';
+                announceToScreenReader('Entered fullscreen mode.');
+            } else {
+                document.exitFullscreen();
+                document.getElementById('fullscreen-button').textContent = 'Full Screen';
+                announceToScreenReader('Exited fullscreen mode.');
+            }
+        }
+
+        function navigate(page) {
+            window.location.href = page;
+        }
+
+        function repeatLastAnnouncement() {
+            if (uiState.lastAnnouncement) {
+                announcementQueue.repeatLast();
+            } else {
+                announceToScreenReader("No announcement to repeat.");
+            }
+        }
+
+        // Auto-format table code input
+        function formatTableCodeInput(input) {
+            input.value = input.value.replace(/\D/g, '');
+            if (input.value.length > 4) {
+                input.value = input.value.substring(0, 4);
+            }
+        }
+
+        // KEYBOARD SHORTCUTS
+        function setupKeyboardListeners() {
+            document.addEventListener('keydown', (e) => {
+                // Handle Escape key
+                if (e.key === 'Escape') {
+                    if (uiState.showHelp) {
+                        e.preventDefault();
+                        closeHelp();
+                        return;
+                    }
+                }
+
+                // Global shortcuts
+                if (e.altKey && e.key.toLowerCase() === 'h') {
+                    e.preventDefault();
+                    toggleHelp();
+                    return;
+                }
+
+                if (e.altKey && e.key.toLowerCase() === 'f') {
+                    e.preventDefault();
+                    fullscreen();
+                    return;
+                }
+
+                if (e.altKey && e.key.toLowerCase() === 'i') {
+                    e.preventDefault();
+                    repeatLastAnnouncement();
+                    return;
+                }
+
+                if (e.altKey && e.key.toLowerCase() === 'b') {
+                    e.preventDefault();
+                    if (currentView === 'create-table' || currentView === 'join-table') {
+                        showStartMenu();
+                    } else {
+                        navigate('/');
+                    }
+                    return;
+                }
+
+                // View-specific shortcuts
+                switch(currentView) {
+                    case 'create-table':
+                        if (e.altKey && e.key.toLowerCase() === 'c') {
+                            e.preventDefault();
+                            createTable();
+                        }
+                        break;
+                    case 'join-table':
+                        if (e.altKey && e.key.toLowerCase() === 'j') {
+                            e.preventDefault();
+                            joinTable();
+                        }
+                        break;
+                    case 'waiting-room':
+                        if (e.altKey && e.key.toLowerCase() === 's') {
+                            e.preventDefault();
+                            startGameFromWaiting();
+                        }
+                        if (e.altKey && e.key.toLowerCase() === 'l') {
+                            e.preventDefault();
+                            leaveTableFromWaiting();
+                        }
+                        if (e.altKey && e.key.toLowerCase() === 'c') {
+                            e.preventDefault();
+                            document.getElementById('waiting-chat-input').focus();
+                        }
+                        break;
+                    case 'game':
+                        // Game keyboard shortcuts (adapted from playsolo)
+                        if (e.altKey && e.key.toLowerCase() === 'm') {
+                            e.preventDefault();
+                            leaveGameFromGame();
+                        }
+                        if (e.altKey && e.key.toLowerCase() === 'o') {
+                            e.preventDefault();
+                            if (gameState && (gameState.gamePhase === 'play' || gameState.gamePhase === 'end')) {
+                                announceToScreenReader(`North-South: ${gameState.tricks.ns} tricks. East-West: ${gameState.tricks.ew} tricks.`);
+                            } else {
+                                announceToScreenReader("No score available yet.");
+                            }
+                        }
+                        break;
+                }
+            });
+        }
+
+        // SOCKET EVENT HANDLERS
+        function setupSocketEventHandlers() {
+            socket.on('tableCreated', (data) => {
+                console.log('Table created:', data);
+                tableCode = data.tableCode;
+                
+                // Reset create UI
+                document.getElementById('create-table-button').disabled = false;
+                document.getElementById('create-table-button').textContent = 'Create Table';
+                
+                announceToScreenReader(`Table ${tableCode} created successfully!`);
+                showWaitingRoom();
+            });
+
+            socket.on('selectPosition', (data) => {
+                console.log('Position selection:', data);
+                
+                // Reset join UI
+                document.getElementById('join-table-button').disabled = false;
+                document.getElementById('join-table-button').textContent = 'Join Table';
+                
+                showPositionSelection(data.tableCode, data.positions, data.table || { players: {} });
+            });
+
+            socket.on('playerJoined', (data) => {
+                console.log('Player joined:', data);
+                if (data && data.table) {
+                    if (currentView === 'waiting-room') {
+                        updateWaitingRoomPositions(data.table);
+                    }
+                    if (data.playerName && data.position) {
+                        addWaitingSystemMessage(`${data.playerName} joined as ${positionName(data.position)}.`);
+                    }
+                }
+                
+                // If this is our join confirmation, show waiting room
+                if (selectedJoinPosition && data.position === selectedJoinPosition) {
+                    showWaitingRoom();
+                }
+            });
+
+            socket.on('tableInfo', (data) => {
+                console.log('Table info:', data);
+                if (data && data.table) {
+                    if (currentView === 'waiting-room') {
+                        updateWaitingRoomPositions(data.table);
+                        if (data.table.created) {
+                            const creationTime = new Date(data.table.created);
+                            document.getElementById('waiting-table-creation-time').textContent = creationTime.toLocaleString();
+                        }
+                    }
+                    
+                    // Handle existing player position
+                    if (data.playerPosition) {
+                        myPosition = data.playerPosition;
+                        announceToScreenReader(`You are seated at ${positionName(data.playerPosition)} position.`);
+                        
+                        if (currentView !== 'waiting-room' && currentView !== 'game') {
+                            showWaitingRoom();
+                        }
+                    }
+                }
+            });
+
+            socket.on('gameStarted', (data) => {
+                console.log('Game started:', data);
+                gameState = data.gameState || {};
+                biddingState = data.biddingState || {};
+                
+                gameState.gamePhase = 'bidding';
+                
+                showGameView();
+                updateGameUI();
+                renderBiddingUI();
+                resetPlayedCardsContainer();
+                
+                announceToScreenReader('Game started. Bidding phase begins.');
+            });
+
+            socket.on('yourCards', (data) => {
+                console.log('Your cards received:', data);
+                myPosition = data.position;
+                if (!gameState) gameState = {};
+                if (!gameState.hands) gameState.hands = {};
+                
+                gameState.hands[data.position] = data.cards;
+                renderHand(data.position, data.cards);
+            });
+
+            socket.on('bidMade', (data) => {
+                console.log('Bid made:', data);
+                biddingState = data.biddingState;
+                renderBiddingUI();
+                
+                const bidText = data.bid === 'P' ? 'passes' : 
+                              data.bid === 'X' ? 'doubles' : 
+                              data.bid === 'XX' ? 'redoubles' : `bids ${formatBidForDisplay(data.bid)}`;
+                announceToScreenReader(`${positionName(data.position)} ${bidText}.`);
+            });
+
+            socket.on('biddingComplete', (data) => {
+                console.log('Bidding complete:', data);
+                gameState.contract = data.contract;
+                gameState.declarer = data.declarer;
+                gameState.dummy = data.dummy;
+                gameState.trumpSuit = data.trumpSuit;
+                gameState.currentPlayer = data.currentPlayer;
+                gameState.gamePhase = 'play';
+                
+                if (biddingState) {
+                    biddingState.biddingComplete = true;
+                }
+                
+                document.getElementById('game-bidding-area').style.display = 'none';
+                updateGameUI();
+                renderAllHands();
+                
+                const contractMessage = `Final contract: ${formatContract(data.contract)} by ${positionName(data.declarer)}. ${positionName(data.currentPlayer)} leads.`;
+                
+                if (data.declarer === myPosition) {
+                    const dummyMessage = ` You are the declarer and control both your position and dummy.`;
+                    announceToScreenReader(contractMessage + dummyMessage);
+                } else {
+                    announceToScreenReader(contractMessage);
+                }
+            });
+
+            socket.on('playPhaseCards', (data) => {
+                console.log('Play phase cards:', data);
+                if (!gameState.hands) gameState.hands = {};
+                
+                gameState.hands[data.position] = data.cards;
+                
+                if (data.dummyCards) {
+                    gameState.hands[gameState.dummy] = data.dummyCards;
+                    announceToScreenReader(`Dummy's cards are now visible.`);
+                }
+                
+                renderAllHands();
+            });
+
+            socket.on('cardPlayed', (data) => {
+                console.log('Card played:', data);
+                if (trickClearTimeout) {
+                    clearTimeout(trickClearTimeout);
+                    trickClearTimeout = null;
+                }
+                
+                if (!gameState.currentTrick) gameState.currentTrick = [];
+                
+                gameState.currentTrick = data.currentTrick;
+                
+                if (gameState.hands[data.position]) {
+                    const suitCards = gameState.hands[data.position][data.suit];
+                    if (suitCards) {
+                        const index = suitCards.indexOf(data.card);
+                        if (index > -1) {
+                            suitCards.splice(index, 1);
+                        }
+                    }
+                }
+                
+                renderHand(data.position, gameState.hands[data.position]);
+                updatePlayedCardsContainer();
+                
+                announceToScreenReader(`${positionName(data.position)} played ${getSuitName(data.suit)} ${data.card}`);
+            });
+
+            socket.on('trickComplete', (data) => {
+                console.log('Trick complete:', data);
+                gameState.currentTrick = [];
+                gameState.tricks = data.tricks;
+                gameState.currentPlayer = data.nextPlayer;
+                
+                updateGameUI();
+                
+                const winner = positionName(data.winner);
+                const next = positionName(data.nextPlayer);
+                
+                const isUserNext = (data.nextPlayer === myPosition) || 
+                                 (data.nextPlayer === gameState.dummy && gameState.declarer === myPosition);
+                
+                let message;
+                if (isUserNext) {
+                    message = `${winner} won the trick. Your turn to play a card.`;
+                } else {
+                    message = `${winner} won the trick. ${next} plays next.`;
+                }
+                
+                announceToScreenReader(message);
+
+                if (trickClearTimeout) {
+                    clearTimeout(trickClearTimeout);
+                }
+
+                trickClearTimeout = setTimeout(() => {
+                    resetPlayedCardsContainer();
+                    trickClearTimeout = null;
+                }, 3000);
+            });
+
+            socket.on('nextPlayer', (data) => {
+                console.log('Next player:', data);
+                gameState.currentPlayer = data.currentPlayer;
+                updateGameUI();
+                renderAllHands();
+            });
+
+            socket.on('gameOver', (data) => {
+                console.log('Game over:', data);
+                gameState.gamePhase = 'end';
+                gameState.tricks = data.tricks;
+                
+                document.getElementById('game-new-game-button').style.display = 'block';
+                announceToScreenReader(data.message);
+            });
+
+            socket.on('chatMessage', (data) => {
+                console.log('Chat message:', data);
+                if (currentView === 'waiting-room') {
+                    addWaitingChatMessage(data.sender, data.position, data.message);
+                } else if (currentView === 'game') {
+                    addGameChatMessage(data.sender, data.position, data.message);
+                }
+            });
+
+            socket.on('dummyRevealed', (data) => {
+                console.log('Dummy revealed:', data);
+                if (gameState && data.dummyCards && data.dummyPosition) {
+                    if (!gameState.hands) gameState.hands = {};
+                    gameState.hands[data.dummyPosition] = data.dummyCards;
+                    renderHand(data.dummyPosition, data.dummyCards);
+                    announceToScreenReader(`Dummy cards revealed: ${positionName(data.dummyPosition)}.`);
+                }
+            });
+
+            socket.on('error', (data) => {
+                console.error('Socket error:', data);
+                const message = data && data.message ? data.message : 'Unknown error occurred';
+                showErrorWithAnnouncement(message);
+                
+                // Reset any loading states
+                document.getElementById('create-table-button').disabled = false;
+                document.getElementById('create-table-button').textContent = 'Create Table';
+                document.getElementById('join-table-button').disabled = false;
+                document.getElementById('join-table-button').textContent = 'Join Table';
+            });
+        }
+
+        // INITIALIZATION
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up keyboard listeners
+            setupKeyboardListeners();
+            
+            // Connect to server
+            connectToServer();
+            
+            // Set up socket event handlers
+            setupSocketEventHandlers();
+            
+            // Auto-format table code input
+            document.getElementById('table-code-input').addEventListener('input', function() {
+                formatTableCodeInput(this);
+            });
+            
+            // Form submissions
+            document.getElementById('create-name-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    document.getElementById('table-name-input').focus();
+                }
+            });
+            
+            document.getElementById('table-name-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    createTable();
+                }
+            });
+            
+            document.getElementById('join-name-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    document.getElementById('table-code-input').focus();
+                }
+            });
+            
+            document.getElementById('table-code-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    joinTable();
+                }
+            });
+            
+            // Chat inputs
+            document.getElementById('waiting-chat-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    sendWaitingChatMessage();
+                }
+            });
+            
+            document.getElementById('game-chat-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    sendGameChatMessage();
+                }
+            });
+            
+            // Check for table code in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('code')) {
+                showJoinTable();
+            } else {
+                showStartMenu();
+            }
+            
+            // Load saved player name
+            const savedName = localStorage.getItem('playerName');
+            if (savedName) {
+                document.getElementById('create-name-input').value = savedName;
+                document.getElementById('join-name-input').value = savedName;
+            }
+            
+            // Initial announcement
+            setTimeout(() => {
+                announceToScreenReader('BridgeCircle Multiplayer loaded. Choose to create a new table or join an existing one.');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
