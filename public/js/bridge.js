@@ -343,38 +343,41 @@ function createTable() {
 
     const playerName = nameInput ? nameInput.value.trim() : '';
     const tableName = tableNameInput ? tableNameInput.value.trim() : '';
+    const position = selectedPosition || 'south';
 
     if (!playerName) {
-        showError('Please enter your name.');
+        showErrorWithAnnouncement('Please enter your name.');
         return;
     }
 
-    // Oletetaan, että positio on tallennettu globaalimuuttujaan tai radio-napilla valittu
-    const position = window.selectedPosition || 'south';
-
-    // Yhdistetään palvelimeen (jos ei vielä yhdistetty)
+    // Yhdistetään palvelimeen, jos ei vielä yhdistetty
     connectToServer();
 
-    // Tallennetaan pelaajatiedot localStorageen, jotta waitingroom.html osaa lähettää joinTable
+    // Tallennetaan tiedot localStorageen seuraavaa sivua varten
     localStorage.setItem('playerName', playerName);
     localStorage.setItem('position', position);
 
-    // Luodaan pöytä ja ilmoitetaan serverille
-    socket.emit('createTable', {
-        playerName: playerName,
-        position: position,
-        tableName: tableName
-    });
-
-    // Näytetään statusviesti käyttäjälle
+    // Näytetään tilaviestinä että pöytää ollaan luomassa
     const statusElement = document.getElementById('creation-status');
     if (statusElement) {
         statusElement.style.display = 'block';
         statusElement.textContent = 'Creating table...';
     }
 
-    // Kuunnellaan vastaus serveriltä ja siirrytään odotushuoneeseen oikealla koodilla
-    socket.on('tableCreated', ({ tableCode }) => {
+    // Lähetetään pöydän luontipyyntö palvelimelle
+    socket.emit('createTable', {
+        playerName: playerName,
+        position: position,
+        tableName: tableName || null
+    });
+
+    // Odotetaan vastaus ja siirrytään odotushuoneeseen
+    socket.once('tableCreated', ({ tableCode }) => {
         window.location.href = `waitingroom.html?code=${tableCode}`;
+    });
+
+    // Jos server vastaa virheellä
+    socket.once('error', ({ message }) => {
+        showErrorWithAnnouncement('Error creating table: ' + message);
     });
 }
