@@ -1,6 +1,7 @@
 /**
- * BridgeCircle - Shared JavaScript Functions
+ * BridgeCircle - Shared JavaScript Functions (Unified Version)
  * Contains all shared functionality for the bridge application
+ * NO PAGE REDIRECTS - works with unified index.html
  */
 
 // Socket.io connection
@@ -12,7 +13,6 @@ let socketEventListenersSetup = false;
 /**
  * Connect to Socket.io server
  */
-
 function connectToServer() {
     // Jos socket on jo olemassa ja yhdistetty, palauta se
     if (socket && socket.connected && !socket.disconnected) {
@@ -67,24 +67,24 @@ function cleanupSocket() {
 function setupBasicSocketListeners() {
     if (!socket) return;
     
-socket.on('connect', () => {
-    console.log('Socket.IO connected successfully, ID:', socket.id);
-    updateConnectionStatus('connected');
-});
-    
-socket.on('connect_error', (error) => {
-    console.error('Socket.IO connection error:', error);
-    updateConnectionStatus('connecting');
-    
-    if (error.message && error.message.includes('websocket')) {
-        console.log('Switching to polling transport...');
-        socket.io.opts.transports = ['polling'];
-    }
-    
-    if (!error.message || !error.message.includes('websocket')) {
-        showError('Failed to connect to server. Please try again later.');
-    }
-});
+    socket.on('connect', () => {
+        console.log('Socket.IO connected successfully, ID:', socket.id);
+        updateConnectionStatus('connected');
+    });
+        
+    socket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error);
+        updateConnectionStatus('connecting');
+        
+        if (error.message && error.message.includes('websocket')) {
+            console.log('Switching to polling transport...');
+            socket.io.opts.transports = ['polling'];
+        }
+        
+        if (!error.message || !error.message.includes('websocket')) {
+            showError('Failed to connect to server. Please try again later.');
+        }
+    });
 
     socket.on('disconnect', (reason) => {
         console.log('Disconnected from server, reason:', reason);
@@ -117,14 +117,8 @@ socket.on('connect_error', (error) => {
         showError(message);
     });
     
-    // Table creation event
-    socket.on('tableCreated', (data) => {
-        console.log('Table created:', data);
-        if (data && data.tableCode) {
-            // Siirrä waitingroom:iin
-            window.location.href = `/waitingroom.html?code=${data.tableCode}`;
-        }
-    });
+    // REMOVED: tableCreated event handler that redirected to waitingroom.html
+    // This will be handled by index.html's own event handlers
 }
 
 /**
@@ -227,7 +221,8 @@ function announce(message, urgent = false) {
     // Find appropriate announcement area
     const announcementArea = urgent ? 
         document.getElementById('card-announcement') : 
-        document.getElementById('announcement-area');
+        document.getElementById('announcement-area') || 
+        document.getElementById('status-announcer');
     
     if (announcementArea) {
         // Display message and save it for possible replay
@@ -245,7 +240,8 @@ function announce(message, urgent = false) {
  * Repeat last screen reader announcement
  */
 function repeatLastAnnouncement() {
-    const announcementArea = document.getElementById('announcement-area');
+    const announcementArea = document.getElementById('announcement-area') || 
+                           document.getElementById('status-announcer');
     if (announcementArea && announcementArea._lastMessage) {
         // Clear and refill to make screen reader read again
         announcementArea.textContent = '';
@@ -450,97 +446,171 @@ async function sendData(url, data, method = 'POST') {
 }
 
 /**
- * Create new table - FIXED VERSION
+ * REMOVED: Original createTable function that redirected to waitingroom.html
+ * Table creation is now handled entirely by index.html's unified functions
+ * This prevents conflicts and ensures no page redirects occur
  */
-function createTable() {
-    const nameInput = document.getElementById('name-input');
-    const tableNameInput = document.getElementById('table-name-input');
 
-    const playerName = nameInput ? nameInput.value.trim() : '';
-    const tableName = tableNameInput ? tableNameInput.value.trim() : '';
-    const position = window.selectedPosition || 'south';
+// Game utility functions that work with unified index.html
 
-    if (!playerName) {
-        showError('Please enter your name.');
-        // Jos on showErrorWithAnnouncement funktio, käytä sitä
-        if (typeof showErrorWithAnnouncement === 'function') {
-            showErrorWithAnnouncement('Please enter your name.');
-        }
-        return;
-    }
-
-    // Yhdistetään palvelimeen
-    connectToServer();
-
-    if (!socket) {
-        showError('Failed to connect to server. Please try again.');
-        return;
-    }
-
-    // Tallennetaan tiedot localStorageen seuraavaa sivua varten
-    localStorage.setItem('playerName', playerName);
-    localStorage.setItem('position', position);
-
-    // Näytetään tilaviestinä että pöytää ollaan luomassa
-    const statusElement = document.getElementById('creation-status');
-    if (statusElement) {
-        statusElement.style.display = 'block';
-        statusElement.textContent = 'Creating table...';
-    }
-
-    // Määritä yksittäiskäyttöiset event handlerit
-    const handleTableCreated = (data) => {
-        console.log('Table created successfully:', data);
-        if (statusElement) {
-            statusElement.textContent = 'Table created! Redirecting...';
-        }
-        
-        if (data && data.tableCode) {
-            window.location.href = `waitingroom.html?code=${data.tableCode}`;
-        } else {
-            showError('Invalid response from server.');
-        }
-        
-        // Cleanup
-        socket.off('error', handleError);
+/**
+ * Get suit name for display
+ */
+function getSuitName(suit) {
+    const names = {
+        spades: 'Spades',
+        hearts: 'Hearts', 
+        diamonds: 'Diamonds',
+        clubs: 'Clubs'
     };
+    return names[suit] || suit;
+}
 
-    const handleError = (data) => {
-        console.error('Error creating table:', data);
-        const message = data && data.message ? data.message : 'Unknown error occurred';
-        showError('Error creating table: ' + message);
-        
-        if (statusElement) {
-            statusElement.style.display = 'none';
-        }
-        
-        // Cleanup
-        socket.off('tableCreated', handleTableCreated);
+/**
+ * Get suit symbol for display
+ */
+function getSuitSymbol(suit) {
+    const symbols = {
+        spades: '♠',
+        hearts: '♥',
+        diamonds: '♦', 
+        clubs: '♣'
     };
+    return symbols[suit] || suit;
+}
 
-    // Aseta event handlerit
-    socket.once('tableCreated', handleTableCreated);
-    socket.once('error', handleError);
-
-    // Lähetä pöydän luontipyyntö palvelimelle
-    try {
-        socket.emit('createTable', {
-            playerName: playerName,
-            position: position,
-            tableName: tableName || null
-        });
-    } catch (error) {
-        console.error('Error sending createTable:', error);
-        showError('Failed to send request to server.');
-        
-        // Cleanup handlerit jos lähetys epäonnistuu
-        socket.off('tableCreated', handleTableCreated);
-        socket.off('error', handleError);
-        
-        if (statusElement) {
-            statusElement.style.display = 'none';
+/**
+ * Play card validation helper
+ */
+function validateCardPlay(suit, card, gameState, position) {
+    if (!gameState || !gameState.hands || !gameState.hands[position]) {
+        return { valid: false, reason: 'Invalid game state' };
+    }
+    
+    const hand = gameState.hands[position];
+    if (!hand[suit] || !hand[suit].includes(card)) {
+        return { valid: false, reason: `You don't have the ${getSuitName(suit)} ${card}` };
+    }
+    
+    // Check suit following
+    if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+        const leadSuit = gameState.currentTrick[0].suit;
+        if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+            return { valid: false, reason: `You must follow suit and play a ${getSuitName(leadSuit)}` };
         }
     }
+    
+    return { valid: true };
+}
+
+/**
+ * Get possible bids based on current highest bid
+ */
+function getPossibleBids(highestBid) {
+    const possibleBids = ['P']; // Pass is always available
+    
+    // Add double/redouble if applicable
+    if (highestBid && !highestBid.includes('X')) {
+        possibleBids.push('X');
+    }
+    if (highestBid && highestBid.includes('X') && !highestBid.includes('XX')) {
+        possibleBids.push('XX');
+    }
+    
+    const levels = ['1', '2', '3', '4', '5', '6', '7'];
+    const suits = ['C', 'D', 'H', 'S', 'N'];
+    
+    if (!highestBid || highestBid === 'P' || highestBid === 'X' || highestBid === 'XX') {
+        // If no contract bid yet, all contract bids are possible
+        for (const level of levels) {
+            for (const suit of suits) {
+                possibleBids.push(`${level}${suit}`);
+            }
+        }
+    } else {
+        // Find bids higher than current highest
+        const highestLevel = parseInt(highestBid.charAt(0));
+        const highestSuit = highestBid.charAt(1);
+        const highestSuitIndex = suits.indexOf(highestSuit);
+        
+        for (let level = highestLevel; level <= 7; level++) {
+            for (let suitIndex = 0; suitIndex < suits.length; suitIndex++) {
+                if (level === highestLevel && suitIndex <= highestSuitIndex) continue;
+                possibleBids.push(`${level}${suits[suitIndex]}`);
+            }
+        }
+    }
+    
+    return possibleBids;
+}
+
+/**
+ * Format bidding table for display
+ */
+function formatBiddingTable(bidHistory, dealer = 'south') {
+    if (!bidHistory || bidHistory.length === 0) {
+        return '<p>No bids yet.</p>';
+    }
+    
+    const positions = ['west', 'north', 'east', 'south'];
+    const dealerIndex = positions.indexOf(dealer);
+    
+    let html = `
+        <table class="bidding-table">
+            <thead>
+                <tr>
+                    <th>West</th>
+                    <th>North</th>
+                    <th>East</th>
+                    <th>South</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    const rounds = [];
+    let currentRound = [];
+    
+    // Add empty slots for positions before dealer
+    for (let i = 0; i < dealerIndex; i++) {
+        currentRound.push(null);
+    }
+    
+    // Add bids
+    for (const bid of bidHistory) {
+        currentRound.push(bid);
+        
+        if (currentRound.length === 4) {
+            rounds.push([...currentRound]);
+            currentRound = [];
+        }
+    }
+    
+    // Add incomplete round
+    if (currentRound.length > 0) {
+        rounds.push([...currentRound]);
+    }
+    
+    // Generate table rows
+    for (const round of rounds) {
+        html += '<tr>';
+        
+        for (let i = 0; i < 4; i++) {
+            const bid = round[i];
+            
+            if (!bid) {
+                html += '<td></td>';
+            } else {
+                const bidText = formatBid(bid.bid);
+                html += `<td>${bidText}</td>`;
+            }
+        }
+        
+        html += '</tr>';
+    }
+    
+    html += '</tbody></table>';
+    return html;
 }
 
 // Cleanup function for page unload
@@ -549,3 +619,19 @@ window.addEventListener('beforeunload', () => {
         cleanupSocket();
     }
 });
+
+// Export functions that might be needed by index.html
+if (typeof window !== 'undefined') {
+    window.connectToServer = connectToServer;
+    window.cleanupSocket = cleanupSocket;
+    window.showError = showError;
+    window.announce = announce;
+    window.positionName = positionName;
+    window.formatBid = formatBid;
+    window.formatContract = formatContract;
+    window.getSuitName = getSuitName;
+    window.getSuitSymbol = getSuitSymbol;
+    window.validateCardPlay = validateCardPlay;
+    window.getPossibleBids = getPossibleBids;
+    window.formatBiddingTable = formatBiddingTable;
+}
