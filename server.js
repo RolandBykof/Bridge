@@ -213,11 +213,11 @@ socket.on('createTable', ({ playerName, position, tableName }) => {
     socket.join(tableCode);
 
     // Notify table creation
-    socket.emit('tableCreated', { 
-        tableCode,
-        table: filterTable(table)
-    });
-
+socket.emit('tableCreated', { 
+    tableCode,
+    table: filterTable(table),
+    playerPosition: position
+});
     console.log(`✅ Table ${tableCode} created successfully`);
 });  
 
