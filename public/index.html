@@ -2494,21 +2494,31 @@
                 }
             });
 
-            socket.on('playerJoined', (data) => {
-                console.log('Player joined:', data);
-                if (data && data.table) {
-                    if (currentView === 'waiting-room') {
-                        updateWaitingRoomPositions(data.table);
-                    }
-                    if (data.playerName && data.position) {
-                        addWaitingSystemMessage(`${data.playerName} joined as ${positionName(data.position)}.`);
-                    }
-                }
-                
-                if (selectedJoinPosition && data.position === selectedJoinPosition) {
-                    showWaitingRoom();
-                }
-            });
+socket.on('playerJoined', (data) => {
+    console.log('Player joined:', data);
+    
+    // Jos tämä on meidän liittyminen, siirry waiting room:iin ja päivitä tiedot
+    if (selectedJoinPosition && data.position === selectedJoinPosition) {
+        myPosition = data.position;
+        console.log(`Setting myPosition to ${myPosition} from playerJoined`);
+        showWaitingRoom();
+        
+        // KORJAUS: Päivitä pöytätiedot heti omaa liittymistä varten
+        if (data && data.table) {
+            updateWaitingRoomPositions(data.table);
+        }
+    }
+    // Muille pelaajille (jotka ovat jo waiting room:issa)
+    else if (data && data.table && currentView === 'waiting-room') {
+        updateWaitingRoomPositions(data.table);
+    }
+    
+    // Chat-viesti kaikille
+    if (data && data.playerName && data.position) {
+        addWaitingSystemMessage(`${data.playerName} joined as ${positionName(data.position)}.`);
+    }
+});
+
 
             socket.on('playerLeft', (data) => {
                 console.log('Player left:', data);
