@@ -166,8 +166,11 @@ io.on('connection', (socket) => {
 // KORJATTU createTable event handler server.js:ssä (rivi ~765)
 
 
+
+// KORJATTU createTable event handler server.js:ssä (rivi ~765)
+
 socket.on('createTable', ({ playerName, position, tableName }) => {
-    console.log(`🎯 Creating table for ${playerName} at position ${position}`);
+    console.log(`Creating table for ${playerName} at position ${position}`);
     
     const tableCode = createTableCode(); 
 
@@ -212,14 +215,21 @@ socket.on('createTable', ({ playerName, position, tableName }) => {
     // Socket joins room
     socket.join(tableCode);
 
-    // Notify table creation
-socket.emit('tableCreated', { 
-    tableCode,
-    table: filterTable(table),
-    playerPosition: position
-});
+    // KORJAUS: Lähetä sekä tableCreated että tableInfo
+    socket.emit('tableCreated', { 
+        tableCode,
+        table: filterTable(table),
+        playerPosition: position
+    });
+    
+    // UUSI: Lähetä myös tableInfo jotta waiting room päivittyy oikein
+    socket.emit('tableInfo', {
+        table: filterTable(table),
+        playerPosition: position
+    });
+    
     console.log(`✅ Table ${tableCode} created successfully`);
-});  
+});
 
 socket.on('joinTable', (data) => {
     joinTable(socket, playerId, data);
