@@ -1374,7 +1374,62 @@
             if (!biddingState || !biddingState.bidHistory || biddingState.bidHistory.length === 0) {
                 html += '<p>No bids yet.</p>';
             } else {
-                html += formatBiddingTable(biddingState.bidHistory, biddingState.dealer);
+                html += `
+                    <table class="bidding-table">
+                        <thead>
+                            <tr>
+                                <th>West</th>
+                                <th>North</th>
+                                <th>East</th>
+                                <th>South</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                const rounds = [];
+                let currentRound = [];
+                let dealerIndex = ['west', 'north', 'east', 'south'].indexOf(biddingState.dealer || 'south');
+                
+                // Add empty slots for positions before dealer
+                for (let i = 0; i < dealerIndex; i++) {
+                    currentRound.push(null);
+                }
+                
+                // Add bids
+                for (const bid of biddingState.bidHistory) {
+                    currentRound.push(bid);
+                    
+                    if (currentRound.length === 4) {
+                        rounds.push([...currentRound]);
+                        currentRound = [];
+                    }
+                }
+                
+                // Add incomplete round
+                if (currentRound.length > 0) {
+                    rounds.push([...currentRound]);
+                }
+                
+                // Generate table rows
+                for (const round of rounds) {
+                    html += '<tr>';
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const bid = round[i];
+                        
+                        if (!bid) {
+                            html += '<td></td>';
+                        } else {
+                            const bidText = formatBid(bid.bid);
+                            html += `<td>${bidText}</td>`;
+                        }
+                    }
+                    
+                    html += '</tr>';
+                }
+                
+                html += '</tbody></table>';
             }
             
             biddingHistory.innerHTML = html;
@@ -1472,6 +1527,47 @@
                 position: myPosition,
                 bid: bid
             });
+        }
+
+        /**
+         * Get possible bids based on current highest bid
+         */
+        function getPossibleBids(highestBid) {
+            const possibleBids = ['P']; // Pass is always available
+            
+            // Add double/redouble if applicable
+            if (highestBid && !highestBid.includes('X')) {
+                possibleBids.push('X');
+            }
+            if (highestBid && highestBid.includes('X') && !highestBid.includes('XX')) {
+                possibleBids.push('XX');
+            }
+            
+            const levels = ['1', '2', '3', '4', '5', '6', '7'];
+            const suits = ['C', 'D', 'H', 'S', 'N'];
+            
+            if (!highestBid || highestBid === 'P' || highestBid === 'X' || highestBid === 'XX') {
+                // If no contract bid yet, all contract bids are possible
+                for (const level of levels) {
+                    for (const suit of suits) {
+                        possibleBids.push(`${level}${suit}`);
+                    }
+                }
+            } else {
+                // Find bids higher than current highest
+                const highestLevel = parseInt(highestBid.charAt(0));
+                const highestSuit = highestBid.charAt(1);
+                const highestSuitIndex = suits.indexOf(highestSuit);
+                
+                for (let level = highestLevel; level <= 7; level++) {
+                    for (let suitIndex = 0; suitIndex < suits.length; suitIndex++) {
+                        if (level === highestLevel && suitIndex <= highestSuitIndex) continue;
+                        possibleBids.push(`${level}${suits[suitIndex]}`);
+                    }
+                }
+            }
+            
+            return possibleBids;
         }
 
         function sendGameChatMessage() {
@@ -1624,8 +1720,44 @@
                     break;
                 case 'game':
                     shortcuts.push(
-                        { key: 'Alt + M', desc: 'Leave game' },
-                        { key: 'Alt + O', desc: 'Announce score' }
+                        // Card viewing shortcuts
+                        { key: 'Alt + A', desc: 'Read your spades and focus on lowest' },
+                        { key: 'Alt + S', desc: 'Read your hearts and focus on lowest' },
+                        { key: 'Alt + D', desc: 'Read your diamonds and focus on lowest' },
+                        { key: 'Alt + F', desc: 'Read your clubs and focus on lowest' },
+                        { key: 'Alt + G', desc: 'Read all your cards' },
+                        
+                        // Dummy card viewing (if applicable)
+                        { key: 'Alt + Q', desc: 'Read dummy spades (if visible)' },
+                        { key: 'Alt + W', desc: 'Read dummy hearts (if visible)' },
+                        { key: 'Alt + E', desc: 'Read dummy diamonds (if visible)' },
+                        { key: 'Alt + R', desc: 'Read dummy clubs (if visible)' },
+                        { key: 'Alt + T', desc: 'Read all dummy cards (if visible)' },
+                        
+                        // Game state shortcuts
+                        { key: 'Alt + Z', desc: 'Read current trick' },
+                        { key: 'Alt + X', desc: 'Read game state' },
+                        { key: 'Alt + C', desc: 'Announce current player' },
+                        { key: 'Alt + V', desc: 'Read last played trick' },
+                        { key: 'Alt + O', desc: 'Announce score' },
+                        
+                        // Bidding shortcuts
+                        { key: '1-7', desc: 'Select bid level (in bidding phase)' },
+                        { key: 'S/H/D/C/N', desc: 'Select suit for bid (in bidding phase)' },
+                        { key: 'Alt + P', desc: 'Bid Pass' },
+                        
+                        // Card playing shortcuts
+                        { key: 'Ctrl + 1', desc: 'Play highest spade' },
+                        { key: 'Ctrl + 2', desc: 'Play highest heart' },
+                        { key: 'Ctrl + 3', desc: 'Play highest diamond' },
+                        { key: 'Ctrl + 4', desc: 'Play highest club' },
+                        { key: 'Ctrl + Shift + 1', desc: 'Play lowest spade' },
+                        { key: 'Ctrl + Shift + 2', desc: 'Play lowest heart' },
+                        { key: 'Ctrl + Shift + 3', desc: 'Play lowest diamond' },
+                        { key: 'Ctrl + Shift + 4', desc: 'Play lowest club' },
+                        
+                        // General game shortcuts
+                        { key: 'Alt + M', desc: 'Leave game' }
                     );
                     break;
             }
@@ -1696,6 +1828,504 @@
             }
         }
 
+        // ADVANCED KEYBOARD SHORTCUTS (from playsolo.html)
+        
+        // Keyboard shortcuts configuration
+        const keyboardShortcuts = [
+            // Card viewing shortcuts (Own cards)
+            { key: 'a', alt: true, description: 'Read your spades and focus on lowest', action: () => announceHandSuitWithFocus(myPosition, 'spades') },
+            { key: 's', alt: true, description: 'Read your hearts and focus on lowest', action: () => announceHandSuitWithFocus(myPosition, 'hearts') },
+            { key: 'd', alt: true, description: 'Read your diamonds and focus on lowest', action: () => announceHandSuitWithFocus(myPosition, 'diamonds') },
+            { key: 'f', alt: true, description: 'Read your clubs and focus on lowest', action: () => announceHandSuitWithFocus(myPosition, 'clubs') },
+            { key: 'g', alt: true, description: 'Read all your cards', action: () => announceEntireHand(myPosition) },
+
+            // Card viewing shortcuts (Dummy's cards)
+            { key: 'q', alt: true, description: 'Read dummy spades and focus on lowest', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceHandSuitWithFocus(gameState.dummy, 'spades');
+                } else {
+                    announceToScreenReader('Cannot view dummy spades at this time.');
+                }
+            }},
+            { key: 'w', alt: true, description: 'Read dummy hearts and focus on lowest', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceHandSuitWithFocus(gameState.dummy, 'hearts');
+                } else {
+                    announceToScreenReader('Cannot view dummy hearts at this time.');
+                }
+            }},
+            { key: 'e', alt: true, description: 'Read dummy diamonds and focus on lowest', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceHandSuitWithFocus(gameState.dummy, 'diamonds');
+                } else {
+                    announceToScreenReader('Cannot view dummy diamonds at this time.');
+                }
+            }},
+            { key: 'r', alt: true, description: 'Read dummy clubs and focus on lowest', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceHandSuitWithFocus(gameState.dummy, 'clubs');
+                } else {
+                    announceToScreenReader('Cannot view dummy clubs at this time.');
+                }
+            }},
+            { key: 't', alt: true, description: 'Read all dummy cards', action: () => {
+                if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                    announceEntireHand(gameState.dummy);
+                } else {
+                    announceToScreenReader('Cannot view all dummy cards at this time.');
+                }
+            }},
+
+            // Game state shortcuts
+            { key: 'z', alt: true, description: 'Read current trick', action: () => announceCurrentTrick() },
+            { key: 'x', alt: true, description: 'Read game state', action: () => announceGameState() },
+            { key: 'c', alt: true, description: 'Announce current player', action: () => announceCurrentPlayer() },
+            { key: 'v', alt: true, description: 'Read last played trick', action: () => announceLastTrick() },
+            
+            // Bidding shortcuts
+            { key: 'p', alt: true, description: 'Bid Pass', action: () => makeBidShortcut('P') },
+            
+            // Card playing shortcuts - high cards
+            { key: '1', ctrl: true, description: 'Play highest spade', action: () => playHighestCard('spades') },
+            { key: '2', ctrl: true, description: 'Play highest heart', action: () => playHighestCard('hearts') },
+            { key: '3', ctrl: true, description: 'Play highest diamond', action: () => playHighestCard('diamonds') },
+            { key: '4', ctrl: true, description: 'Play highest club', action: () => playHighestCard('clubs') },
+            
+            // Card playing shortcuts - low cards
+            { key: '1', ctrl: true, shift: true, description: 'Play lowest spade', action: () => playLowestCard('spades') },
+            { key: '2', ctrl: true, shift: true, description: 'Play lowest heart', action: () => playLowestCard('hearts') },
+            { key: '3', ctrl: true, shift: true, description: 'Play lowest diamond', action: () => playLowestCard('diamonds') },
+            { key: '4', ctrl: true, shift: true, description: 'Play lowest club', action: () => playLowestCard('clubs') },
+            
+            // General shortcuts
+            { key: 'h', alt: true, description: 'Show/hide help', action: () => toggleHelp() },
+            { key: 'i', alt: true, description: 'Repeat last announcement', action: () => repeatLastAnnouncement() },
+            { key: 'o', alt: true, description: 'Announce score', action: () => announceScore() },
+            { key: 'm', alt: true, description: 'Leave game', action: () => leaveGameFromGame() },
+        ];
+
+        // Simple number keys for bidding levels
+        const bidLevelKeys = ['1', '2', '3', '4', '5', '6', '7'];
+        // Simple suit keys for bidding
+        const bidSuitKeys = {
+            's': 'S', // Spades
+            'h': 'H', // Hearts
+            'd': 'D', // Diamonds
+            'c': 'C', // Clubs
+            'n': 'N'  // No Trump
+        };
+
+        // ADVANCED FUNCTIONS FROM PLAYSOLO.HTML
+        
+        /**
+         * Announces cards in a specific suit from a hand AND focuses on lowest card
+         */
+        function announceHandSuitWithFocus(position, suit) {
+            const canViewCards = canViewHandCards(position);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${positionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${positionName(position)}.`);
+                return;
+            }
+            
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                const message = `${positionName(position)} has no ${getSuitName(suit)}s.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const message = `${positionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
+            announceToScreenReader(message);
+            
+            // Focus on lowest card
+            focusOnLowestCard(position, suit);
+        }
+
+        /**
+         * Announces all cards in a hand
+         */
+        function announceEntireHand(position) {
+            const canViewCards = canViewHandCards(position);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${positionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${positionName(position)}.`);
+                return;
+            }
+            
+            let message = `${positionName(position)}'s hand: `;
+            
+            for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+                const cards = hand[suit] || [];
+                if (cards.length > 0) {
+                    message += `${getSuitName(suit)}s: ${cards.join(', ')}. `;
+                } else {
+                    message += `No ${getSuitName(suit)}s. `;
+                }
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the current trick
+         */
+        function announceCurrentTrick() {
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader('The game is not in play phase yet.');
+                return;
+            }
+            
+            if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                announceToScreenReader('No cards played in the current trick yet.');
+                return;
+            }
+            
+            let message = 'Current trick: ';
+            
+            for (const card of gameState.currentTrick) {
+                message += `${positionName(card.player)} played ${getSuitName(card.suit)} ${card.card}. `;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the game state
+         */
+        function announceGameState() {
+            if (!gameState) {
+                announceToScreenReader('No game in progress.');
+                return;
+            }
+            
+            let message = `Game phase: ${gameState.gamePhase}. `;
+            
+            if (gameState.gamePhase === 'play' || gameState.gamePhase === 'end') {
+                message += `Contract: ${formatContract(gameState.contract)} by ${positionName(gameState.declarer)}. `;
+                message += `North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}. `;
+                message += `Current player: ${positionName(gameState.currentPlayer)}.`;
+                
+                if (gameState.declarer === myPosition) {
+                    message += ` You are the declarer and can control both your hand and dummy.`;
+                }
+            } else if (gameState.gamePhase === 'bidding') {
+                message += `Current bidder: ${positionName(biddingState ? biddingState.currentBidder : 'unknown')}.`;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the current player
+         */
+        function announceCurrentPlayer() {
+            if (!gameState) {
+                announceToScreenReader('No game in progress.');
+                return;
+            }
+            
+            if (gameState.gamePhase === 'play') {
+                let message = `Current player: ${positionName(gameState.currentPlayer)}.`;
+                
+                if (gameState.currentPlayer === gameState.dummy && gameState.declarer === myPosition) {
+                    message += ` You control the dummy as the declarer.`;
+                }
+                
+                announceToScreenReader(message);
+            } else if (gameState.gamePhase === 'bidding') {
+                announceToScreenReader(`Current bidder: ${positionName(biddingState ? biddingState.currentBidder : 'unknown')}.`);
+            } else {
+                announceToScreenReader(`Game phase: ${gameState.gamePhase}. No current player.`);
+            }
+        }
+
+        /**
+         * Announces the last completed trick
+         */
+        function announceLastTrick() {
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader('The game is not in play phase yet.');
+                return;
+            }
+            
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                let message = 'Current trick in progress: ';
+                for (const card of gameState.currentTrick) {
+                    message += `${positionName(card.player)} played ${getSuitName(card.suit)} ${card.card}. `;
+                }
+                announceToScreenReader(message);
+            } else {
+                announceToScreenReader('Previous tricks are not visible - they have been collected. Only the current trick is shown.');
+            }
+        }
+
+        /**
+         * Makes a bid using keyboard shortcut
+         */
+        function makeBidShortcut(bid) {
+            if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== myPosition) {
+                announceToScreenReader("It's not your turn to bid.");
+                return;
+            }
+            
+            if (!['P', 'X', 'XX'].includes(bid)) {
+                announceToScreenReader('Invalid bid format.');
+                return;
+            }
+            
+            makeBid(bid);
+        }
+
+        /**
+         * Handles bid level selection for two-step bidding
+         */
+        function handleBidLevelKey(level) {
+            if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== myPosition) {
+                announceToScreenReader("It's not your turn to bid.");
+                return;
+            }
+            
+            uiState.bidLevel = level;
+            announceToScreenReader(`Bid level ${level} selected. Press S, H, D, C, or N to select suit.`);
+        }
+
+        /**
+         * Handles bid suit selection to complete a bid
+         */
+        function handleBidSuitKey(suit) {
+            if (!gameState || gameState.gamePhase !== 'bidding' || !biddingState || biddingState.currentBidder !== myPosition || !uiState.bidLevel) {
+                if (!uiState.bidLevel) {
+                    announceToScreenReader("Please select a bid level 1 through 7 first.");
+                } else {
+                    announceToScreenReader("It's not your turn to bid.");
+                }
+                return;
+            }
+            
+            const bid = `${uiState.bidLevel}${suit}`;
+            
+            if (!isValidBid(bid, biddingState.highestBid)) {
+                announceToScreenReader(`Invalid bid: ${uiState.bidLevel} ${getSuitNameForBid(suit)}.`);
+                uiState.bidLevel = null;
+                return;
+            }
+            
+            makeBid(bid);
+            uiState.bidLevel = null;
+        }
+
+        /**
+         * Check if bid is valid
+         */
+        function isValidBid(bid, highestBid) {
+            if (bid === 'P') return true;
+            if (bid === 'X' || bid === 'XX') return true;
+            if (!highestBid) return true;
+            
+            const bidLevel = parseInt(bid.charAt(0));
+            const bidSuit = bid.charAt(1);
+            const highestLevel = parseInt(highestBid.charAt(0));
+            const highestSuit = highestBid.charAt(1);
+            
+            const suits = ['C', 'D', 'H', 'S', 'N'];
+            const bidSuitIndex = suits.indexOf(bidSuit);
+            const highestSuitIndex = suits.indexOf(highestSuit);
+            
+            if (bidLevel > highestLevel) return true;
+            if (bidLevel === highestLevel && bidSuitIndex > highestSuitIndex) return true;
+            
+            return false;
+        }
+
+        /**
+         * Gets a suit name for bid announcement
+         */
+        function getSuitNameForBid(suit) {
+            switch(suit) {
+                case 'C': return 'Clubs';
+                case 'D': return 'Diamonds';
+                case 'H': return 'Hearts';
+                case 'S': return 'Spades';
+                case 'N': return 'No Trump';
+                default: return suit;
+            }
+        }
+
+        /**
+         * Finds lowest card using bridge order
+         */
+        function findLowestCard(cards) {
+            if (!cards || cards.length === 0) return null;
+            
+            const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => cardValues.indexOf(a) - cardValues.indexOf(b));
+            return sortedCards[0];
+        }
+
+        /**
+         * Finds highest card using bridge order
+         */
+        function findHighestCard(cards) {
+            if (!cards || cards.length === 0) return null;
+            
+            const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => cardValues.indexOf(b) - cardValues.indexOf(a));
+            return sortedCards[0];
+        }
+
+        /**
+         * Focus on lowest card in suit
+         */
+        function focusOnLowestCard(position, suit) {
+            if (!gameState || !gameState.hands || !gameState.hands[position]) return;
+            
+            const hand = gameState.hands[position];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) return;
+            
+            const lowestCard = findLowestCard(cards);
+            if (!lowestCard) return;
+            
+            const handElement = document.getElementById(`game-${position}-hand`);
+            if (!handElement) return;
+            
+            const cardButton = handElement.querySelector(`button[data-suit="${suit}"][data-card="${lowestCard}"]`);
+            
+            if (cardButton) {
+                setTimeout(() => {
+                    cardButton.focus();
+                }, 250);
+            }
+        }
+
+        /**
+         * Plays the highest card of a suit
+         */
+        function playHighestCard(suit) {
+            const currentPlayer = gameState?.currentPlayer;
+            
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader("Game is not in play phase.");
+                return;
+            }
+            
+            const canControl = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
+            
+            if (!canControl) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            const hand = gameState.hands[currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                return;
+            }
+            
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
+                    return;
+                }
+            }
+            
+            const highestCard = findHighestCard(cards);
+            
+            if (highestCard) {
+                attemptToPlayCard(suit, highestCard, currentPlayer);
+            }
+        }
+
+        /**
+         * Plays the lowest card of a suit
+         */
+        function playLowestCard(suit) {
+            const currentPlayer = gameState?.currentPlayer;
+            
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader("Game is not in play phase.");
+                return;
+            }
+            
+            const canControl = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
+            
+            if (!canControl) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            const hand = gameState.hands[currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                return;
+            }
+            
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
+                    return;
+                }
+            }
+            
+            const lowestCard = findLowestCard(cards);
+            
+            if (lowestCard) {
+                attemptToPlayCard(suit, lowestCard, currentPlayer);
+            }
+        }
+
+        /**
+         * Check if it's our turn to play from a specific position
+         */
+        function isOurTurnToPlay(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return false;
+            
+            const currentPlayer = gameState.currentPlayer;
+            
+            if (position === myPosition && currentPlayer === myPosition) return true;
+            
+            if (position === gameState.dummy && currentPlayer === gameState.dummy && 
+                gameState.declarer === myPosition) {
+                return true;
+            }
+            
+            return false;
+        }
+
+        /**
+         * Announces the current score
+         */
+        function announceScore() {
+            if (gameState && (gameState.gamePhase === 'play' || gameState.gamePhase === 'end')) {
+                announceToScreenReader(`North-South: ${gameState.tricks.ns} tricks. East-West: ${gameState.tricks.ew} tricks.`);
+            } else {
+                announceToScreenReader("No score available yet.");
+            }
+        }
+
         // KEYBOARD SHORTCUTS
         function setupKeyboardListeners() {
             document.addEventListener('keydown', (e) => {
@@ -1704,6 +2334,51 @@
                     if (uiState.showHelp) {
                         e.preventDefault();
                         closeHelp();
+                        return;
+                    }
+                }
+
+                // Process advanced keyboard shortcuts when in game
+                if (currentView === 'game') {
+                    for (const shortcut of keyboardShortcuts) {
+                        if (shortcut.action && 
+                            e.key.toLowerCase() === shortcut.key.toLowerCase() && 
+                            (!shortcut.alt || e.altKey) && 
+                            (!shortcut.shift || e.shiftKey) && 
+                            (!shortcut.ctrl || e.ctrlKey)) {
+                            
+                            e.preventDefault();
+                            shortcut.action();
+                            return;
+                        }
+                    }
+
+                    // Handle s, h, d, c keys with dual purpose in bidding phase
+                    const suitKey = e.key.toLowerCase();
+                    if (['s', 'h', 'd', 'c'].includes(suitKey) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                        e.preventDefault();
+                        
+                        if (gameState && gameState.gamePhase === 'bidding') {
+                            if (suitKey in bidSuitKeys) {
+                                handleBidSuitKey(bidSuitKeys[suitKey]);
+                            }
+                        }
+                        return;
+                    }
+                    
+                    // Handle bidding level selection (1-7)
+                    if (bidLevelKeys.includes(e.key) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                        e.preventDefault();
+                        handleBidLevelKey(e.key);
+                        return;
+                    }
+                    
+                    // Handle 'n' key for No Trump in bidding
+                    if (e.key.toLowerCase() === 'n' && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                        e.preventDefault();
+                        if (gameState && gameState.gamePhase === 'bidding') {
+                            handleBidSuitKey('N');
+                        }
                         return;
                     }
                 }
@@ -1737,48 +2412,36 @@
                     return;
                 }
 
-                // View-specific shortcuts
-                switch(currentView) {
-                    case 'create-table':
-                        if (e.altKey && e.key.toLowerCase() === 'c') {
-                            e.preventDefault();
-                            createTable();
-                        }
-                        break;
-                    case 'join-table':
-                        if (e.altKey && e.key.toLowerCase() === 'j') {
-                            e.preventDefault();
-                            joinTable();
-                        }
-                        break;
-                    case 'waiting-room':
-                        if (e.altKey && e.key.toLowerCase() === 's') {
-                            e.preventDefault();
-                            startGameFromWaiting();
-                        }
-                        if (e.altKey && e.key.toLowerCase() === 'l') {
-                            e.preventDefault();
-                            leaveTableFromWaiting();
-                        }
-                        if (e.altKey && e.key.toLowerCase() === 'c') {
-                            e.preventDefault();
-                            document.getElementById('waiting-chat-input').focus();
-                        }
-                        break;
-                    case 'game':
-                        if (e.altKey && e.key.toLowerCase() === 'm') {
-                            e.preventDefault();
-                            leaveGameFromGame();
-                        }
-                        if (e.altKey && e.key.toLowerCase() === 'o') {
-                            e.preventDefault();
-                            if (gameState && (gameState.gamePhase === 'play' || gameState.gamePhase === 'end')) {
-                                announceToScreenReader(`North-South: ${gameState.tricks.ns} tricks. East-West: ${gameState.tricks.ew} tricks.`);
-                            } else {
-                                announceToScreenReader("No score available yet.");
+                // View-specific shortcuts (non-game)
+                if (currentView !== 'game') {
+                    switch(currentView) {
+                        case 'create-table':
+                            if (e.altKey && e.key.toLowerCase() === 'c') {
+                                e.preventDefault();
+                                createTable();
                             }
-                        }
-                        break;
+                            break;
+                        case 'join-table':
+                            if (e.altKey && e.key.toLowerCase() === 'j') {
+                                e.preventDefault();
+                                joinTable();
+                            }
+                            break;
+                        case 'waiting-room':
+                            if (e.altKey && e.key.toLowerCase() === 's') {
+                                e.preventDefault();
+                                startGameFromWaiting();
+                            }
+                            if (e.altKey && e.key.toLowerCase() === 'l') {
+                                e.preventDefault();
+                                leaveTableFromWaiting();
+                            }
+                            if (e.altKey && e.key.toLowerCase() === 'c') {
+                                e.preventDefault();
+                                document.getElementById('waiting-chat-input').focus();
+                            }
+                            break;
+                    }
                 }
             });
         }
