@@ -2110,14 +2110,22 @@ function selectPosition(socket, playerId, data) {
     // Join socket to room
     socket.join(tableCode);
     
-    // Notify all players in table
-    sendToTablePlayers(table, {
-        type: 'playerJoined',
-        position,
-        playerName,
-        table: filterTable(table)
-    });
-    
+// KORJAUS: Lähetä tableInfo ensin uudelle pelaajalle, sitten playerJoined kaikille
+
+// 1. Lähetä tableInfo uudelle pelaajalle
+socket.emit('tableInfo', {
+    table: filterTable(table),
+    playerPosition: position
+});
+
+// 2. Sitten lähetä playerJoined kaikille (mukaan lukien uusi pelaaja)
+sendToTablePlayers(table, {
+    type: 'playerJoined',
+    position,
+    playerName,
+    table: filterTable(table)
+});
+
     console.log(`✅ Player ${playerName} joined table ${tableCode} at position ${position}`);
 }
 
