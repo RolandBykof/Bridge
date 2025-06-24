@@ -183,7 +183,7 @@ socket.on('createTable', ({ playerName, position, tableName }) => {
         created: Date.now(),
         lastActivity: Date.now(),
         creator: socket.id,
-        isSoloGame: false
+        isSoloGame: false,
     dealNumber: 0,        // Jakokierrosten määrä
     currentDealer: 'south' // Aloita etelästa
     };
@@ -2336,10 +2336,10 @@ sendToTablePlayers(table, {
   type: 'gameStarted',
   gameState: filterGameState(table.gameState, null), // EI kortteja!
   biddingState: table.biddingState,
-  players: filterTablePlayers(table.players)
-            dealNumber: table.dealNumber,    // LISÄÄ
-            dealer: table.currentDealer      // LISÄÄ
-});    +
+  players: filterTablePlayers(table.players),        // LISÄÄ PILKKU
+  dealNumber: table.dealNumber,                      // KORJAA SISENNYS
+  dealer: table.currentDealer                        // KORJAA SISENNYS
+});                                                   
 
     // Send each player their own cards privately
     for (const [position, playerData] of Object.entries(table.players)) {
