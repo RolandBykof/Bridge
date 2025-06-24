@@ -2629,8 +2629,9 @@ function determineContract(table) {
   return contract;
 }
 
+
 /**
- * Determine declarer and dummy
+ * Determine declarer and dummy (KORJATTU versio)
  * @param {Object} table - Table object
  */
 function determineDeclarerAndDummy(table) {
@@ -2670,11 +2671,30 @@ function determineDeclarerAndDummy(table) {
   
   // Set declarer and dummy
   if (declarerPartnership && firstPlayer) {
-    // Solo game: Always make South declarer if NS wins
-    if (table.isSoloGame && declarerPartnership === 'north-south') {
-      table.biddingState.declarer = 'south';
-      table.biddingState.dummy = 'north';
+    // KORJAUS: Etsi ihmispelaaja voittavasta joukkueesta
+    // Jos löytyy, hänestä tulee pelinviejä riippumatta asemasta
+    const winningTeamPositions = partnerships[declarerPartnership];
+    let humanPlayer = null;
+    
+    // Etsi ihmispelaaja voittavasta joukkueesta
+    for (const position of winningTeamPositions) {
+      if (table.players[position] && table.players[position].type === 'human') {
+        humanPlayer = position;
+        break;
+      }
+    }
+    
+    if (humanPlayer) {
+      // Ihmispelaaja löytyi voittavasta joukkueesta → hänestä tulee pelinviejä
+      table.biddingState.declarer = humanPlayer;
+      
+      // Dummy on joukkuekaveri
+      const partnerPosition = winningTeamPositions.find(pos => pos !== humanPlayer);
+      table.biddingState.dummy = partnerPosition;
+      
+      console.log(`Human player (${humanPlayer}) made declarer instead of ${firstPlayer}`);
     } else {
+      // Ei ihmispelaajaa voittavassa joukkueessa → normaali logiikka
       table.biddingState.declarer = firstPlayer;
       const dummyIndex = (partnerships[declarerPartnership].indexOf(firstPlayer) + 1) % 2;
       table.biddingState.dummy = partnerships[declarerPartnership][dummyIndex];
