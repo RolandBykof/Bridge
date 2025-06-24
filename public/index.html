@@ -328,6 +328,9 @@
         <div id="game-view" style="display: none;">
             <div class="section">
                 <h2>Players</h2>
+    <div class="deal-info" id="deal-info-area" style="display: none;">
+        <p><strong>Deal:</strong> <span id="deal-number">1</span> | <strong>Dealer:</strong> <span id="current-dealer">South</span></p>
+    </div>
                 <div class="player-controls" id="game-players-area">
                     <!-- Player information will be added here with JavaScript -->
                 </div>
@@ -414,6 +417,9 @@
     <script src="js/bridge.js"></script>
     <script>
         // GLOBAL STATE
+let dealNumber = 1;
+let currentDealer = 'south';
+let autoDealTimeout = null;
         let currentView = 'start-menu';
         let tableCode = null;
         let gameState = null;
@@ -2446,6 +2452,17 @@
             });
         }
 
+function updateDealInfo() {
+    document.getElementById('deal-number').textContent = dealNumber;
+    document.getElementById('current-dealer').textContent = positionName(currentDealer);
+    document.getElementById('deal-info-area').style.display = 'block';
+}
+
+function cancelAutoDeal() {
+    announceToScreenReader('Automatic deal cancelled.');
+    document.getElementById('game-new-game-button').style.display = 'block';
+}
+
         // SOCKET EVENT HANDLERS
         function setupSocketEventHandlers() {
             socket.on('tableCreated', (data) => {
@@ -2519,7 +2536,6 @@ socket.on('playerJoined', (data) => {
     }
 });
 
-
             socket.on('playerLeft', (data) => {
                 console.log('Player left:', data);
                 if (data && data.table && currentView === 'waiting-room') {
@@ -2534,7 +2550,10 @@ socket.on('playerJoined', (data) => {
                 console.log('Game started:', data);
                 gameState = data.gameState || {};
                 biddingState = data.biddingState || {};
-                
+    dealNumber = data.dealNumber || 1;
+    currentDealer = data.dealer || 'south';
+    updateDealInfo();                
+
                 gameState.gamePhase = 'bidding';
                 
                 showGameView();
@@ -2544,7 +2563,6 @@ socket.on('playerJoined', (data) => {
                 announceToScreenReader('Game started. Bidding phase begins.');
             });
 
-            // KRIITTINEN: yourCards event handler!
             socket.on('yourCards', (data) => {
                 console.log('Your cards received:', data);
                 myPosition = data.position;
@@ -2707,6 +2725,37 @@ socket.on('playerJoined', (data) => {
                 console.log('Socket disconnected');
                 showErrorWithAnnouncement('Connection lost. Attempting to reconnect...');
             });
+
+// Lisää olemassa olevien socket handlereiden jälkeen:
+
+socket.on('newDealStarted', (data) => {
+    console.log('New deal started:', data);
+    
+    // Päivitä deal info
+    dealNumber = data.dealNumber;
+    currentDealer = data.dealer;
+    updateDealInfo();
+    
+    // Resetoi game state
+    gameState = data.gameState || {};
+    biddingState = data.biddingState || {};
+    gameState.gamePhase = 'bidding';
+    
+    // Päivitä UI
+    updateGameUI();
+    renderBiddingUI();
+    
+    // Näytä bidding area
+    document.getElementById('game-bidding-area').style.display = 'block';
+    
+    announceToScreenReader(`Deal ${dealNumber} started. ${positionName(currentDealer)} is dealer. Bidding phase begins.`);
+});
+
+socket.on('dealError', (data) => {
+    console.error('Deal error:', data);
+    showErrorWithAnnouncement(data.message);
+    document.getElementById('game-new-game-button').style.display = 'block';
+});
 
             socket.on('reconnect', () => {
                 console.log('Socket reconnected');

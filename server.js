@@ -163,12 +163,6 @@ io.on('connection', (socket) => {
     sendActiveTables(socket);
   });
   
-// KORJATTU createTable event handler server.js:ssä (rivi ~765)
-
-
-
-// KORJATTU createTable event handler server.js:ssä (rivi ~765)
-
 socket.on('createTable', ({ playerName, position, tableName }) => {
     console.log(`Creating table for ${playerName} at position ${position}`);
     
@@ -190,6 +184,8 @@ socket.on('createTable', ({ playerName, position, tableName }) => {
         lastActivity: Date.now(),
         creator: socket.id,
         isSoloGame: false
+    dealNumber: 0,        // Jakokierrosten määrä
+    currentDealer: 'south' // Aloita etelästa
     };
 
     // Add player to table
@@ -2329,6 +2325,8 @@ async function startGame(socket, playerId, data) {
   }
   
   try {
+        table.dealNumber = 1;
+        table.currentDealer = 'south'; // Aloita etelästa
     // Deal cards
     table.gameState = await createGameState(table);
     table.biddingState = createBiddingState(table);
@@ -2339,7 +2337,9 @@ sendToTablePlayers(table, {
   gameState: filterGameState(table.gameState, null), // EI kortteja!
   biddingState: table.biddingState,
   players: filterTablePlayers(table.players)
-});    
+            dealNumber: table.dealNumber,    // LISÄÄ
+            dealer: table.currentDealer      // LISÄÄ
+});    +
 
     // Send each player their own cards privately
     for (const [position, playerData] of Object.entries(table.players)) {
@@ -3096,50 +3096,171 @@ function determineTrickWinner(table) {
  * End game
  * @param {Object} table - Table object
  */
+/**
+ * End game and start countdown for next deal
+ * @param {Object} table - Table object
+ */
 function endGame(table) {
-  table.gameState.gamePhase = 'end';
-  
-  // Calculate result based on contract
-  let resultMessage = '';
-  
-  if (table.gameState.contract) {
-    const level = parseInt(table.gameState.contract.charAt(0));
-    const requiredTricks = level + 6; // Contract level + 6
+    table.gameState.gamePhase = 'end';
     
-    // Determine if contract was made
-    const declarerSide = table.gameState.declarer === 'north' || table.gameState.declarer === 'south' ? 'ns' : 'ew';
-    const madeTricts = table.gameState.tricks[declarerSide];
+    // Calculate result based on contract
+    let resultMessage = '';
     
-    if (madeTricts >= requiredTricks) {
-      // Contract made
-      resultMessage = `Contract ${formatContract(table.gameState.contract)} made! ${positionName(table.gameState.declarer)}-${positionName(table.gameState.dummy)} got ${madeTricts} tricks.`;
+    if (table.gameState.contract) {
+        const level = parseInt(table.gameState.contract.charAt(0));
+        const requiredTricks = level + 6; // Contract level + 6
+        
+        // Determine if contract was made
+        const declarerSide = table.gameState.declarer === 'north' || table.gameState.declarer === 'south' ? 'ns' : 'ew';
+        const madeTricts = table.gameState.tricks[declarerSide];
+        
+        if (madeTricts >= requiredTricks) {
+            // Contract made
+            const overtricks = madeTricts - requiredTricks;
+            if (overtricks > 0) {
+                resultMessage = `Contract ${formatContract(table.gameState.contract)} made with ${overtricks} overtrick${overtricks > 1 ? 's' : ''}! ${positionName(table.gameState.declarer)}-${positionName(table.gameState.dummy)} got ${madeTricts} tricks.`;
+            } else {
+                resultMessage = `Contract ${formatContract(table.gameState.contract)} made exactly! ${positionName(table.gameState.declarer)}-${positionName(table.gameState.dummy)} got ${madeTricts} tricks.`;
+            }
+        } else {
+            // Contract down
+            const down = requiredTricks - madeTricts;
+            resultMessage = `Contract ${formatContract(table.gameState.contract)} went down ${down} trick${down > 1 ? 's' : ''}. ${positionName(table.gameState.declarer)}-${positionName(table.gameState.dummy)} got ${madeTricts} tricks.`;
+        }
     } else {
-      // Contract down
-      resultMessage = `Contract ${formatContract(table.gameState.contract)} went down ${requiredTricks - madeTricts} trick(s). ${positionName(table.gameState.declarer)}-${positionName(table.gameState.dummy)} got ${madeTricts} tricks.`;
+        // No contract - just report tricks
+        if (table.gameState.tricks.ns > table.gameState.tricks.ew) {
+            resultMessage = `Game over! North-South won ${table.gameState.tricks.ns} tricks vs. ${table.gameState.tricks.ew}.`;
+        } else if (table.gameState.tricks.ew > table.gameState.tricks.ns) {
+            resultMessage = `Game over! East-West won ${table.gameState.tricks.ew} tricks vs. ${table.gameState.tricks.ns}.`;
+        } else {
+            resultMessage = `Game over! Tie, both teams got ${table.gameState.tricks.ns} tricks.`;
+        }
     }
-  } else {
-    // No contract - just report tricks
-    if (table.gameState.tricks.ns > table.gameState.tricks.ew) {
-      resultMessage = `Game over! North-South won ${table.gameState.tricks.ns} tricks vs. ${table.gameState.tricks.ew}.`;
-    } else if (table.gameState.tricks.ew > table.gameState.tricks.ns) {
-      resultMessage = `Game over! East-West won ${table.gameState.tricks.ew} tricks vs. ${table.gameState.tricks.ns}.`;
-    } else {
-      resultMessage = `Game over! Tie, both teams got ${table.gameState.tricks.ns} tricks.`;
+    
+    // Update last activity
+    table.lastActivity = Date.now();
+    
+    // Notify players about game end
+    sendToTablePlayers(table, {
+        type: 'gameOver',
+        message: resultMessage,
+        tricks: table.gameState.tricks,
+        contract: table.gameState.contract,
+        dealNumber: table.dealNumber || 1,          // UUSI: Deal numero
+        dealer: table.currentDealer || 'south'      // UUSI: Nykyinen dealer
+    });
+    
+    console.log(`Game ${table.code} ended: ${resultMessage}`);
+    
+    // UUSI: Automaattinen uusi jako 10 sekunnin kuluttua
+    // Tarkista että pöytä on yhä olemassa ja että siinä on pelaajia
+    setTimeout(() => {
+        if (table && tables.has(table.code)) {
+            // Tarkista että pöydässä on yhä pelaajia
+            const activePlayers = Object.values(table.players).filter(p => p !== null);
+            
+            if (activePlayers.length > 0) {
+                console.log(`Starting next deal for table ${table.code}`);
+                startNextDeal(table);
+            } else {
+                console.log(`Table ${table.code} empty, not starting next deal`);
+                // Poista tyhjä pöytä
+                tables.delete(table.code);
+            }
+        } else {
+            console.log(`Table ${table.code} no longer exists, cancelling next deal`);
+        }
+    }, 10000); // 10 sekuntia
+    
+    // UUSI: Lähetä countdown alkamisen tieto pelaajille
+    sendToTablePlayers(table, {
+        type: 'autoDealCountdownStarted',
+        nextDealNumber: (table.dealNumber || 1) + 1,
+        nextDealer: getNextDealer(table.currentDealer || 'south'),
+        countdown: 10 // sekuntia
+    });
+}
+
+/**
+ * Get next dealer in rotation
+ * @param {string} currentDealer - Current dealer position
+ * @return {string} Next dealer position
+ */
+function getNextDealer(currentDealer) {
+    const dealerOrder = ['south', 'west', 'north', 'east'];
+    const currentIndex = dealerOrder.indexOf(currentDealer);
+    return dealerOrder[(currentIndex + 1) % 4];
+}
+
+/**
+ * Start next deal automatically
+ * @param {Object} table - Table object
+ */
+async function startNextDeal(table) {
+    try {
+        // Päivitä dealer (kierto: south → west → north → east → south)
+        table.currentDealer = getNextDealer(table.currentDealer || 'south');
+        
+        // Päivitä deal numero
+        table.dealNumber = (table.dealNumber || 1) + 1;
+        
+        console.log(`Starting deal ${table.dealNumber}, dealer: ${table.currentDealer} for table ${table.code}`);
+        
+        // Reset table state for new game
+        table.state = 'playing';
+        table.lastActivity = Date.now();
+        
+        // Create new game state
+        table.gameState = await createGameState(table);
+        table.biddingState = createBiddingState(table);
+        
+        // Notify players about new deal
+        sendToTablePlayers(table, {
+            type: 'newDealStarted',
+            dealNumber: table.dealNumber,
+            dealer: table.currentDealer,
+            gameState: filterGameState(table.gameState, null),
+            biddingState: table.biddingState
+        });
+        
+        // Send each player their cards privately
+        for (const [position, playerData] of Object.entries(table.players)) {
+            if (playerData.type === 'human' && playerData.id) {
+                const player = players.get(playerData.id);
+                if (player && player.socket) {
+                    player.socket.emit('yourCards', {
+                        position,
+                        cards: table.gameState.hands[position]
+                    });
+                }
+            }
+        }
+        
+        console.log(`Deal ${table.dealNumber} started successfully for table ${table.code}`);
+        
+        // If first bidder is GIB, handle GIB's turn
+        if (table.players[table.biddingState.currentBidder].type === 'gib') {
+            setTimeout(async () => {
+                await makeAdvancedGIBBid(table, table.biddingState.currentBidder);
+            }, 1500);
+        }
+        
+    } catch (error) {
+        console.error(`Error starting next deal for table ${table.code}:`, error);
+        
+        // Fallback: notify players about error
+        sendToTablePlayers(table, {
+            type: 'dealError',
+            message: 'Error starting new deal. You can start a new game manually.',
+            error: error.message
+        });
+        
+        // Reset table to waiting state
+        table.state = 'waiting';
+        table.gameState = null;
+        table.biddingState = null;
     }
-  }
-  
-  // Notify players about game end
-  sendToTablePlayers(table, {
-    type: 'gameOver',
-    message: resultMessage,
-    tricks: table.gameState.tricks,
-    contract: table.gameState.contract
-  });
-  
-  // Reset table for new game
-  table.state = 'waiting';
-  table.gameState = null;
-  table.biddingState = null;
 }
 
 /**
@@ -3390,25 +3511,24 @@ async function createGameState(table) {
  * @return {Object} Bidding state object
  */
 function createBiddingState(table) {
-  return {
-    currentBidder: 'south',
-    bidHistory: [],
-    currentRound: 1,
-    consecutivePasses: 0,
-    biddingComplete: false,
-    highestBid: null,
-    contract: null,
-    declarer: null,
-    dummy: null,
-    trumpSuit: null,
-    dealer: 'south'
-  };
+    // KORJAUS: Kiertävä dealer
+    const dealerPosition = table.currentDealer;
+    
+    return {
+        currentBidder: dealerPosition, // Dealer aloittaa bidding:n
+        bidHistory: [],
+        currentRound: 1,
+        consecutivePasses: 0,
+        biddingComplete: false,
+        highestBid: null,
+        contract: null,
+        declarer: null,
+        dummy: null,
+        trumpSuit: null,
+        dealer: dealerPosition // Käytä table:n dealer:ia
+    };
 }
 
-/**
- * Deal cards
- * @return {Object} Hands object
- */
 function dealCards() {
   // Create deck
   const deck = [];
