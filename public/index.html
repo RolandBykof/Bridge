@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BridgeCircle - Multiplayer</title>
@@ -397,26 +398,53 @@
                     Leave Game
                 </button>
             </div>
-            
-            <!-- Game Chat Section -->
-            <div class="section">
-                <h3>Game Chat</h3>
-                <div id="game-chat-messages" class="chat-messages" aria-live="polite"></div>
-                <div class="chat-input-container">
-                    <label for="game-chat-input" class="sr-only">Type a message</label>
-                    <input type="text" id="game-chat-input" class="chat-input" 
-                           placeholder="Type a message...">
-                    <button onclick="sendGameChatMessage()" class="button">Send</button>
-                </div>
-            </div>
-        </div>
+           
+<!-- Game Chat Section -->
+<div class="section">
+    <h3>Game Chat</h3>
+    <div id="game-chat-messages" class="chat-messages" aria-live="polite"></div>
+    <div class="chat-input-container">
+        <label for="game-chat-input" class="sr-only">Type a message</label>
+        <input type="text" id="game-chat-input" class="chat-input" 
+               placeholder="Type a message...">
+        <button onclick="sendGameChatMessage()" class="button">Send</button>
     </div>
-    
+</div>
+
+<!-- UUSI: Ääniasetukset pelin aikana -->
+<div class="section">
+    <h3>Ääniasetukset</h3>
+    <div class="audio-settings" role="group" aria-label="Ääniasetukset">
+        <div class="checkbox-group">
+            <input type="checkbox" id="aanetKaytossa">
+            <label for="aanetKaytossa">Käytä pelin ääniä</label>
+        </div>
+        <span id="aaniStatus" role="status" aria-live="polite">Äänet eivät ole käytössä</span>
+    </div>
+</div>
+    </div>
+</div>
+</div>
+
     <!-- JavaScript files -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/bridge.js"></script>
     <script>
         // GLOBAL STATE
+
+let aanetAlustettu = false;
+
+// Bridge-äänitiedostot
+const sounds = {
+    deal: new Howl({
+        src: ['/deal.mp3'],
+        volume: 0.5
+    }),
+    hit: new Howl({
+        src: ['/hit.mp3'], 
+        volume: 0.5
+    })
+};
 let dealNumber = 1;
 let currentDealer = 'south';
 let autoDealTimeout = null;
@@ -2463,8 +2491,57 @@ function cancelAutoDeal() {
     document.getElementById('game-new-game-button').style.display = 'block';
 }
 
+// Äänen toistofunktio
+function toistaAani(aaniTyyppi) {
+    if (aanetAlustettu && sounds[aaniTyyppi]) {
+        sounds[aaniTyyppi].play();
+    }
+}
+
+// Äänien alustus
+async function alustaAanet() {
+    try {
+        sounds.deal.volume(0.1);
+        await new Promise((resolve) => {
+            sounds.deal.once('play', resolve);
+            sounds.deal.play();
+        });
+        sounds.deal.stop();
+        sounds.deal.volume(0.5);
+
+        aanetAlustettu = true;
+        document.getElementById('aaniStatus').textContent = 'Äänet käytössä';
+    } catch (error) {
+        console.warn('Äänien alustus epäonnistui:', error);
+        document.getElementById('aaniStatus').textContent = 'Äänien alustus epäonnistui';
+    }
+}
+
+// Ääniasetuksten muutos
+function muutaAaniAsetukset() {
+    const checkbox = document.getElementById('aanetKaytossa');
+    const statusTeksti = document.getElementById('aaniStatus');
+    
+    if (checkbox.checked) {
+        if (!aanetAlustettu) {
+            alustaAanet();
+        } else {
+            statusTeksti.textContent = 'Äänet käytössä';
+        }
+    } else {
+        aanetAlustettu = false;
+        statusTeksti.textContent = 'Äänet eivät ole käytössä';
+    }
+}
+
         // SOCKET EVENT HANDLERS
         function setupSocketEventHandlers() {
+socket.on('toista_aani', (data) => {
+    if (aanetAlustettu) {
+        toistaAani(data.aaniTyyppi);
+    }
+});
+
             socket.on('tableCreated', (data) => {
                 console.log('Table created:', data);
                 tableCode = data.tableCode;
@@ -2769,6 +2846,11 @@ socket.on('dealError', (data) => {
 
         // INITIALIZATION
         document.addEventListener('DOMContentLoaded', function() {
+// Ääniasetusten event listener
+document.getElementById('aanetKaytossa').addEventListener('change', function() {
+    muutaAaniAsetukset();
+});
+
             // Set up keyboard listeners
             setupKeyboardListeners();
             

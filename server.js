@@ -2114,7 +2114,6 @@ socket.emit('tableInfo', {
     playerPosition: position
 });
 
-// 2. Sitten lähetä playerJoined kaikille (mukaan lukien uusi pelaaja)
 sendToTablePlayers(table, {
     type: 'playerJoined',
     position,
@@ -2336,10 +2335,11 @@ sendToTablePlayers(table, {
   type: 'gameStarted',
   gameState: filterGameState(table.gameState, null), // EI kortteja!
   biddingState: table.biddingState,
-  players: filterTablePlayers(table.players),        // LISÄÄ PILKKU
-  dealNumber: table.dealNumber,                      // KORJAA SISENNYS
-  dealer: table.currentDealer                        // KORJAA SISENNYS
+  players: filterTablePlayers(table.players),        
+  dealNumber: table.dealNumber,                      
+  dealer: table.currentDealer                        
 });                                                   
+sendAudioToTable(table, 'deal');
 
     // Send each player their own cards privately
     for (const [position, playerData] of Object.entries(table.players)) {
@@ -2860,7 +2860,8 @@ function processCardPlay(table, position, suit, card) {
     card,
     currentTrick: table.gameState.currentTrick
   });
-  
+  sendAudioToTable(table, 'hit');
+
   // Check if trick is complete (4 cards)
   if (table.gameState.currentTrick.length === 4) {
     setTimeout(() => {
@@ -3434,6 +3435,21 @@ function calculatePoints(hand) {
  */
 function sendError(socket, message) {
   socket.emit('error', { message });
+}
+
+
+/**
+ * Send audio message to all players in table
+ * @param {Object} table - Table object
+ * @param {string} audioType - Type of audio to play
+ */
+function sendAudioToTable(table, audioType) {
+    const message = {
+        type: 'toista_aani',
+        aaniTyyppi: audioType
+    };
+    
+    sendToTablePlayers(table, message);
 }
 
 /**
