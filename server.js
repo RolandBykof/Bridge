@@ -2594,7 +2594,7 @@ function finalizeBiddingPhase(table) {
 }
 
 /**
- * Determine the final contract
+ * Determine the final contract (KORJATTU versio - tuplaus nollautuu uudessa tarjouksessa)
  * @param {Object} table - Table object
  */
 function determineContract(table) {
@@ -2605,13 +2605,19 @@ function determineContract(table) {
   
   for (const bidInfo of table.biddingState.bidHistory) {
     if (!['P', 'X', 'XX'].includes(bidInfo.bid)) {
+      // Uusi kontraktitarjous löytyi
       highestBid = bidInfo.bid;
+      // KORJAUS: Nollaa tuplaus kun löytyy uusi kontraktitarjous
+      doubled = false;
+      redoubled = false;
     } else if (bidInfo.bid === 'X' && highestBid) {
+      // Tuplaus (double) - toimii vain jos on olemassa kontraktitarjous
       doubled = true;
       redoubled = false;
     } else if (bidInfo.bid === 'XX' && doubled) {
+      // Uudelleentuplaus (redouble) - toimii vain jos on jo tuplaus
       redoubled = true;
-      doubled = false;
+      doubled = false; // XX korvaa X:n
     }
   }
   
@@ -2621,14 +2627,16 @@ function determineContract(table) {
   
   // Form contract
   let contract = highestBid;
-  if (doubled) contract += 'X';
-  if (redoubled) contract += 'XX';
+  if (redoubled) {
+    contract += 'XX'; // Redouble has priority over double
+  } else if (doubled) {
+    contract += 'X';
+  }
   
   table.biddingState.contract = contract;
   
   return contract;
 }
-
 
 /**
  * Determine declarer and dummy (KORJATTU versio)
