@@ -1301,23 +1301,22 @@ let autoDealTimeout = null;
                         
                         if (isPlayPhase && canPlayFromThisPosition) {
                             html += `
-html += `
-    <button 
-        class="card-button ${cardClass}"
-        data-suit="${suit}"
-        data-card="${card}"
-        onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
-        aria-label="${getSuitSymbol(suit)}${card}"
-    >
-        ${getSuitSymbol(suit)}${card}
-    </button>
-`;
+                                <button 
+                                    class="card-button ${cardClass}"
+                                    data-suit="${suit}"
+                                    data-card="${card}"
+                                    onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
+                                    aria-label="Play ${getSuitName(suit)} ${card}"
+                                >
+                                    ${card}
+                                </button>
+                            `;
                         } else {
-html += `
-    <span class="card-display ${cardClass}" aria-label="${getSuitSymbol(suit)}${card}">
-        ${getSuitSymbol(suit)}${card}
-    </span>
-`;
+                            html += `
+                                <span class="card-display ${cardClass}" aria-label="${getSuitName(suit)} ${card}">
+                                    ${card}
+                                </span>
+                            `;
                         }
                     });
                 } else {
