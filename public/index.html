@@ -2649,7 +2649,7 @@ socket.on('playerJoined', (data) => {
                 // Set only our hand
                 gameState.hands[data.position] = data.cards;
                 renderHand(data.position, data.cards);
-                
+                    toistaAani('deal');
                 announceToScreenReader('Your cards have been dealt.');
             });
 
