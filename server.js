@@ -2637,8 +2637,11 @@ function determineContract(table) {
   
   return contract;
 }
+
+
+
 /**
- * Determine declarer and dummy (KORJATTU versio)
+ * Determine declarer and dummy (KORJATTU versio - oikea opening lead)
  * @param {Object} table - Table object
  */
 function determineDeclarerAndDummy(table) {
@@ -2680,11 +2683,8 @@ function determineDeclarerAndDummy(table) {
   if (declarerPartnership && firstPlayerToBidSuit) {
     const winningTeamPositions = partnerships[declarerPartnership];
     
-    // SÄILYTETTY OMINAISUUS: Etsi ihmispelaaja voittavasta joukkueesta
-    // Tämä poikkeaa bridge-säännöistä, mutta tekee pelistä kiinnostavamman
-    let humanPlayer = null;
-    
     // Etsi ihmispelaaja voittavasta joukkueesta
+    let humanPlayer = null;
     for (const position of winningTeamPositions) {
       if (table.players[position] && table.players[position].type === 'human') {
         humanPlayer = position;
@@ -2692,22 +2692,33 @@ function determineDeclarerAndDummy(table) {
       }
     }
     
+    // UUSI: Muista alkuperäinen declarer opening leadia varten
+    const originalDeclarer = firstPlayerToBidSuit;
+    
+    // KORJATTU LOGIIKKA: Älykkäämpi ihmispelaaja-käsittely
     if (humanPlayer) {
-      // Ihmispelaaja löytyi voittavasta joukkueesta → hänestä tulee pelinviejä
-      // HUOM: Tämä poikkeaa bridge-säännöistä, mutta tekee pelistä kiinnostavamman
-      table.biddingState.declarer = humanPlayer;
-      
-      // Dummy on joukkuekaveri
-      const partnerPosition = winningTeamPositions.find(pos => pos !== humanPlayer);
-      table.biddingState.dummy = partnerPosition;
-      
-      console.log(`Human player (${humanPlayer}) made declarer instead of ${firstPlayerToBidSuit} for better gameplay`);
+      if (humanPlayer === firstPlayerToBidSuit) {
+        // Jos ihmispelaaja itse tarjosi ensimmäisenä → hän on declarer
+        // (Tämä on jo oikein bridge-sääntöjen mukaan)
+        table.biddingState.declarer = humanPlayer;
+        table.biddingState.originalDeclarer = originalDeclarer; // Sama kuin declarer
+        const partnerPosition = winningTeamPositions.find(pos => pos !== humanPlayer);
+        table.biddingState.dummy = partnerPosition;
+        
+        console.log(`Human player ${humanPlayer} is declarer (correctly, as first to bid ${contractSuit})`);
+      } else {
+        // Jos ihmispelaajan PARTNERI tarjosi ensimmäisenä → siirretään declarer ihmiselle
+        // MUTTA opening lead tulee alkuperäisen declarerin vasemmalta
+        table.biddingState.declarer = humanPlayer; // Ihminen saa pelata
+        table.biddingState.originalDeclarer = originalDeclarer; // Muistetaan alkuperäinen
+        table.biddingState.dummy = firstPlayerToBidSuit; // Alkuperäinen declarer on dummy
+        
+        console.log(`Declarer switched from ${firstPlayerToBidSuit} to human ${humanPlayer} for better gameplay. Opening lead still from left of original declarer ${firstPlayerToBidSuit}.`);
+      }
     } else {
       // Ei ihmispelaajaa voittavassa joukkueessa → normaali bridge-sääntö
-      // Pelinviejä on se joka ensimmäisenä tarjosi maata
       table.biddingState.declarer = firstPlayerToBidSuit;
-      
-      // Dummy on firstPlayerToBidSuit:n partneri
+      table.biddingState.originalDeclarer = firstPlayerToBidSuit; // Sama kuin declarer
       const partnerPosition = winningTeamPositions.find(pos => pos !== firstPlayerToBidSuit);
       table.biddingState.dummy = partnerPosition;
       
@@ -2717,11 +2728,12 @@ function determineDeclarerAndDummy(table) {
     // Fallback (ei pitäisi tapahtua normaalissa pelissä)
     console.warn('Could not determine declarer properly, using fallback');
     table.biddingState.declarer = 'south';
+    table.biddingState.originalDeclarer = 'south';
     table.biddingState.dummy = 'north';
   }
 }
  
-
+ 
 /**
  * Check if GIB can play from a position
  * @param {Object} table - Table object
@@ -2741,8 +2753,9 @@ function canGIBPlayFromPosition(table, position) {
   return table.players[position] && table.players[position].type === 'gib';
 }
 
+
 /**
- * Move to play phase
+ * Move to play phase (KORJATTU - oikea opening lead)
  * @param {Object} table - Table object
  */
 function moveToPlayPhase(table) {
@@ -2755,19 +2768,24 @@ function moveToPlayPhase(table) {
   // Update game phase
   table.gameState.gamePhase = 'play';
 
-  // Vaihda dummy GIB-ihmispelaajaksi, jos pelinviejä on ihminen ja dummy on GIB
-const declarer = table.biddingState.declarer;
-const dummy = table.biddingState.dummy;
-const declarerPlayer = table.players[declarer];
-const dummyPlayer = table.players[dummy];
+  const declarer = table.biddingState.declarer;
+  const dummy = table.biddingState.dummy;
+  const declarerPlayer = table.players[declarer];
+  const dummyPlayer = table.players[dummy];
 
-console.log(`Play phase starting. Declarer: ${declarer}, Dummy: ${dummy}`);
+  console.log(`Play phase starting. Declarer: ${declarer}, Dummy: ${dummy}`);
 
-  // Set first player (left of declarer)
+  // KORJAUS: Set first player (left of ORIGINAL declarer, not current declarer)
   const positions = ['north', 'east', 'south', 'west'];
-  const declarerIndex = positions.indexOf(table.biddingState.declarer);
+  
+  // Käytä originalDeclarer jos se on asetettu, muuten tavallista declareria
+  const declarerForLead = table.biddingState.originalDeclarer || table.biddingState.declarer;
+  
+  const declarerIndex = positions.indexOf(declarerForLead);
   table.gameState.currentPlayer = positions[(declarerIndex + 1) % 4];
   table.gameState.leadingPlayer = table.gameState.currentPlayer;
+  
+  console.log(`Opening lead from ${table.gameState.currentPlayer} (left of original declarer ${declarerForLead})`);
   
   // Notify players
   sendToTablePlayers(table, {
@@ -2785,24 +2803,24 @@ console.log(`Play phase starting. Declarer: ${declarer}, Dummy: ${dummy}`);
     if (playerData.type === 'human' && playerData.id) {
       const player = players.get(playerData.id);
       if (player && player.socket) {
-player.socket.emit('playPhaseCards', {
-  position,
-  cards: table.gameState.hands[position]
-  // Dummy cards will be sent after opening lead is played
-});
+        player.socket.emit('playPhaseCards', {
+          position,
+          cards: table.gameState.hands[position]
+          // Dummy cards will be sent after opening lead is played
+        });
       }
     }
   }
   
   // If first player is GIB, make GIB's move
-if (canGIBPlayFromPosition(table, table.gameState.currentPlayer)) {
+  if (canGIBPlayFromPosition(table, table.gameState.currentPlayer)) {
     setTimeout(async () => {
-      await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
+      await makeAdvancedGIBMove(table, table.gameState.currentPlayer);
     }, 1500);
   }
 }
-
-/**
+ 
+ /**
  * Play a card
  * @param {Object} socket - Socket.IO socket
  * @param {string} playerId - Player's ID
