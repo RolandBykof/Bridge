@@ -2637,7 +2637,6 @@ function determineContract(table) {
   
   return contract;
 }
-
 /**
  * Determine declarer and dummy (KORJATTU versio)
  * @param {Object} table - Table object
@@ -2652,36 +2651,37 @@ function determineDeclarerAndDummy(table) {
   };
   
   let declarerPartnership = null;
-  let firstPlayer = null;
+  let firstPlayerToBidSuit = null;
   
+  // KORJAUS: Etsi ensimmäinen pelaaja joka tarjosi lopullista maata
+  // Käy läpi tarjoushistoria kronologisessa järjestyksessä
   for (const bidInfo of table.biddingState.bidHistory) {
+    // Tarkista onko tämä oikea maa/sanga ja ei ole pass/double/redouble
     if (bidInfo.bid.charAt(1) === contractSuit && !['P', 'X', 'XX'].includes(bidInfo.bid)) {
       const player = bidInfo.player;
       
-      // Determine which partnership this player belongs to
-      for (const [partnership, players] of Object.entries(partnerships)) {
-        if (players.includes(player)) {
-          declarerPartnership = partnership;
-          
-          // Check if this player was the first to bid this suit
-          if (!firstPlayer || !players.includes(firstPlayer)) {
-            firstPlayer = player;
+      // Jos firstPlayerToBidSuit ei ole vielä asetettu, aseta se nyt
+      if (!firstPlayerToBidSuit) {
+        firstPlayerToBidSuit = player;
+        
+        // Määritä myös partnership
+        for (const [partnership, players] of Object.entries(partnerships)) {
+          if (players.includes(player)) {
+            declarerPartnership = partnership;
+            break;
           }
-          break;
         }
-      }
-      
-      if (declarerPartnership && firstPlayer) {
-        break;
+        break; // TÄRKEÄÄ: Lopeta haku kun ensimmäinen löytyy
       }
     }
   }
   
-  // Set declarer and dummy
-  if (declarerPartnership && firstPlayer) {
-    // KORJAUS: Etsi ihmispelaaja voittavasta joukkueesta
-    // Jos löytyy, hänestä tulee pelinviejä riippumatta asemasta
+  // Aseta declarer ja dummy
+  if (declarerPartnership && firstPlayerToBidSuit) {
     const winningTeamPositions = partnerships[declarerPartnership];
+    
+    // SÄILYTETTY OMINAISUUS: Etsi ihmispelaaja voittavasta joukkueesta
+    // Tämä poikkeaa bridge-säännöistä, mutta tekee pelistä kiinnostavamman
     let humanPlayer = null;
     
     // Etsi ihmispelaaja voittavasta joukkueesta
@@ -2694,25 +2694,33 @@ function determineDeclarerAndDummy(table) {
     
     if (humanPlayer) {
       // Ihmispelaaja löytyi voittavasta joukkueesta → hänestä tulee pelinviejä
+      // HUOM: Tämä poikkeaa bridge-säännöistä, mutta tekee pelistä kiinnostavamman
       table.biddingState.declarer = humanPlayer;
       
       // Dummy on joukkuekaveri
       const partnerPosition = winningTeamPositions.find(pos => pos !== humanPlayer);
       table.biddingState.dummy = partnerPosition;
       
-      console.log(`Human player (${humanPlayer}) made declarer instead of ${firstPlayer}`);
+      console.log(`Human player (${humanPlayer}) made declarer instead of ${firstPlayerToBidSuit} for better gameplay`);
     } else {
-      // Ei ihmispelaajaa voittavassa joukkueessa → normaali logiikka
-      table.biddingState.declarer = firstPlayer;
-      const dummyIndex = (partnerships[declarerPartnership].indexOf(firstPlayer) + 1) % 2;
-      table.biddingState.dummy = partnerships[declarerPartnership][dummyIndex];
+      // Ei ihmispelaajaa voittavassa joukkueessa → normaali bridge-sääntö
+      // Pelinviejä on se joka ensimmäisenä tarjosi maata
+      table.biddingState.declarer = firstPlayerToBidSuit;
+      
+      // Dummy on firstPlayerToBidSuit:n partneri
+      const partnerPosition = winningTeamPositions.find(pos => pos !== firstPlayerToBidSuit);
+      table.biddingState.dummy = partnerPosition;
+      
+      console.log(`Standard bridge rules: ${firstPlayerToBidSuit} is declarer (first to bid ${contractSuit}), ${partnerPosition} is dummy`);
     }
   } else {
-    // Fallback
+    // Fallback (ei pitäisi tapahtua normaalissa pelissä)
+    console.warn('Could not determine declarer properly, using fallback');
     table.biddingState.declarer = 'south';
     table.biddingState.dummy = 'north';
   }
 }
+ 
 
 /**
  * Check if GIB can play from a position
