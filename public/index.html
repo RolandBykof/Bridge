@@ -307,6 +307,18 @@
                     Leave Table
                 </button>
             </div>
+
+<!-- Ääniasetukset -->
+<div class="section">
+    <h3>Audio Settings</h3>
+    <div class="audio-settings" role="group" aria-label="Audio settings">
+        <div class="checkbox-group">
+            <input type="checkbox" id="aanetKaytossa">
+            <label for="aanetKaytossa">Enable game sounds</label>
+        </div>
+        <span id="aaniStatus" role="status" aria-live="polite">Sounds disabled</span>
+    </div>
+</div>
             
             <!-- Chat Section -->
             <div class="chat-section">
@@ -408,18 +420,6 @@
         <input type="text" id="game-chat-input" class="chat-input" 
                placeholder="Type a message...">
         <button onclick="sendGameChatMessage()" class="button">Send</button>
-    </div>
-</div>
-
-<!-- UUSI: Ääniasetukset pelin aikana -->
-<div class="section">
-    <h3>Ääniasetukset</h3>
-    <div class="audio-settings" role="group" aria-label="Ääniasetukset">
-        <div class="checkbox-group">
-            <input type="checkbox" id="aanetKaytossa">
-            <label for="aanetKaytossa">Käytä pelin ääniä</label>
-        </div>
-        <span id="sound status" role="status" aria-live="polite">Sounds disabled</span>
     </div>
 </div>
     </div>
