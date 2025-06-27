@@ -1332,6 +1332,36 @@ html += `
             element.innerHTML = html;
         }
 
+/**
+         * Update current trick display
+         */
+        function updateCurrentTrickDisplay() {
+            const container = document.getElementById('game-played-cards-container');
+            if (!container) return;
+            
+            if (!gameState || !gameState.currentTrick || gameState.currentTrick.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No cards played in current trick yet.</p>';
+                return;
+            }
+            
+            let html = '<div class="current-trick-cards">';
+            
+            for (const card of gameState.currentTrick) {
+                const suitClass = `suit-${card.suit}`;
+                html += `
+                    <div class="played-card">
+                        <div class="player-name">${positionName(card.player)}</div>
+                        <div class="card-display ${suitClass}">
+                            ${getSuitSymbol(card.suit)}${card.card}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
         /**
          * Update game UI
          */
@@ -1369,6 +1399,7 @@ html += `
                 playersArea.innerHTML = html;
             }
             
+updateCurrentTrickDisplay();
             updateStatus();
         }
 
@@ -2735,8 +2766,9 @@ socket.on('playerJoined', (data) => {
                     }
                 }
                 
-                renderHand(data.position, gameState.hands[data.position]);
-                
+renderHand(data.position, gameState.hands[data.position]);
+                updateCurrentTrickDisplay();                
+
                 announceToScreenReader(`${positionName(data.position)} ${getSuitName(data.suit)} ${data.card}`);
             });
 
@@ -2746,8 +2778,8 @@ socket.on('playerJoined', (data) => {
                 gameState.tricks = data.tricks;
                 gameState.currentPlayer = data.nextPlayer;
                 
-                updateGameUI();
-                
+updateGameUI();
+                updateCurrentTrickDisplay();                
                 const winner = positionName(data.winner);
                 const next = positionName(data.nextPlayer);
                 
