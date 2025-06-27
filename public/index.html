@@ -2541,7 +2541,7 @@ async function alustaAanet() {
         sounds.deal.volume(0.5);
 
         aanetAlustettu = true;
-        document.getElementById('sounds').textContent = 'Sounds enabled';
+        document.getElementById('aaniStatus').textContent = 'Sounds enabled';
     } catch (error) {
         console.warn('Error enabling sounds:', error);
         document.getElementById('aaniStatus').textContent = 'Äänien alustus epäonnistui';
