@@ -3371,10 +3371,16 @@ function determineDeclarerAndDummy(table) {
     // Etsi ihmispelaaja voittavasta joukkueesta
     let humanPlayer = null;
     for (const position of winningTeamPositions) {
-      if (table.players[position] && table.players[position].type === 'human') {
-        humanPlayer = position;
-        break;
-      }
+if (firstPlayerToBidSuit && table.players[firstPlayerToBidSuit].type === 'human') {
+  // Bridge-sääntö + ihminen = perfekti, ei muutoksia tarvita
+  table.biddingState.declarer = firstPlayerToBidSuit;
+} else if (partnerOfFirstPlayer && table.players[partnerOfFirstPlayer].type === 'human') {
+  // Vain jos alkuperäinen declarer on GIB, siirrä ihmiselle
+  table.biddingState.declarer = partnerOfFirstPlayer;
+} else {
+  // Normaali bridge-sääntö
+  table.biddingState.declarer = firstPlayerToBidSuit;
+}
     }
     
     // UUSI: Muista alkuperäinen declarer opening leadia varten
