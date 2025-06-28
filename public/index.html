@@ -1893,7 +1893,6 @@ updateCurrentTrickDisplay();
             }
         }
 
-        // ADVANCED KEYBOARD SHORTCUTS (from playsolo.html)
         
         // Keyboard shortcuts configuration
         const keyboardShortcuts = [
@@ -1952,15 +1951,15 @@ updateCurrentTrickDisplay();
             
             // Card playing shortcuts - high cards
             { key: '1', ctrl: true, description: 'Play highest spade', action: () => playHighestCard('spades') },
-            { key: '2', ctrl: true, description: 'Play highest heart', action: () => playHighestCard('hearts') },
+           { key: '2', ctrl: true, description: 'Play highest heart', action: () => playHighestCard('hearts') },
             { key: '3', ctrl: true, description: 'Play highest diamond', action: () => playHighestCard('diamonds') },
             { key: '4', ctrl: true, description: 'Play highest club', action: () => playHighestCard('clubs') },
             
             // Card playing shortcuts - low cards
-            { key: '1', ctrl: true, shift: true, description: 'Play lowest spade', action: () => playLowestCard('spades') },
-            { key: '2', ctrl: true, shift: true, description: 'Play lowest heart', action: () => playLowestCard('hearts') },
-            { key: '3', ctrl: true, shift: true, description: 'Play lowest diamond', action: () => playLowestCard('diamonds') },
-            { key: '4', ctrl: true, shift: true, description: 'Play lowest club', action: () => playLowestCard('clubs') },
+            { key: '1', alt: true, description: 'Play lowest spade', action: () => playLowestCard('spades') },
+            { key: '2', alt: true, description: 'Play lowest heart', action: () => playLowestCard('hearts') },
+            { key: '3', alt: true, description: 'Play lowest diamond', action: () => playLowestCard('diamonds') },
+            { key: '4', alt: true, description: 'Play lowest club', action: () => playLowestCard('clubs') },
             
             // General shortcuts
             { key: 'h', alt: true, description: 'Show/hide help', action: () => toggleHelp() },
