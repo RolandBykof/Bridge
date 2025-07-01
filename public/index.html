@@ -2771,29 +2771,49 @@ renderHand(data.position, gameState.hands[data.position]);
                 announceToScreenReader(`${positionName(data.position)} ${getSuitName(data.suit)} ${data.card}`);
             });
 
-            socket.on('trickComplete', (data) => {
-                console.log('Trick complete:', data);
-                gameState.currentTrick = [];
-                gameState.tricks = data.tricks;
-                gameState.currentPlayer = data.nextPlayer;
-                
-updateGameUI();
-                updateCurrentTrickDisplay();                
-                const winner = positionName(data.winner);
-                const next = positionName(data.nextPlayer);
-                
-                const isUserNext = (data.nextPlayer === myPosition) || 
-                                 (data.nextPlayer === gameState.dummy && gameState.declarer === myPosition);
-                
-                let message;
-                if (isUserNext) {
-                    message = `${winner} won the trick. Your turn.`;
-                } else {
-                    message = `${winner} won the trick. ${next} plays next.`;
-                }
-                
-                announceToScreenReader(message);
-            });
+socket.on('trickCompleteWaiting', (data) => {
+    console.log('Trick complete, waiting 3 seconds...', data);
+    
+    // Näytä viesti että tikki on valmis mutta odotetaan
+    const statusArea = document.getElementById('status-area');
+    if (statusArea) {
+        statusArea.textContent = 'Trick complete. Processing...';
+    }
+  });
+
+socket.on('trickComplete', (data) => {
+    console.log('Trick complete:', data);
+    if (trickClearTimeout) {
+        clearTimeout(trickClearTimeout);
+        trickClearTimeout = null;
+    }
+    
+    // Nyt vasta tyhjennetään current trick
+    gameState.currentTrick = [];
+    gameState.tricks = data.tricks;
+    gameState.currentPlayer = data.nextPlayer;
+    
+    updateGameUI();
+    updateCurrentTrickDisplay();
+    
+    const winner = positionName(data.winner);
+    const next = positionName(data.nextPlayer);
+    
+    const isUserNext = (data.nextPlayer === myPosition) || 
+                     (data.nextPlayer === gameState.dummy && gameState.declarer === myPosition);
+    
+    let message;
+    if (isUserNext) {
+        message = `${winner} won the trick. Your turn.`;
+    } else {
+        message = `${winner} won the trick. ${next} plays next.`;
+    }
+    
+    announceToScreenReader(message);
+    
+    // Päivitä status
+    updateStatus();
+});
 
             socket.on('nextPlayer', (data) => {
                 console.log('Next player:', data);

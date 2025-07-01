@@ -2823,6 +2823,11 @@ function playCard(socket, playerId, data) {
     sendError(socket, 'Bidding phase is still in progress');
     return;
   }
+    // ← UUSI: Tarkista onko tikki lukittu
+  if (table.gameState.trickLocked) {
+    sendError(socket, 'Please wait, previous trick is being processed');
+    return;
+  }
   
   // Check if it's player's turn
   if (table.gameState.currentPlayer !== position) {
@@ -2890,11 +2895,12 @@ function processCardPlay(table, position, suit, card) {
   });
   sendAudioToTable(table, 'hit');
 
-  // Check if trick is complete (4 cards)
+  // Check if trick s complete (4 cards)
   if (table.gameState.currentTrick.length === 4) {
+    table.gameState.trickLocked = true;
     setTimeout(() => {
       processTrick(table);
-    }, 1000);
+    }, 3000);
   } else {
     // Move to next player
     table.gameState.currentPlayer = getNextPlayer(table.gameState.currentPlayer);
@@ -3046,7 +3052,8 @@ async function processTrick(table) {
   // Clear current trick
   const completedTrick = [...table.gameState.currentTrick];
   table.gameState.currentTrick = [];
-  
+  table.gameState.trickLocked = false;  
+
   // Set winner as next leader
   table.gameState.leadingPlayer = winner;
   table.gameState.currentPlayer = winner;
@@ -3546,6 +3553,7 @@ async function createGameState(table) {
     tricks: { ns: 0, ew: 0 },
     totalTricks: 0,
     leadingPlayer: 'south'
+    trickLocked: false
   };
 }
 
