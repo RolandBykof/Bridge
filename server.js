@@ -2273,11 +2273,11 @@ async function replacePlayer(table, position) {
   if (table.gameState && table.gameState.currentPlayer === position) {
     setTimeout(async () => {
       await makeAdvancedGIBMove(table, position); // Use enhanced GIB
-    }, 1500);
+    }, 3000);
   } else if (table.biddingState && table.biddingState.currentBidder === position) {
     setTimeout(async () => {
       await makeAdvancedGIBBid(table, position); // Use enhanced GIB
-    }, 1500);
+    }, 3000);
   }
 }
 
@@ -2360,7 +2360,7 @@ sendAudioToTable(table, 'deal');
     if (table.players[table.biddingState.currentBidder].type === 'gib') {
       setTimeout(async () => {
         await makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
-      }, 1500);
+      }, 3000);
     }
   } catch (error) {
     console.error('Error starting game:', error);
@@ -2505,7 +2505,7 @@ function processBid(table, position, bid) {
     if (table.players[table.biddingState.currentBidder].type === 'gib') {
       setTimeout(async () => {
         await makeAdvancedGIBBid(table, table.biddingState.currentBidder); // Use enhanced GIB
-      }, 1500);
+      }, 3000);
     }
   }
 }
@@ -2790,7 +2790,7 @@ player.socket.emit('playPhaseCards', {
 if (canGIBPlayFromPosition(table, table.gameState.currentPlayer)) {
     setTimeout(async () => {
       await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
-    }, 1500);
+    }, 3000);
   }
 }
 
@@ -2909,7 +2909,7 @@ function processCardPlay(table, position, suit, card) {
 if (canGIBPlayFromPosition(table, table.gameState.currentPlayer)) {
       setTimeout(async () => {
         await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
-      }, 1500);
+      }, 3000);
     }
   }
 // Jos tämä oli ensimmäinen pelattu kortti, lähetä dummy-kortit kaikille
@@ -3071,7 +3071,7 @@ async function processTrick(table) {
 if (canGIBPlayFromPosition(table, table.gameState.currentPlayer)) {
     setTimeout(async () => {
       await makeAdvancedGIBMove(table, table.gameState.currentPlayer); // Use enhanced GIB
-    }, 1500);
+    }, 3000);
   }
 }
 
@@ -3272,7 +3272,7 @@ async function startNextDeal(table) {
         if (table.players[table.biddingState.currentBidder].type === 'gib') {
             setTimeout(async () => {
                 await makeAdvancedGIBBid(table, table.biddingState.currentBidder);
-            }, 1500);
+            }, 3000);
         }
         
     } catch (error) {
