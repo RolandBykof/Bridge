@@ -3552,7 +3552,7 @@ async function createGameState(table) {
     dummy: null,
     tricks: { ns: 0, ew: 0 },
     totalTricks: 0,
-    leadingPlayer: 'south'
+    leadingPlayer: 'south',
     trickLocked: false
   };
 }
