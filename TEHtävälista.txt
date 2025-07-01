@@ -1,3 +1,13 @@
+Miksi:
+1♣
+1♥
+1♠
+2♥
+Pass
+Pass
+Pass
+Pass
+
 opettajan näkymä
 tuplaus sallituksi vain partnerin tarjouksille
 Indexissä trikin kortit eivät näy
