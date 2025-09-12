@@ -1890,6 +1890,305 @@
             }
         }
 
+        // ADVANCED FUNCTIONS FOR KEYBOARD SHORTCUTS
+        
+        /**
+         * Announces cards in a specific suit from a hand AND focuses on lowest card
+         */
+        function announceHandSuitWithFocus(position, suit) {
+            const canViewCards = canViewHandCards(position);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${positionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${positionName(position)}.`);
+                return;
+            }
+            
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                const message = `${positionName(position)} has no ${getSuitName(suit)}s.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const message = `${positionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
+            announceToScreenReader(message);
+            
+            // Focus on lowest card
+            focusOnLowestCard(position, suit);
+        }
+
+        /**
+         * Announces all cards in a hand
+         */
+        function announceEntireHand(position) {
+            const canViewCards = canViewHandCards(position);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${positionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${positionName(position)}.`);
+                return;
+            }
+            
+            let message = `${positionName(position)}'s hand: `;
+            
+            for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+                const cards = hand[suit] || [];
+                if (cards.length > 0) {
+                    message += `${getSuitName(suit)}s: ${cards.join(', ')}. `;
+                } else {
+                    message += `No ${getSuitName(suit)}s. `;
+                }
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the current trick
+         */
+        function announceCurrentTrick() {
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader('The game is not in play phase yet.');
+                return;
+            }
+            
+            if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                announceToScreenReader('No cards played.');
+                return;
+            }
+            
+            let message = 'Current trick: ';
+            
+            for (const card of gameState.currentTrick) {
+                message += `${positionName(card.player)} ${getSuitName(card.suit)} ${card.card}. `;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the game state
+         */
+        function announceGameState() {
+            if (!gameState) {
+                announceToScreenReader('No game in progress.');
+                return;
+            }
+            
+            let message = `Game phase: ${gameState.gamePhase}. `;
+            
+            if (gameState.gamePhase === 'play' || gameState.gamePhase === 'end') {
+                message += `Contract: ${formatContract(gameState.contract)} by ${positionName(gameState.declarer)}. `;
+                message += `North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}. `;
+                message += `Current player: ${positionName(gameState.currentPlayer)}.`;
+                
+                if (gameState.declarer === myPosition) {
+                    message += ` You are the declarer and can control both your hand and dummy.`;
+                }
+            } else if (gameState.gamePhase === 'bidding') {
+                message += `Current bidder: ${positionName(biddingState ? biddingState.currentBidder : 'unknown')}.`;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the current player
+         */
+        function announceCurrentPlayer() {
+            if (!gameState) {
+                announceToScreenReader('No game in progress.');
+                return;
+            }
+            
+            if (gameState.gamePhase === 'play') {
+                let message = `Current player: ${positionName(gameState.currentPlayer)}.`;
+                
+                if (gameState.currentPlayer === gameState.dummy && gameState.declarer === myPosition) {
+                    message += ` You control the dummy as the declarer.`;
+                }
+                
+                announceToScreenReader(message);
+            } else if (gameState.gamePhase === 'bidding') {
+                announceToScreenReader(`Current bidder: ${positionName(biddingState ? biddingState.currentBidder : 'unknown')}.`);
+            } else {
+                announceToScreenReader(`Game phase: ${gameState.gamePhase}. No current player.`);
+            }
+        }
+
+        /**
+         * Announces the score
+         */
+        function announceScore() {
+            if (gameState && (gameState.gamePhase === 'play' || gameState.gamePhase === 'end')) {
+                announceToScreenReader(`North-South: ${gameState.tricks.ns} tricks. East-West: ${gameState.tricks.ew} tricks.`);
+            } else {
+                announceToScreenReader("No score available yet.");
+            }
+        }
+
+        /**
+         * Finds lowest card using bridge order
+         */
+        function findLowestCard(cards) {
+            if (!cards || cards.length === 0) return null;
+            
+            const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => cardValues.indexOf(a) - cardValues.indexOf(b));
+            return sortedCards[0];
+        }
+
+        /**
+         * Finds highest card using bridge order
+         */
+        function findHighestCard(cards) {
+            if (!cards || cards.length === 0) return null;
+            
+            const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => cardValues.indexOf(b) - cardValues.indexOf(a));
+            return sortedCards[0];
+        }
+
+        /**
+         * Focus on lowest card in suit
+         */
+        function focusOnLowestCard(position, suit) {
+            if (!gameState || !gameState.hands || !gameState.hands[position]) return;
+            
+            const hand = gameState.hands[position];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) return;
+            
+            const lowestCard = findLowestCard(cards);
+            if (!lowestCard) return;
+            
+            const handElement = document.getElementById(`game-${position}-hand`);
+            if (!handElement) return;
+            
+            const cardButton = handElement.querySelector(`button[data-suit="${suit}"][data-card="${lowestCard}"]`);
+            
+            if (cardButton) {
+                setTimeout(() => {
+                    cardButton.focus();
+                }, 250);
+            }
+        }
+
+        /**
+         * Plays the highest card of a suit
+         */
+        function playHighestCard(suit) {
+            const currentPlayer = gameState?.currentPlayer;
+            
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader("Game is not in play phase.");
+                return;
+            }
+            
+            const canControl = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
+            
+            if (!canControl) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            const hand = gameState.hands[currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                return;
+            }
+            
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
+                    return;
+                }
+            }
+            
+            const highestCard = findHighestCard(cards);
+            
+            if (highestCard) {
+                attemptToPlayCard(suit, highestCard, currentPlayer);
+            }
+        }
+
+        /**
+         * Plays the lowest card of a suit
+         */
+        function playLowestCard(suit) {
+            const currentPlayer = gameState?.currentPlayer;
+            
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader("Game is not in play phase.");
+                return;
+            }
+            
+            const canControl = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
+            
+            if (!canControl) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            const hand = gameState.hands[currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                return;
+            }
+            
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
+                    return;
+                }
+            }
+            
+            const lowestCard = findLowestCard(cards);
+            
+            if (lowestCard) {
+                attemptToPlayCard(suit, lowestCard, currentPlayer);
+            }
+        }
+
+        /**
+         * Check if it's our turn to play from a specific position
+         */
+        function isOurTurnToPlay(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return false;
+            
+            const currentPlayer = gameState.currentPlayer;
+            
+            if (position === myPosition && currentPlayer === myPosition) return true;
+            
+            if (position === gameState.dummy && currentPlayer === gameState.dummy && 
+                gameState.declarer === myPosition) {
+                return true;
+            }
+            
+            return false;
+        }
+
         // KEYBOARD SHORTCUTS
         function setupKeyboardListeners() {
             document.addEventListener('keydown', (e) => {
@@ -1901,6 +2200,189 @@
                     }
                 }
 
+                // Process advanced keyboard shortcuts when in game
+                if (currentView === 'game') {
+                    // Card viewing shortcuts (Own cards)
+                    if (e.altKey && e.key.toLowerCase() === 'a') {
+                        e.preventDefault();
+                        announceHandSuitWithFocus(myPosition, 'spades');
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 's') {
+                        e.preventDefault();
+                        announceHandSuitWithFocus(myPosition, 'hearts');
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'd') {
+                        e.preventDefault();
+                        announceHandSuitWithFocus(myPosition, 'diamonds');
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'f') {
+                        e.preventDefault();
+                        announceHandSuitWithFocus(myPosition, 'clubs');
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'g') {
+                        e.preventDefault();
+                        announceEntireHand(myPosition);
+                        return;
+                    }
+
+                    // Card viewing shortcuts (Dummy's cards)
+                    if (e.altKey && e.key.toLowerCase() === 'q') {
+                        e.preventDefault();
+                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                            announceHandSuitWithFocus(gameState.dummy, 'spades');
+                        } else {
+                            announceToScreenReader('Cannot view dummy spades at this time.');
+                        }
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'w') {
+                        e.preventDefault();
+                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                            announceHandSuitWithFocus(gameState.dummy, 'hearts');
+                        } else {
+                            announceToScreenReader('Cannot view dummy hearts at this time.');
+                        }
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'e') {
+                        e.preventDefault();
+                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                            announceHandSuitWithFocus(gameState.dummy, 'diamonds');
+                        } else {
+                            announceToScreenReader('Cannot view dummy diamonds at this time.');
+                        }
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'r') {
+                        e.preventDefault();
+                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                            announceHandSuitWithFocus(gameState.dummy, 'clubs');
+                        } else {
+                            announceToScreenReader('Cannot view dummy clubs at this time.');
+                        }
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 't') {
+                        e.preventDefault();
+                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
+                            announceEntireHand(gameState.dummy);
+                        } else {
+                            announceToScreenReader('Cannot view all dummy cards at this time.');
+                        }
+                        return;
+                    }
+
+                    // Game state shortcuts
+                    if (e.altKey && e.key.toLowerCase() === 'z') {
+                        e.preventDefault();
+                        announceCurrentTrick();
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'x') {
+                        e.preventDefault();
+                        announceGameState();
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'c') {
+                        e.preventDefault();
+                        announceCurrentPlayer();
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'o') {
+                        e.preventDefault();
+                        announceScore();
+                        return;
+                    }
+
+                    // Card playing shortcuts - high cards
+                    if (e.ctrlKey && e.key === '1' && !e.shiftKey) {
+                        e.preventDefault();
+                        playHighestCard('spades');
+                        return;
+                    }
+                    if (e.ctrlKey && e.key === '2' && !e.shiftKey) {
+                        e.preventDefault();
+                        playHighestCard('hearts');
+                        return;
+                    }
+                    if (e.ctrlKey && e.key === '3' && !e.shiftKey) {
+                        e.preventDefault();
+                        playHighestCard('diamonds');
+                        return;
+                    }
+                    if (e.ctrlKey && e.key === '4' && !e.shiftKey) {
+                        e.preventDefault();
+                        playHighestCard('clubs');
+                        return;
+                    }
+
+                    // Card playing shortcuts - low cards
+                    if (e.ctrlKey && e.shiftKey && e.key === '1') {
+                        e.preventDefault();
+                        playLowestCard('spades');
+                        return;
+                    }
+                    if (e.ctrlKey && e.shiftKey && e.key === '2') {
+                        e.preventDefault();
+                        playLowestCard('hearts');
+                        return;
+                    }
+                    if (e.ctrlKey && e.shiftKey && e.key === '3') {
+                        e.preventDefault();
+                        playLowestCard('diamonds');
+                        return;
+                    }
+                    if (e.ctrlKey && e.shiftKey && e.key === '4') {
+                        e.preventDefault();
+                        playLowestCard('clubs');
+                        return;
+                    }
+
+                    // Bidding shortcuts
+                    if (e.altKey && e.key.toLowerCase() === 'p') {
+                        e.preventDefault();
+                        if (gameState && gameState.gamePhase === 'bidding' && 
+                            biddingState && biddingState.currentBidder === myPosition) {
+                            makeBid('P');
+                        }
+                        return;
+                    }
+
+                    if (e.altKey && e.key.toLowerCase() === 'm') {
+                        e.preventDefault();
+                        leaveGameFromGame();
+                        return;
+                    }
+                    
+                    // Handle bidding level selection (1-7)
+                    if (['1', '2', '3', '4', '5', '6', '7'].includes(e.key) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                        if (gameState && gameState.gamePhase === 'bidding' && 
+                            biddingState && biddingState.currentBidder === myPosition) {
+                            e.preventDefault();
+                            uiState.bidLevel = e.key;
+                            announceToScreenReader(`Bid level ${e.key} selected. Press S, H, D, C, or N to select suit.`);
+                        }
+                        return;
+                    }
+                    
+                    // Handle suit selection for bidding
+                    const suitKeys = { 's': 'S', 'h': 'H', 'd': 'D', 'c': 'C', 'n': 'N' };
+                    if (suitKeys[e.key.toLowerCase()] && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+                        if (gameState && gameState.gamePhase === 'bidding' && 
+                            biddingState && biddingState.currentBidder === myPosition && uiState.bidLevel) {
+                            e.preventDefault();
+                            const bid = `${uiState.bidLevel}${suitKeys[e.key.toLowerCase()]}`;
+                            makeBid(bid);
+                            uiState.bidLevel = null;
+                        }
+                        return;
+                    }
+                }
+
                 // Global shortcuts
                 if (e.altKey && e.key.toLowerCase() === 'h') {
                     e.preventDefault();
@@ -1908,7 +2390,7 @@
                     return;
                 }
 
-                if (e.altKey && e.key.toLowerCase() === 'f') {
+                if (e.altKey && e.key.toLowerCase() === 'f' && currentView !== 'game') {
                     e.preventDefault();
                     fullscreen();
                     return;
@@ -1930,69 +2412,36 @@
                     return;
                 }
 
-                // View-specific shortcuts
-                switch(currentView) {
-                    case 'create-table':
-                        if (e.altKey && e.key.toLowerCase() === 'c') {
-                            e.preventDefault();
-                            createTable();
-                        }
-                        break;
-                    case 'join-table':
-                        if (e.altKey && e.key.toLowerCase() === 'j') {
-                            e.preventDefault();
-                            joinTable();
-                        }
-                        break;
-                    case 'waiting-room':
-                        if (e.altKey && e.key.toLowerCase() === 's') {
-                            e.preventDefault();
-                            startGameFromWaiting();
-                        }
-                        if (e.altKey && e.key.toLowerCase() === 'l') {
-                            e.preventDefault();
-                            leaveTableFromWaiting();
-                        }
-                        if (e.altKey && e.key.toLowerCase() === 'c') {
-                            e.preventDefault();
-                            document.getElementById('waiting-chat-input').focus();
-                        }
-                        break;
-                    case 'game':
-                        if (e.altKey && e.key.toLowerCase() === 'p') {
-                            e.preventDefault();
-                            if (gameState && gameState.gamePhase === 'bidding' && 
-                                biddingState && biddingState.currentBidder === myPosition) {
-                                makeBid('P');
-                            }
-                        }
-                        if (e.altKey && e.key.toLowerCase() === 'm') {
-                            e.preventDefault();
-                            leaveGameFromGame();
-                        }
-                        
-                        // Handle bidding level selection (1-7)
-                        if (['1', '2', '3', '4', '5', '6', '7'].includes(e.key) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
-                            if (gameState && gameState.gamePhase === 'bidding' && 
-                                biddingState && biddingState.currentBidder === myPosition) {
+                // View-specific shortcuts (non-game)
+                if (currentView !== 'game') {
+                    switch(currentView) {
+                        case 'create-table':
+                            if (e.altKey && e.key.toLowerCase() === 'c') {
                                 e.preventDefault();
-                                uiState.bidLevel = e.key;
-                                announceToScreenReader(`Bid level ${e.key} selected. Press S, H, D, C, or N to select suit.`);
+                                createTable();
                             }
-                        }
-                        
-                        // Handle suit selection
-                        const suitKeys = { 's': 'S', 'h': 'H', 'd': 'D', 'c': 'C', 'n': 'N' };
-                        if (suitKeys[e.key.toLowerCase()] && !e.altKey && !e.ctrlKey && !e.shiftKey) {
-                            if (gameState && gameState.gamePhase === 'bidding' && 
-                                biddingState && biddingState.currentBidder === myPosition && uiState.bidLevel) {
+                            break;
+                        case 'join-table':
+                            if (e.altKey && e.key.toLowerCase() === 'j') {
                                 e.preventDefault();
-                                const bid = `${uiState.bidLevel}${suitKeys[e.key.toLowerCase()]}`;
-                                makeBid(bid);
-                                uiState.bidLevel = null;
+                                joinTable();
                             }
-                        }
-                        break;
+                            break;
+                        case 'waiting-room':
+                            if (e.altKey && e.key.toLowerCase() === 's') {
+                                e.preventDefault();
+                                startGameFromWaiting();
+                            }
+                            if (e.altKey && e.key.toLowerCase() === 'l') {
+                                e.preventDefault();
+                                leaveTableFromWaiting();
+                            }
+                            if (e.altKey && e.key.toLowerCase() === 'c') {
+                                e.preventDefault();
+                                document.getElementById('waiting-chat-input').focus();
+                            }
+                            break;
+                    }
                 }
             });
         }
