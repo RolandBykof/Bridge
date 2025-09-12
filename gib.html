@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/bids.css">
+  <link rel="stylesheet" href="css/cards.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body>
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@shopify/draggable@1.0.0-beta.3/lib/draggable.bundle.js"></script>
+  <script src="js/bidding.js"></script>
+  <script src="js/modal.js"></script>
+
+  <nav class="nav-extended">
+    <div class="nav-wrapper">
+      <a href="#" class="brand-logo">GIB Access</a>
+      <a href="#" data-activates="mobile-slidebar" class="button-collapse"><i class="material-icons">menu</i></a>
+      <ul id="nav-mobile" class="right hide-on-med-and-down">
+        <li><a class="modal-trigger" href="#donate">Donate</a></li>
+        <li><a class="modal-trigger" href="#about">About</a></li>
+        <li><a class="modal-trigger" href="#disclaimer">Disclaimer</a></li>
+      </ul>
+      <ul class="side-nav" id="mobile-slidebar">
+        <li><a class="modal-trigger" href="#donate">Donate</a></li>
+        <li><a class="modal-trigger" href="#about">About</a></li>
+        <li><a class="modal-trigger" href="#disclaimer">Disclaimer</a></li>
+      </ul>
+    </div>
+    <div class="nav-content">
+      <ul class="tabs tabs-transparent">
+        <li class="tab"><a class="active" href="#gibbid">GIB Bidding</a></li>
+        <li class="tab"><a href="#gibplay">GIB Playing</a></li>
+        <li class="tab"><a href="#meaning">Bid Meanings</a></li>
+        <li class="tab"><a href="#dealer">Dealer</a></li>
+      </ul>
+    </div>
+  </nav>
+  <div class="row">
+    <div id="gibbid" class="col s12">
+      <div>
+        <h1 class="center-align">Select Hands</h1>
+        <h5 class="center-align headmargin">Drag n' Drop!</h5>
+        <div class="center-align">
+          <a class="buttonmargin waves-effect waves-light btn" onclick="randomCards()">Randomize</a>
+        </div>
+      </div>
+      <div id="bidding-cardbox">
+        <div class="row">
+          <div class="col s1">
+            <div class="cards-side rotate">
+              <h4>North</h4>
+            </div>
+          </div>
+          <div class="col s10">
+            <div class="playingCards faceImages faceImages bid padtop">
+              <div id="bidding-n" class="row">
+                <div class="col s1 s13ths">
+                  <div id="bidding-c2" class="cardtile card rank-2 clubs"><span class="rank">2</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-c3" class="cardtile card rank-3 clubs"><span class="rank">3</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-c4" class="cardtile card rank-4 clubs"><span class="rank">4</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-c5" class="cardtile card rank-5 clubs"><span class="rank">5</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-c6" class="cardtile card rank-6 clubs"><span class="rank">6</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-c7" class="cardtile card rank-7 clubs"><span class="rank">7</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-c8" class="cardtile card rank-8 clubs"><span class="rank">8</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-c9" class="cardtile card rank-9 clubs"><span class="rank">9</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-ct" class="cardtile card rank-10 clubs"><span class="rank">10</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-cj" class="cardtile card rank-j clubs"><span class="rank">J</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-cq" class="cardtile card rank-q clubs"><span class="rank">Q</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-ck" class="cardtile card rank-k clubs"><span class="rank">K</span><span class="suit">&clubs;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-ca" class="cardtile card rank-a clubs"><span class="rank">A</span><span class="suit">&clubs;</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col s1">
+            <div class="cards-side rotate">
+              <h4>East</h4>
+            </div>
+          </div>
+          <div class="col s10">
+            <div class="playingCards faceImages bid padtop">
+              <div id="bidding-e" class="row">
+                <div class="col s1 s13ths">
+                  <div id="bidding-d2" class="cardtile card rank-2 diams"><span class="rank">2</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-d3" class="cardtile card rank-3 diams"><span class="rank">3</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-d4" class="cardtile card rank-4 diams"><span class="rank">4</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-d5" class="cardtile card rank-5 diams"><span class="rank">5</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-d6" class="cardtile card rank-6 diams"><span class="rank">6</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-d7" class="cardtile card rank-7 diams"><span class="rank">7</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-d8" class="cardtile card rank-8 diams"><span class="rank">8</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-d9" class="cardtile card rank-9 diams"><span class="rank">9</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-dt" class="cardtile card rank-10 diams"><span class="rank">10</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-dj" class="cardtile card rank-j diams"><span class="rank">J</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-dq" class="cardtile card rank-q diams"><span class="rank">Q</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-dk" class="cardtile card rank-k diams"><span class="rank">K</span><span class="suit">&diams;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-da" class="cardtile card rank-a diams"><span class="rank">A</span><span class="suit">&diams;</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col s1">
+            <div class="cards-side rotate">
+              <h4>South</h4>
+            </div>
+          </div>
+          <div class="col s10">
+            <div class="playingCards faceImages bid padtop">
+              <div id="bidding-s" class="row">
+                <div class="col s1 s13ths">
+                  <div id="bidding-h2" class="cardtile card rank-2 hearts"><span class="rank">2</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-h3" class="cardtile card rank-3 hearts"><span class="rank">3</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-h4" class="cardtile card rank-4 hearts"><span class="rank">4</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-h5" class="cardtile card rank-5 hearts"><span class="rank">5</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-h6" class="cardtile card rank-6 hearts"><span class="rank">6</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-h7" class="cardtile card rank-7 hearts"><span class="rank">7</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-h8" class="cardtile card rank-8 hearts"><span class="rank">8</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-h9" class="cardtile card rank-9 hearts"><span class="rank">9</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-ht" class="cardtile card rank-10 hearts"><span class="rank">10</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-hj" class="cardtile card rank-j hearts"><span class="rank">J</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-hq" class="cardtile card rank-q hearts"><span class="rank">Q</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-hk" class="cardtile card rank-k hearts"><span class="rank">K</span><span class="suit">&hearts;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-ha" class="cardtile card rank-a hearts"><span class="rank">A</span><span class="suit">&hearts;</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col s1">
+            <div class="cards-side rotate">
+              <h4>West</h4>
+            </div>
+          </div>
+          <div class="col s10">
+            <div class="playingCards faceImages bid padtop">
+              <div id="bidding-w" class="row">
+                <div class="col s1 s13ths">
+                  <div id="bidding-s2" class="cardtile card rank-2 spades"><span class="rank">2</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-s3" class="cardtile card rank-3 spades"><span class="rank">3</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-s4" class="cardtile card rank-4 spades"><span class="rank">4</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-s5" class="cardtile card rank-5 spades"><span class="rank">5</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-s6" class="cardtile card rank-6 spades"><span class="rank">6</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-s7" class="cardtile card rank-7 spades"><span class="rank">7</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-s8" class="cardtile card rank-8 spades"><span class="rank">8</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-s9" class="cardtile card rank-9 spades"><span class="rank">9</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-st" class="cardtile card rank-10 spades"><span class="rank">10</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-sj" class="cardtile card rank-j spades"><span class="rank">J</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-sq" class="cardtile card rank-q spades"><span class="rank">Q</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-sk" class="cardtile card rank-k spades"><span class="rank">K</span><span class="suit">&spades;</span></div>
+                </div>
+                <div class="col s1 s13ths">
+                  <div id="bidding-sa" class="cardtile card rank-a spades"><span class="rank">A</span><span class="suit">&spades;</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h1 class="center-align">Select Bids</h1>
+        <h5 class="center-align headmargin">Drag n' Drop!</h5>
+      </div>
+      <div class="row">
+        <div class="col s1"></div>
+        <div class="col s6">
+          <div class="row">
+            <div class="bid-side">
+              <h4>North</h4></div>
+            <div class="col s12">
+              <div class="row">
+                <div class="col s1"></div>
+                <div id="bidding-north" class="col s11 bid">
+                  <div class="row padtop">
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col s12">
+              <div class="row">
+                <div class="bid-side">
+                  <h4>East</h4>
+                </div>
+                <div class="col s1"></div>
+                <div id="bidding-east" class="col s11 bid">
+                  <div class="row padtop">
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col s12">
+              <div class="row">
+                <div class="bid-side-s">
+                  <h4>South</h4>
+                </div>
+                <div class="col s1"> </div>
+                <div id="bidding-south" class="col s11 bid">
+                  <div class="row padtop">
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col s12">
+              <div class="row">
+                <div class="bid-side-w">
+                  <h4>West</h4>
+                </div>
+                <div class="col s1"> </div>
+                <div id="bidding-west" class="col s11 bid">
+                  <div class="row padtop">
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                    <div class="col s2">
+                      <div class="bidtile bid-slot"> </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+            <div class="col s12">
+              <div class="center-align">
+                <h5 id="bidding-error" class="error"></h5>
+                <h5 id="bidding-warning" class="warning"></h5>
+                <div class="row">
+                  <div class="col s7">
+                    <h2 id="bidding-bid" class=""></h2>
+                  </div>
+                  <div class="col s1">
+                    <div id="bidding-selection"> </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <h5 id="bidding-meaning" class=""></h5>
+                </div>
+              </div>
+            </div>
+
+
+          </div>
+        </div>
+        <div class="col s0"></div>
+        <div id="bidding-bidbox" class="col s4">
+          <div class="bidbox">
+
+            <div class="row extrawidth padtop">
+              <div id="bidding-pass" class="col s2">
+                <div id="bidding-pass-1" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-2" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-3" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-4" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-5" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-6" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-7" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-8" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-9" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-10" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-11" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-12" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-13" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-14" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-15" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-16" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-17" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-18" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-19" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-20" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-21" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-22" class="bidtile bid-pass bid-pass-symbol"> </div>
+                <div id="bidding-pass-23" class="bidtile bid-pass bid-pass-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-x" class="bidtile bid-x bid-x-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-xx" class="bidtile bid-xx bid-xx-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div class="bid-dummy"> </div>
+              </div>
+              <div class="col s2">
+                <div class="bid-dummy"> </div>
+              </div>
+            </div>
+
+            <div class="row bidbox-row extrawidth">
+              <div class="col s2">
+                <div id="bidding-clubs-1" class="bidtile bid-clubs bid-clubs-1 bid-clubs-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-diamonds-1" class="bidtile bid-diamonds bid-diamonds-1 bid-diamonds-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-hearts-1" class="bidtile bid-hearts bid-hearts-1 bid-hearts-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-spades-1" class="bidtile bid-spades bid-spades-1 bid-spades-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-notrump-1" class="bidtile bid-notrump bid-notrump-1 bid-notrump-symbol"> </div>
+              </div>
+            </div>
+
+            <div class="row extrawidth">
+              <div class="col s2">
+                <div id="bidding-clubs-2" class="bidtile bid-clubs bid-clubs-2 bid-clubs-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-diamonds-2" class="bidtile bid-diamonds bid-diamonds-2 bid-diamonds-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-hearts-2" class="bidtile bid-hearts bid-hearts-2 bid-hearts-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-spades-2" class="bidtile bid-spades bid-spades-2 bid-spades-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-notrump-2" class="bidtile bid-notrump bid-notrump-2 bid-notrump-symbol"> </div>
+              </div>
+            </div>
+
+            <div class="row extrawidth">
+              <div class="col s2">
+                <div id="bidding-clubs-3" class="bidtile bid-clubs bid-clubs-3 bid-clubs-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-diamonds-3" class="bidtile bid-diamonds bid-diamonds-3 bid-diamonds-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-hearts-3" class="bidtile bid-hearts bid-hearts-3 bid-hearts-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-spades-3" class="bidtile bid-spades bid-spades-3 bid-spades-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-notrump-3" class="bidtile bid-notrump bid-notrump-3 bid-notrump-symbol"> </div>
+              </div>
+            </div>
+
+            <div class="row extrawidth">
+              <div class="col s2">
+                <div id="bidding-clubs-4" class="bidtile bid-clubs bid-clubs-4 bid-clubs-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-diamonds-4" class="bidtile bid-diamonds bid-diamonds-4 bid-diamonds-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-hearts-4" class="bidtile bid-hearts bid-hearts-4 bid-hearts-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-spades-4" class="bidtile bid-spades bid-spades-4 bid-spades-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-notrump-4" class="bidtile bid-notrump bid-notrump-4 bid-notrump-symbol"> </div>
+              </div>
+            </div>
+
+            <div class="row extrawidth">
+              <div class="col s2">
+                <div id="bidding-clubs-5" class="bidtile bid-clubs bid-clubs-5 bid-clubs-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-diamonds-5" class="bidtile bid-diamonds bid-diamonds-5 bid-diamonds-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-hearts-5" class="bidtile bid-hearts bid-hearts-5 bid-hearts-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-spades-5" class="bidtile bid-spades bid-spades-5 bid-spades-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-notrump-5" class="bidtile bid-notrump bid-notrump-5 bid-notrump-symbol"> </div>
+              </div>
+            </div>
+
+            <div class="row extrawidth">
+              <div class="col s2">
+                <div id="bidding-clubs-6" class="bidtile bid-clubs bid-clubs-6 bid-clubs-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-diamonds-6" class="bidtile bid-diamonds bid-diamonds-6 bid-diamonds-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-hearts-6" class="bidtile bid-hearts bid-hearts-6 bid-hearts-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-spades-6" class="bidtile bid-spades bid-spades-6 bid-spades-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-notrump-6" class="bidtile bid-notrump bid-notrump-6 bid-notrump-symbol"> </div>
+              </div>
+            </div>
+
+            <div class="row extrawidth">
+              <div class="col s2">
+                <div id="bidding-clubs-7" class="bidtile bid-clubs bid-clubs-7 bid-clubs-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-diamonds-7" class="bidtile bid-diamonds bid-diamonds-7 bid-diamonds-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-hearts-7" class="bidtile bid-hearts bid-hearts-7 bid-hearts-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-spades-7" class="bidtile bid-spades bid-spades-7 bid-spades-symbol"> </div>
+              </div>
+              <div class="col s2">
+                <div id="bidding-notrump-7" class="bidtile bid-notrump bid-notrump-7 bid-notrump-symbol"> </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="gibplay" class="col s12">Coming soon: Simulate how GIB would play a hand</div>
+    <div id="meaning" class="col s12">Coming soon: See the meanings provided for a sequence of bids</div>
+    <div id="dealer" class="col s12">GIB's API has some dealing functions. I could add them...</div>
+  </div>
+  <div id="disclaimer" class="modal">
+    <div class="modal-content">
+      <h4>Liability Disclaimer</h4>
+      <p>
+        This website has absolutely no affiliation with Bridge Base Online, Inc or On Time Systems Incorporated. This website does not violate the terms of service of Bridge Base Online, Inc or On Time Systems Incorporated. This website only utilizes public facing
+        APIs that your computer uses in the exact same way during every Bridge Base Online game. None of the APIs utilized by this website require any additional authorization.
+        <br><br> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+        COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat">Close</a>
+    </div>
+  </div>
+  <div id="about" class="modal">
+    <div class="modal-content">
+      <h4>About</h4>
+      <p>
+        This is a website that utilizes an open GIB rest API that is also used by the Bridge Base Online arcade gamemode. Currently it can simulate hand bidding situations, so GIB’s bidding behavior can be studied more easily which helps us improve it. This website
+        will eventually be able to simulate how GIB would play a hand of cards given the bids ahead of time, though I find this less useful and it is much more complicated to implement. GIB also has APIs for providing bid meanings and dealing cards, which
+        I may add support for eventually.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat">Close</a>
+    </div>
+  </div>
+  <div id="donate" class="modal">
+    <div class="modal-content">
+      <h4>Donate</h4>
+      <p>
+        Like this website? Want to support me programming free things for the community? I love working on open source software (like the website that you’re using right now), and want to dedicate as much time to it as possible, so if you feel like helping me
+        with that, you can send <a href="https://www.coinbase.com/buy-ethereum?locale=en-US">Ethereum</a> or ERC20 tokens to the following address.
+        <br>
+        <div class="center-align">
+          <code>0xadf06b287a6571c7971ef65c2102d9fdd3907fd5</code>
+        </div>
+        <br> I have absolutely no affiliation with Bridge Base Online, Inc or On Time Systems Incorporated.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat">Close</a>
+    </div>
+  </div>
+</body>
+
+</html>
