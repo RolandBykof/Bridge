@@ -1,20 +1,7 @@
-Miksi:
-1♣
-1♥
-1♠
-2♥
-Pass
-Pass
-Pass
-Pass
 
 opettajan näkymä
 tuplaus sallituksi vain partnerin tarjouksille
 Indexissä trikin kortit eivät näy
 
 tarjoushistoria pois taulukosta
-GIB-prosessi jokaiselle tarjoukselle:
-1. Simuloi 1000+ käsijakoa vastustajille
-2. Pelaa tarjoussekvenssi loppuun jokaisessa jaossa  
-3. Arvioi lopullisen sopimuksen onnistumismahdollisuus
-4. Valitsee tarjouksen PARHAALLA ODOTUSARVOLLA
+kun yhteys katkeaa pelaajan pitäisi päästä takaisin pöytään siihen vaiheeseen, jossa peli päättyi.
