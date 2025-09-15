@@ -1386,6 +1386,305 @@
             }
         }
 
+        // ADVANCED FUNCTIONS FOR KEYBOARD SHORTCUTS
+        
+        /**
+         * Announces cards in a specific suit from a hand AND focuses on lowest card
+         */
+        function announceHandSuitWithFocus(position, suit) {
+            const canViewCards = canViewHandCards(position);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${positionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${positionName(position)}.`);
+                return;
+            }
+            
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                const message = `${positionName(position)} has no ${getSuitName(suit)}s.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const message = `${positionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
+            announceToScreenReader(message);
+            
+            // Focus on lowest card
+            focusOnLowestCard(position, suit);
+        }
+
+        /**
+         * Announces all cards in a hand
+         */
+        function announceEntireHand(position) {
+            const canViewCards = canViewHandCards(position);
+            
+            if (!canViewCards) {
+                const message = `Cannot view ${positionName(position)}'s cards at this time.`;
+                announceToScreenReader(message);
+                return;
+            }
+            
+            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+            if (!hand) {
+                announceToScreenReader(`No cards available for ${positionName(position)}.`);
+                return;
+            }
+            
+            let message = `${positionName(position)}'s hand: `;
+            
+            for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+                const cards = hand[suit] || [];
+                if (cards.length > 0) {
+                    message += `${getSuitName(suit)}s: ${cards.join(', ')}. `;
+                } else {
+                    message += `No ${getSuitName(suit)}s. `;
+                }
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the current trick
+         */
+        function announceCurrentTrick() {
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader('The game is not in play phase yet.');
+                return;
+            }
+            
+            if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                announceToScreenReader('No cards played.');
+                return;
+            }
+            
+            let message = 'Current trick: ';
+            
+            for (const card of gameState.currentTrick) {
+                message += `${positionName(card.player)} ${getSuitName(card.suit)} ${card.card}. `;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the game state
+         */
+        function announceGameState() {
+            if (!gameState) {
+                announceToScreenReader('No game in progress.');
+                return;
+            }
+            
+            let message = `Game phase: ${gameState.gamePhase}. `;
+            
+            if (gameState.gamePhase === 'play' || gameState.gamePhase === 'end') {
+                message += `Contract: ${formatContract(gameState.contract)} by ${positionName(gameState.declarer)}. `;
+                message += `North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}. `;
+                message += `Current player: ${positionName(gameState.currentPlayer)}.`;
+                
+                if (gameState.declarer === myPosition) {
+                    message += ` You are the declarer and can control both your hand and dummy.`;
+                }
+            } else if (gameState.gamePhase === 'bidding') {
+                message += `Current bidder: ${positionName(biddingState ? biddingState.currentBidder : 'unknown')}.`;
+            }
+            
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Announces the current player
+         */
+        function announceCurrentPlayer() {
+            if (!gameState) {
+                announceToScreenReader('No game in progress.');
+                return;
+            }
+            
+            if (gameState.gamePhase === 'play') {
+                let message = `Current player: ${positionName(gameState.currentPlayer)}.`;
+                
+                if (gameState.currentPlayer === gameState.dummy && gameState.declarer === myPosition) {
+                    message += ` You control the dummy as the declarer.`;
+                }
+                
+                announceToScreenReader(message);
+            } else if (gameState.gamePhase === 'bidding') {
+                announceToScreenReader(`Current bidder: ${positionName(biddingState ? biddingState.currentBidder : 'unknown')}.`);
+            } else {
+                announceToScreenReader(`Game phase: ${gameState.gamePhase}. No current player.`);
+            }
+        }
+
+        /**
+         * Announces the score
+         */
+        function announceScore() {
+            if (gameState && (gameState.gamePhase === 'play' || gameState.gamePhase === 'end')) {
+                announceToScreenReader(`North-South: ${gameState.tricks.ns} tricks. East-West: ${gameState.tricks.ew} tricks.`);
+            } else {
+                announceToScreenReader("No score available yet.");
+            }
+        }
+
+        /**
+         * Finds lowest card using bridge order
+         */
+        function findLowestCard(cards) {
+            if (!cards || cards.length === 0) return null;
+            
+            const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => cardValues.indexOf(a) - cardValues.indexOf(b));
+            return sortedCards[0];
+        }
+
+        /**
+         * Finds highest card using bridge order
+         */
+        function findHighestCard(cards) {
+            if (!cards || cards.length === 0) return null;
+            
+            const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const sortedCards = [...cards].sort((a, b) => cardValues.indexOf(b) - cardValues.indexOf(a));
+            return sortedCards[0];
+        }
+
+        /**
+         * Focus on lowest card in suit
+         */
+        function focusOnLowestCard(position, suit) {
+            if (!gameState || !gameState.hands || !gameState.hands[position]) return;
+            
+            const hand = gameState.hands[position];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) return;
+            
+            const lowestCard = findLowestCard(cards);
+            if (!lowestCard) return;
+            
+            const handElement = document.getElementById(`game-${position}-hand`);
+            if (!handElement) return;
+            
+            const cardButton = handElement.querySelector(`button[onclick*="attemptToPlayCard('${suit}', '${lowestCard}'"]`);
+            
+            if (cardButton) {
+                setTimeout(() => {
+                    cardButton.focus();
+                }, 250);
+            }
+        }
+
+        /**
+         * Plays the highest card of a suit
+         */
+        function playHighestCard(suit) {
+            const currentPlayer = gameState?.currentPlayer;
+            
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader("Game is not in play phase.");
+                return;
+            }
+            
+            const canControl = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
+            
+            if (!canControl) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            const hand = gameState.hands[currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                return;
+            }
+            
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
+                    return;
+                }
+            }
+            
+            const highestCard = findHighestCard(cards);
+            
+            if (highestCard) {
+                attemptToPlayCard(suit, highestCard, currentPlayer);
+            }
+        }
+
+        /**
+         * Plays the lowest card of a suit
+         */
+        function playLowestCard(suit) {
+            const currentPlayer = gameState?.currentPlayer;
+            
+            if (!gameState || gameState.gamePhase !== 'play') {
+                announceToScreenReader("Game is not in play phase.");
+                return;
+            }
+            
+            const canControl = canPlayFromPosition(currentPlayer) && isOurTurnToPlay(currentPlayer);
+            
+            if (!canControl) {
+                announceToScreenReader("It's not your turn to play.");
+                return;
+            }
+            
+            const hand = gameState.hands[currentPlayer];
+            const cards = hand[suit] || [];
+            
+            if (cards.length === 0) {
+                announceToScreenReader(`You have no ${getSuitName(suit)}s to play.`);
+                return;
+            }
+            
+            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+                const leadSuit = gameState.currentTrick[0].suit;
+                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
+                    return;
+                }
+            }
+            
+            const lowestCard = findLowestCard(cards);
+            
+            if (lowestCard) {
+                attemptToPlayCard(suit, lowestCard, currentPlayer);
+            }
+        }
+
+        /**
+         * Check if it's our turn to play from a specific position
+         */
+        function isOurTurnToPlay(position) {
+            if (!gameState || gameState.gamePhase !== 'play') return false;
+            
+            const currentPlayer = gameState.currentPlayer;
+            
+            if (position === myPosition && currentPlayer === myPosition) return true;
+            
+            if (position === gameState.dummy && currentPlayer === gameState.dummy && 
+                gameState.declarer === myPosition) {
+                return true;
+            }
+            
+            return false;
+        }
+
         // KEYBOARD SHORTCUTS
         function setupKeyboardListeners() {
             document.addEventListener('keydown', (e) => {
