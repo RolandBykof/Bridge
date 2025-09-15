@@ -1,6 +1,7 @@
-/* Multiplayer Styles */
+/* Bridge-Specific Multiplayer Styles */
+/* These styles extend main.css with bridge game layout */
 
-/* Form Styles */
+/* Form Enhancements (extending main.css form styles) */
 .form-group {
     margin-bottom: 20px;
 }
@@ -25,82 +26,7 @@
     border-color: #4299e1;
 }
 
-/* Position Selection */
-.position-selector {
-    display: grid;
-    grid-template-rows: 1fr 1fr 1fr;
-    margin: 20px 0;
-}
-
-.position-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.position-button {
-    padding: 15px;
-    background: #f8fafc;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.position-button:hover {
-    background: #e2e8f0;
-    border-color: #4299e1;
-}
-
-.position-button.selected {
-    background: #dbeafe;
-    border-color: #3b82f6;
-    color: #1e40af;
-}
-
-.position-center {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.position-table {
-    width: 70px;
-    height: 70px;
-    background: #dbeafe;
-    border: 3px solid #3b82f6;
-    border-radius: 8px;
-}
-
-/* Position Display */
-.player-positions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin: 20px 0;
-}
-
-.position-info {
-    padding: 15px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    text-align: center;
-}
-
-.position-info h3 {
-    margin-top: 0;
-    color: #1e40af;
-}
-
-.player-name {
-    margin: 10px 0;
-    font-size: 16px;
-}
-
+/* Enhanced Position Selection (extending main.css styles) */
 .select-position-button {
     padding: 8px 16px;
     background: #3b82f6;
@@ -120,20 +46,7 @@
     cursor: not-allowed;
 }
 
-/* Waiting Room */
-.position-card {
-    padding: 15px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    text-align: center;
-}
-
-.position-card h3 {
-    margin-top: 0;
-    color: #1e40af;
-}
-
+/* Waiting Room Enhancements */
 .position-card.occupied {
     background: #dbeafe;
     border-color: #3b82f6;
@@ -144,183 +57,593 @@
     border: 2px solid #2563eb;
 }
 
-.stats-section {
-    margin-top: 20px;
-    padding: 10px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-}
+/* =================== BRIDGE GAME LAYOUT =================== */
 
-/* Visible Hands Container - Dynamic Layout */
-.visible-hands {
+/* Game View - Main Container */
+#game-view {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    margin: 20px 0;
+    min-height: 100vh;
+    padding: 10px;
+    box-sizing: border-box;
+    gap: 15px;
 }
 
-.visible-hands .hand {
+/* Game Header with Deal Info and Scores */
+#game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+#deal-info-area {
+    display: flex;
+    gap: 20px;
+    font-weight: bold;
+    color: #374151;
+}
+
+#score-area {
+    display: flex;
+    gap: 20px;
+    font-weight: bold;
+    color: #1e40af;
+    font-size: 1.1em;
+}
+
+/* Hand Areas - Bridge Layout */
+.hand-area {
     padding: 15px;
-    border: 1px solid #ddd;
+    border: 2px solid #ddd;
     border-radius: 8px;
     background-color: #ffffff;
+    margin: 5px 0;
     transition: all 0.3s ease;
 }
 
-.visible-hands .hand:hover {
-    border-color: #005fcc;
-    box-shadow: 0 2px 4px rgba(0, 95, 204, 0.1);
+.hand-area h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #374151;
+    font-size: 1.1em;
+    text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
 }
 
-/* Help System */
-.help-content {
-    max-height: 60vh;
-    overflow-y: auto;
-    margin-bottom: 1rem;
+/* Dummy Hand (Top) */
+.dummy-area {
+    background-color: #f0f9ff;
+    border-color: #0ea5e9;
+    order: 1;
 }
 
-#help-title {
-    outline: none;
+.dummy-area h3 {
+    color: #0ea5e9;
 }
 
-/* Chat Styles */
-.chat-messages {
-    height: 200px;
-    padding: 10px;
+/* Player Hand (Bottom) */
+.player-area {
+    background-color: #fefce8;
+    border-color: #eab308;
+    order: 4;
+}
+
+.player-area h3 {
+    color: #ca8a04;
+}
+
+/* Side Players Layout */
+#side-players-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 20px 0;
+    gap: 20px;
+    order: 2;
+}
+
+.side-player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    min-width: 120px;
+    transition: all 0.3s ease;
+}
+
+.side-player.current-player {
+    background: #dbeafe;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
+}
+
+.player-info {
+    text-align: center;
+}
+
+.player-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #374151;
+}
+
+.card-count {
+    font-size: 0.9em;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+}
+
+/* Central Play Area */
+#play-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 20px;
+    min-height: 200px;
+}
+
+#contract-info {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #1e40af;
+    font-size: 1.1em;
+    padding: 8px 16px;
+    background: #eff6ff;
+    border-radius: 6px;
+    border: 1px solid #dbeafe;
+}
+
+/* Current Trick Display */
+#current-trick-area {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.current-trick-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 15px;
+    justify-content: center;
+    max-width: 400px;
+}
+
+.played-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    background: #ffffff;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.played-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.player-label {
+    font-size: 0.8em;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.played-card .card {
+    font-size: 1.4em;
+    font-weight: bold;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Enhanced Suit Styling */
+.suit-spades, .suit-clubs {
+    color: #1f2937;
+}
+
+.suit-hearts, .suit-diamonds {
+    color: #dc2626;
+}
+
+/* Hand Display Enhancements */
+.suit-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 15px;
+}
+
+.suit-label {
+    min-width: 100px;
+    font-weight: bold;
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.cards-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+/* Enhanced Card Buttons (extending main.css) */
+.card-button {
+    padding: 10px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    background: #ffffff;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-button:hover {
+    background: #f3f4f6;
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.card-button:focus {
+    outline: 3px solid #93c5fd;
+    outline-offset: 2px;
+}
+
+.card-button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-display {
+    padding: 10px 14px;
+    background: #f9fafb;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 1em;
+    color: #6b7280;
+}
+
+/* Game Controls */
+#game-controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin: 20px 0;
+    padding: 15px;
+    order: 5;
+}
+
+#game-controls button {
+    padding: 12px 24px;
+    font-size: 1em;
+    font-weight: bold;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+#game-new-game-button {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+}
+
+#game-new-game-button:hover {
+    background: #059669;
+    border-color: #059669;
+}
+
+/* Enhanced Bidding Area */
+#game-bidding-area {
+    background: #fefce8;
+    border: 2px solid #eab308;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 15px 0;
+    order: 3;
+}
+
+#game-bidding-area h2 {
+    margin-top: 0;
+    color: #92400e;
+}
+
+.bidding-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.bid-level-group {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.bidding-buttons button {
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    background: #ffffff;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.bidding-buttons button:hover {
+    background: #f3f4f6;
+    border-color: #6b7280;
+    transform: translateY(-1px);
+}
+
+.bid-clubs {
+    color: #1f2937;
+}
+
+.bid-diamonds {
+    color: #dc2626;
+}
+
+.bid-hearts {
+    color: #dc2626;
+}
+
+.bid-spades {
+    color: #1f2937;
+}
+
+.bid-notrump {
+    color: #1e40af;
+    background: #eff6ff;
+}
+
+/* Enhanced Chat Area */
+#game-chat-area {
+    margin-top: 20px;
+    padding: 15px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
+    order: 6;
+}
+
+#game-chat-area h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #374151;
+}
+
+#game-chat-messages {
+    height: 120px;
     overflow-y: auto;
     margin-bottom: 10px;
-}
-
-.chat-message {
-    margin-bottom: 10px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.chat-sender {
-    font-weight: bold;
-    color: #1e40af;
-}
-
-.chat-input-container {
-    display: flex;
-    gap: 10px;
-}
-
-.chat-input {
-    flex: 1;
     padding: 10px;
+    background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
-    font-size: 16px;
+    font-size: 0.9em;
 }
 
-/* Error and Notifications */
-.error-message {
-    padding: 10px;
-    background: #fee2e2;
-    color: #b91c1c;
-    border: 1px solid #f87171;
-    border-radius: 8px;
-    margin-bottom: 15px;
+#game-chat-input {
+    width: calc(100% - 80px);
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    margin-right: 10px;
 }
 
-.success-message {
-    padding: 10px;
-    background: #dcfce7;
-    color: #15803d;
-    border: 1px solid #4ade80;
-    border-radius: 8px;
-    margin-bottom: 15px;
-}
+/* =================== RESPONSIVE DESIGN =================== */
 
-/* Mobile Optimizations */
-@media (max-width: 576px) {
-    .visible-hands {
-        gap: 15px;
+/* Tablet View */
+@media (max-width: 1024px) {
+    #game-view {
+        padding: 8px;
+    }
+    
+    #side-players-area {
         margin: 15px 0;
     }
     
-    .visible-hands .hand {
-        padding: 12px;
-    }
-    
-    .position-row {
-        grid-template-columns: 1fr;
-        gap: 5px;
-    }
-    
-    .player-positions {
-        grid-template-columns: 1fr;
-        gap: 10px;
+    #play-area {
+        margin: 0 10px;
     }
 }
 
-/* Dark Mode */
+/* Mobile View */
+@media (max-width: 768px) {
+    #game-header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    #deal-info-area,
+    #score-area {
+        gap: 15px;
+    }
+    
+    #side-players-area {
+        flex-direction: column;
+        gap: 15px;
+        align-items: center;
+    }
+
+    #play-area {
+        margin: 15px 0;
+    }
+
+    .current-trick-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .suit-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .suit-label {
+        min-width: auto;
+    }
+
+    .cards-buttons {
+        gap: 4px;
+        width: 100%;
+    }
+
+    .card-button,
+    .card-display {
+        padding: 8px 10px;
+        font-size: 0.9em;
+    }
+    
+    .bidding-buttons {
+        gap: 8px;
+    }
+    
+    .bid-level-group {
+        gap: 3px;
+    }
+    
+    .bidding-buttons button {
+        padding: 10px 12px;
+        font-size: 0.9em;
+    }
+}
+
+/* Small Mobile */
+@media (max-width: 576px) {
+    .hand-area {
+        padding: 12px;
+    }
+    
+    .current-trick-cards {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .cards-buttons {
+        gap: 3px;
+    }
+    
+    .card-button,
+    .card-display {
+        padding: 6px 8px;
+        font-size: 0.85em;
+    }
+    
+    #game-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    #game-chat-input {
+        width: calc(100% - 70px);
+    }
+}
+
+/* =================== DARK MODE SUPPORT =================== */
 @media (prefers-color-scheme: dark) {
     .form-input,
-    .chat-input {
+    #game-chat-input {
         background: #2d3748;
         border-color: #4a5568;
         color: #e2e8f0;
     }
     
-    .position-button,
-    .position-info,
-    .position-card,
-    .chat-messages,
-    .stats-section {
+    .hand-area,
+    .side-player,
+    #game-header,
+    #game-chat-area {
         background: #2d3748;
         border-color: #4a5568;
+        color: #e2e8f0;
     }
     
-    .position-button.selected,
-    .position-card.occupied {
-        background: #2a4365;
-        border-color: #4299e1;
-    }
-    
-    .position-card.you {
+    .dummy-area {
         background: #1e3a8a;
+        border-color: #3b82f6;
+    }
+    
+    .player-area {
+        background: #7c2d12;
+        border-color: #ea580c;
+    }
+    
+    .side-player.current-player {
+        background: #1e40af;
         border-color: #60a5fa;
     }
     
-    .position-table {
-        background: #2a4365;
-        border-color: #4299e1;
+    .played-card,
+    .card-button,
+    .card-display {
+        background: #374151;
+        border-color: #6b7280;
+        color: #e5e7eb;
     }
     
-    .visible-hands .hand {
-        background-color: #2d3748;
-        border-color: #4a5568;
+    .card-button:hover {
+        background: #4b5563;
+        border-color: #60a5fa;
     }
     
-    .visible-hands .hand:hover {
-        border-color: #4299e1;
-        box-shadow: 0 2px 4px rgba(66, 153, 225, 0.2);
+    #game-chat-messages {
+        background: #374151;
+        border-color: #6b7280;
+        color: #e5e7eb;
     }
     
-    .chat-message {
-        border-color: #4a5568;
+    #game-bidding-area {
+        background: #78350f;
+        border-color: #f59e0b;
     }
     
-    .chat-sender {
-        color: #90cdf4;
+    #contract-info {
+        background: #1e3a8a;
+        border-color: #3b82f6;
+        color: #dbeafe;
     }
     
-    .error-message {
-        background: #7f1d1d;
-        color: #fecaca;
-        border-color: #ef4444;
-    }
-    
-    .success-message {
-        background: #14532d;
-        color: #bbf7d0;
-        border-color: #22c55e;
+    .card-count {
+        background: #4b5563;
+        border-color: #6b7280;
+        color: #d1d5db;
     }
 }

@@ -147,13 +147,19 @@
 
         <!-- GAME VIEW -->
         <div id="game-view" style="display: none;">
-            <div id="deal-info-area" style="display: none;">
-                <p>Deal: <span id="deal-number">1</span> | Dealer: <span id="current-dealer">South</span></p>
+            <!-- Game Header with Deal Info and Scores -->
+            <div id="game-header">
+                <div id="deal-info-area">
+                    <span>Deal: <span id="deal-number">1</span></span>
+                    <span>Dealer: <span id="current-dealer">South</span></span>
+                </div>
+                <div id="score-area">
+                    <span id="ns-score">NS 0/13</span>
+                    <span id="ew-score">EW 0</span>
+                </div>
             </div>
             
-            <div id="game-players-area"></div>
-            
-            <!-- Bidding -->
+            <!-- Bidding Area -->
             <section id="game-bidding-area" style="display: none;">
                 <h2>Bidding</h2>
                 <div id="game-bidding-history">
@@ -166,24 +172,56 @@
                 </div>
             </section>
             
-            <!-- Visible hands container - only shows hands with cards -->
-            <div id="visible-hands-container" class="visible-hands">
-                <!-- Hands will be dynamically added here -->
+            <!-- Game Layout: Dummy Hand (Top) -->
+            <div id="dummy-hand-area" class="hand-area dummy-area">
+                <!-- Dummy hand will be inserted here -->
             </div>
             
-            <!-- Current trick -->
-            <section id="game-played-cards-area">
-                <h2>Current Trick</h2>
-                <div id="game-played-cards-container">
-                    <p>No cards played yet.</p>
+            <!-- Side Players -->
+            <div id="side-players-area">
+                <div id="west-player-area" class="side-player">
+                    <div class="player-info">
+                        <span class="player-name">West</span>
+                        <span class="card-count">13</span>
+                    </div>
                 </div>
-            </section>
-
-            <button onclick="startNewGameFromGame()" id="game-new-game-button" style="display: none;">New Game</button>
-            <button onclick="leaveGameFromGame()">Leave Game</button>
+                
+                <!-- Center Play Area -->
+                <div id="play-area">
+                    <div id="contract-info" style="display: none;">
+                        <span id="contract-display"></span>
+                        <span id="declarer-info"></span>
+                    </div>
+                    
+                    <!-- Current Trick Display -->
+                    <div id="current-trick-area">
+                        <div id="game-played-cards-container">
+                            <p>No cards played yet.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="east-player-area" class="side-player">
+                    <div class="player-info">
+                        <span class="player-name">East</span>
+                        <span class="card-count">13</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Player Hand (Bottom) -->
+            <div id="player-hand-area" class="hand-area player-area">
+                <!-- Player hand will be inserted here -->
+            </div>
+            
+            <!-- Game Controls -->
+            <div id="game-controls">
+                <button onclick="startNewGameFromGame()" id="game-new-game-button" style="display: none;">New Game</button>
+                <button onclick="leaveGameFromGame()">Leave Game</button>
+            </div>
            
             <!-- Game Chat -->
-            <div>
+            <div id="game-chat-area">
                 <h3>Chat</h3>
                 <div id="game-chat-messages" aria-live="polite"></div>
                 <input type="text" id="game-chat-input" placeholder="Message..." aria-label="Chat message">
@@ -789,27 +827,8 @@
             });
         }
 
-        function renderAllHands() {
-            if (!gameState || !gameState.hands) return;
-            
-            const container = document.getElementById('visible-hands-container');
-            container.innerHTML = '';
-            
-            // Only render hands that can be viewed
-            for (const position of ['north', 'south', 'east', 'west']) {
-                if (gameState.hands[position] && canViewHandCards(position)) {
-                    renderHand(position, gameState.hands[position], container);
-                }
-            }
-        }
-
-        function renderHand(position, hand, container) {
-            if (!hand) return;
-            
-            // Create hand element
-            const handElement = document.createElement('div');
-            handElement.className = 'hand';
-            handElement.id = `game-${position}-hand`;
+        function renderHand(position, hand, targetArea) {
+            if (!hand || !targetArea) return;
             
             let positionType = position === myPosition ? 'You' : 'Human';
             if (position === gameState?.dummy && gameState?.declarer === myPosition) {
@@ -861,8 +880,61 @@
                 html += `</div></div>`;
             });
             
-            handElement.innerHTML = html;
-            container.appendChild(handElement);
+            targetArea.innerHTML = html;
+        }
+
+        function renderAllHands() {
+            if (!gameState || !gameState.hands) return;
+            
+            // Clear existing content
+            const dummyArea = document.getElementById('dummy-hand-area');
+            const playerArea = document.getElementById('player-hand-area');
+            
+            dummyArea.innerHTML = '';
+            playerArea.innerHTML = '';
+            
+            // Render player's hand
+            if (gameState.hands[myPosition] && canViewHandCards(myPosition)) {
+                renderHand(myPosition, gameState.hands[myPosition], playerArea);
+            }
+            
+            // Render dummy hand (if visible)
+            if (gameState.dummy && gameState.hands[gameState.dummy] && canViewHandCards(gameState.dummy)) {
+                renderHand(gameState.dummy, gameState.hands[gameState.dummy], dummyArea);
+            }
+            
+            // Update side players card counts
+            updateSidePlayersInfo();
+        }
+
+        function updateSidePlayersInfo() {
+            const positions = ['west', 'east'];
+            
+            positions.forEach(position => {
+                const playerArea = document.getElementById(`${position}-player-area`);
+                const nameElement = playerArea.querySelector('.player-name');
+                const countElement = playerArea.querySelector('.card-count');
+                
+                if (gameState && gameState.players && gameState.players[position]) {
+                    nameElement.textContent = gameState.players[position].name;
+                } else {
+                    nameElement.textContent = positionName(position);
+                }
+                
+                if (gameState && gameState.hands && gameState.hands[position]) {
+                    const totalCards = Object.values(gameState.hands[position]).reduce((sum, cards) => sum + cards.length, 0);
+                    countElement.textContent = totalCards;
+                } else {
+                    countElement.textContent = '13';
+                }
+                
+                // Mark current player
+                if (gameState && gameState.currentPlayer === position) {
+                    playerArea.classList.add('current-player');
+                } else {
+                    playerArea.classList.remove('current-player');
+                }
+            });
         }
 
         function updateCurrentTrickDisplay() {
@@ -880,8 +952,8 @@
                 const suitClass = `suit-${card.suit}`;
                 html += `
                     <div class="played-card">
-                        <div>${positionName(card.player)}</div>
-                        <div class="${suitClass}">
+                        <div class="player-label">${positionName(card.player)}</div>
+                        <div class="card ${suitClass}">
                             ${getSuitSymbol(card.suit)}${card.card}
                         </div>
                     </div>
@@ -895,29 +967,41 @@
         function updateGameUI() {
             if (!gameState) return;
             
-            const playersArea = document.getElementById('game-players-area');
-            if (playersArea) {
-                let html = '';
-                
-                const positions = ['north', 'east', 'south', 'west'];
-                for (const position of positions) {
-                    const isCurrentPlayer = gameState.currentPlayer === position;
-                    const player = gameState.players ? gameState.players[position] : null;
-                    const playerName = player ? player.name : positionName(position);
-                    
-                    html += `
-                        <div class="player-badge ${isCurrentPlayer ? 'current' : ''}">
-                            <div>${positionName(position)}</div>
-                            <div>${playerName}</div>
-                        </div>
-                    `;
-                }
-                
-                playersArea.innerHTML = html;
-            }
+            // Update scores
+            updateScoreDisplay();
             
+            // Update contract info
+            updateContractDisplay();
+            
+            // Update current trick
             updateCurrentTrickDisplay();
+            
+            // Update side players
+            updateSidePlayersInfo();
+            
             updateStatus();
+        }
+
+        function updateScoreDisplay() {
+            if (gameState && gameState.tricks) {
+                document.getElementById('ns-score').textContent = `NS ${gameState.tricks.ns}/13`;
+                document.getElementById('ew-score').textContent = `EW ${gameState.tricks.ew}/13`;
+            } else {
+                document.getElementById('ns-score').textContent = 'NS 0/13';
+                document.getElementById('ew-score').textContent = 'EW 0/13';
+            }
+        }
+
+        function updateContractDisplay() {
+            const contractInfo = document.getElementById('contract-info');
+            
+            if (gameState && gameState.contract && gameState.declarer) {
+                document.getElementById('contract-display').textContent = formatContract(gameState.contract);
+                document.getElementById('declarer-info').textContent = `by ${positionName(gameState.declarer)}`;
+                contractInfo.style.display = 'block';
+            } else {
+                contractInfo.style.display = 'none';
+            }
         }
 
         function renderBiddingUI() {
@@ -1611,10 +1695,13 @@
             const lowestCard = findLowestCard(cards);
             if (!lowestCard) return;
             
-            const handElement = document.getElementById(`game-${position}-hand`);
-            if (!handElement) return;
+            const handArea = position === myPosition ? 
+                document.getElementById('player-hand-area') : 
+                document.getElementById('dummy-hand-area');
             
-            const cardButton = handElement.querySelector(`button[onclick*="attemptToPlayCard('${suit}', '${lowestCard}'"]`);
+            if (!handArea) return;
+            
+            const cardButton = handArea.querySelector(`button[onclick*="attemptToPlayCard('${suit}', '${lowestCard}'"]`);
             
             if (cardButton) {
                 setTimeout(() => {
@@ -2308,48 +2395,349 @@
     </script>
 
     <style>
-        /* Additional styles for visible hands container */
-        .visible-hands {
+        /* Game Layout Styles */
+        #game-view {
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            margin: 20px 0;
+            height: 100vh;
+            padding: 10px;
         }
-        
-        .visible-hands .hand {
+
+        #game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        #deal-info-area {
+            display: flex;
+            gap: 20px;
+            font-weight: bold;
+        }
+
+        #score-area {
+            display: flex;
+            gap: 20px;
+            font-weight: bold;
+            color: #1e40af;
+        }
+
+        /* Hand Areas */
+        .hand-area {
             padding: 15px;
             border: 1px solid #ddd;
             border-radius: 8px;
             background-color: #ffffff;
-            transition: all 0.3s ease;
+            margin: 10px 0;
         }
-        
-        .visible-hands .hand:hover {
-            border-color: #005fcc;
-            box-shadow: 0 2px 4px rgba(0, 95, 204, 0.1);
+
+        .dummy-area {
+            background-color: #f0f9ff;
+            border-color: #0ea5e9;
         }
-        
-        /* Help content scrolling */
-        .help-content {
-            max-height: 60vh;
+
+        .player-area {
+            background-color: #fefce8;
+            border-color: #eab308;
+        }
+
+        /* Side Players Layout */
+        #side-players-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .side-player {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            min-width: 120px;
+        }
+
+        .side-player.current-player {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        .player-info {
+            text-align: center;
+        }
+
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .card-count {
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+
+        /* Play Area */
+        #play-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 20px;
+        }
+
+        #contract-info {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #1e40af;
+        }
+
+        #current-trick-area {
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .current-trick-cards {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .played-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .player-label {
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #6b7280;
+        }
+
+        .played-card .card {
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 5px 8px;
+            border-radius: 4px;
+            background: #f9fafb;
+        }
+
+        /* Suit Styling */
+        .suit-spades, .suit-clubs {
+            color: #1f2937;
+        }
+
+        .suit-hearts, .suit-diamonds {
+            color: #dc2626;
+        }
+
+        /* Card Buttons and Displays */
+        .suit-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .suit-label {
+            min-width: 80px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .cards-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .card-button {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            background: #ffffff;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .card-button:hover {
+            background: #f3f4f6;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .card-button:focus {
+            outline: 3px solid #93c5fd;
+            outline-offset: 2px;
+        }
+
+        .card-display {
+            padding: 8px 12px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        /* Game Controls */
+        #game-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+        }
+
+        /* Chat Area */
+        #game-chat-area {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        #game-chat-messages {
+            height: 150px;
             overflow-y: auto;
-            margin-bottom: 1rem;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
         }
-        
-        /* Better focus for help title */
-        #help-title {
-            outline: none;
+
+        /* Bidding Styles */
+        .bidding-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
         }
-        
-        /* Mobile optimizations for visible hands */
-        @media (max-width: 576px) {
-            .visible-hands {
+
+        .bid-level-group {
+            display: flex;
+            gap: 5px;
+        }
+
+        .bidding-buttons button {
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            background: #ffffff;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .bid-clubs {
+            color: #1f2937;
+        }
+
+        .bid-diamonds {
+            color: #dc2626;
+        }
+
+        .bid-hearts {
+            color: #dc2626;
+        }
+
+        .bid-spades {
+            color: #1f2937;
+        }
+
+        .bid-notrump {
+            color: #1e40af;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #side-players-area {
+                flex-direction: column;
                 gap: 15px;
+            }
+
+            #play-area {
                 margin: 15px 0;
             }
-            
-            .visible-hands .hand {
-                padding: 12px;
+
+            .current-trick-cards {
+                gap: 10px;
+            }
+
+            .cards-buttons {
+                gap: 3px;
+            }
+
+            .card-button,
+            .card-display {
+                padding: 6px 8px;
+                font-size: 0.9em;
+            }
+        }
+
+        /* Dark Mode Support */
+        @media (prefers-color-scheme: dark) {
+            .hand-area,
+            .side-player,
+            #game-header,
+            #game-chat-area {
+                background: #2d3748;
+                border-color: #4a5568;
+                color: #e2e8f0;
+            }
+
+            .dummy-area {
+                background: #1e3a8a;
+                border-color: #3b82f6;
+            }
+
+            .player-area {
+                background: #7c2d12;
+                border-color: #ea580c;
+            }
+
+            .side-player.current-player {
+                background: #1e40af;
+                border-color: #60a5fa;
+            }
+
+            .played-card,
+            .card-button,
+            .card-display {
+                background: #374151;
+                border-color: #6b7280;
+                color: #e5e7eb;
+            }
+
+            .card-button:hover {
+                background: #4b5563;
+                border-color: #60a5fa;
+            }
+
+            #game-chat-messages {
+                background: #374151;
+                border-color: #6b7280;
+                color: #e5e7eb;
             }
         }
     </style>
