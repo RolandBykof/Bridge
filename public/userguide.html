@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BridgeCircle - User Guide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f8fafc;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #1e40af;
+            text-align: center;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+            padding-left: 15px;
+            margin-top: 35px;
+        }
+        
+        h3 {
+            color: #374151;
+            margin-top: 25px;
+        }
+        
+        h4 {
+            color: #6b7280;
+            margin-top: 20px;
+        }
+        
+        .toc {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+        }
+        
+        .toc h3 {
+            margin-top: 0;
+            color: #374151;
+        }
+        
+        .toc ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .toc a {
+            color: #1e40af;
+            text-decoration: none;
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        
+        .highlight-box {
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .warning-box {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .kbd {
+            background: #374151;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+            white-space: nowrap;
+        }
+        
+        .shortcut-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        .shortcut-table th,
+        .shortcut-table td {
+            border: 1px solid #e5e7eb;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        .shortcut-table th {
+            background: #f3f4f6;
+            font-weight: bold;
+            color: #374151;
+        }
+        
+        .shortcut-table tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+        
+        .shortcut-category {
+            background: #1e40af;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        .step-list {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .step-list li {
+            counter-increment: step-counter;
+            margin: 15px 0;
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .step-list li::before {
+            content: "Step " counter(step-counter) ": ";
+            font-weight: bold;
+            color: #1e40af;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .feature-card {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .feature-card h4 {
+            margin-top: 0;
+            color: #1e40af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BridgeCircle User Guide</h1>
+        
+        <div class="toc">
+            <h3>Table of Contents</h3>
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#getting-started">Getting Started</a></li>
+                <li><a href="#creating-table">Creating a Table</a></li>
+                <li><a href="#joining-table">Joining a Table</a></li>
+                <li><a href="#waiting-room">Waiting Room</a></li>
+                <li><a href="#game-phases">Game Phases</a>
+                    <ul>
+                        <li><a href="#bidding-phase">Bidding Phase</a></li>
+                        <li><a href="#playing-phase">Playing Phase</a></li>
+                    </ul>
+                </li>
+                <li><a href="#interface-guide">Interface Guide</a></li>
+                <li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
+                <li><a href="#accessibility">Accessibility Features</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+            </ul>
+        </div>
+
+        <section id="overview">
+            <h2>Overview</h2>
+            <p>BridgeCircle is a multiplayer bridge game that allows you to play with friends or other players online. The game supports the full bridge experience including bidding and card play phases, with comprehensive accessibility features and keyboard shortcuts.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>Multiplayer Support</h4>
+                    <p>Play with up to 4 players in real-time</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Full Bridge Rules</h4>
+                    <p>Complete bidding and playing phases</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Accessibility First</h4>
+                    <p>Screen reader support and keyboard navigation</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Real-time Chat</h4>
+                    <p>Communicate with other players</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="getting-started">
+            <h2>Getting Started</h2>
+            <p>When you first load BridgeCircle, you'll see the main menu with two options:</p>
+            <ul>
+                <li><strong>Create Table</strong> - Start a new game and invite others</li>
+                <li><strong>Join Table</strong> - Join an existing game using a table code</li>
+            </ul>
+            
+            <div class="highlight-box">
+                <strong>Quick Tip:</strong> If someone shares a table code with you, you can also join directly by visiting the URL with <code>?code=XXXX</code> parameter.
+            </div>
+        </section>
+
+        <section id="creating-table">
+            <h2>Creating a Table</h2>
+            <ol class="step-list">
+                <li>Click "Create Table" from the main menu</li>
+                <li>Enter your name (2+ characters required)</li>
+                <li>Select your preferred position (North, East, South, or West)</li>
+                <li>Optionally enter a table name for easier identification</li>
+                <li>Click "Create" to generate your table</li>
+                <li>Share the 4-digit table code with other players</li>
+            </ol>
+            
+            <div class="warning-box">
+                <strong>Remember:</strong> You'll become the table host and can start the game once all 4 positions are filled.
+            </div>
+        </section>
+
+        <section id="joining-table">
+            <h2>Joining a Table</h2>
+            <ol class="step-list">
+                <li>Click "Join Table" from the main menu</li>
+                <li>Enter your name (2+ characters required)</li>
+                <li>Enter the 4-digit table code provided by the host</li>
+                <li>Click "Join" to connect to the table</li>
+                <li>Select from available positions</li>
+                <li>Wait for other players to join</li>
+            </ol>
+        </section>
+
+        <section id="waiting-room">
+            <h2>Waiting Room</h2>
+            <p>After creating or joining a table, you'll enter the waiting room where you can:</p>
+            <ul>
+                <li>See which positions are occupied</li>
+                <li>Chat with other players</li>
+                <li>Copy and share the table code</li>
+                <li>Enable/disable sound effects</li>
+                <li>Start the game (when all 4 positions are filled)</li>
+            </ul>
+            
+            <h3>Sound Settings</h3>
+            <p>You can enable sound effects by checking the "Sounds" checkbox. Audio includes:</p>
+            <ul>
+                <li>Card dealing sounds</li>
+                <li>Card play sounds</li>
+            </ul>
+        </section>
+
+        <section id="game-phases">
+            <h2>Game Phases</h2>
+            
+            <section id="bidding-phase">
+                <h3>Bidding Phase</h3>
+                <p>The game begins with the bidding phase. During your turn to bid:</p>
+                <ul>
+                    <li>A bidding box will appear in the center of the screen</li>
+                    <li>You can Pass, Double/Redouble, or make a contract bid</li>
+                    <li>Contract bids range from 1♣ to 7NT</li>
+                    <li>Each bid must be higher than the previous bid</li>
+                </ul>
+                
+                <h4>Bidding Controls</h4>
+                <ul>
+                    <li><strong>Mouse:</strong> Click the desired bid button</li>
+                    <li><strong>Keyboard:</strong> Use number keys (1-7) followed by suit keys (S, H, D, C, N)</li>
+                    <li><strong>Special bids:</strong> Use <span class="kbd">Alt+P</span> for Pass</li>
+                </ul>
+            </section>
+            
+            <section id="playing-phase">
+                <h3>Playing Phase</h3>
+                <p>After bidding concludes, the playing phase begins:</p>
+                <ul>
+                    <li>Cards are displayed in a single row for easy viewing</li>
+                    <li>The declarer's partner becomes the dummy</li>
+                    <li>Dummy's cards are revealed and controlled by the declarer</li>
+                    <li>Players must follow suit when possible</li>
+                    <li>The highest card of the led suit wins (unless trumped)</li>
+                </ul>
+                
+                <h4>Card Layout</h4>
+                <p>The interface shows:</p>
+                <ul>
+                    <li><strong>Top:</strong> Dummy's cards (when visible)</li>
+                    <li><strong>Center:</strong> Current trick and game information</li>
+                    <li><strong>Sides:</strong> West and East player information</li>
+                    <li><strong>Bottom:</strong> Your cards</li>
+                </ul>
+                
+                <div class="highlight-box">
+                    <strong>Card Display:</strong> All cards are shown in a single horizontal row. You can see all 13 of your cards and all 13 dummy cards without scrolling.
+                </div>
+            </section>
+        </section>
+
+        <section id="interface-guide">
+            <h2>Interface Guide</h2>
+            
+            <h3>Game Header</h3>
+            <p>The top bar displays:</p>
+            <ul>
+                <li>Deal number and dealer position</li>
+                <li>Current score (tricks won by NS/EW)</li>
+            </ul>
+            
+            <h3>Center Play Area</h3>
+            <p>Shows the current contract and cards played to the current trick</p>
+            
+            <h3>Chat System</h3>
+            <p>Real-time chat is available both in the waiting room and during gameplay. Press <span class="kbd">Enter</span> to send messages.</p>
+            
+            <h3>Help System</h3>
+            <p>Press <span class="kbd">Alt+H</span> at any time to view contextual help and keyboard shortcuts.</p>
+        </section>
+
+        <section id="keyboard-shortcuts">
+            <h2>Keyboard Shortcuts</h2>
+            <p>BridgeCircle features extensive keyboard support for enhanced accessibility and faster gameplay.</p>
+            
+            <table class="shortcut-table">
+                <thead>
+                    <tr>
+                        <th>Shortcut</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="shortcut-category">
+                        <td colspan="2">Global Commands (Available Everywhere)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + H</span></td>
+                        <td>Toggle help dialog</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + I</span></td>
+                        <td>Repeat last screen reader announcement</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + B</span></td>
+                        <td>Back/Cancel (context-dependent)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Escape</span></td>
+                        <td>Close help dialog</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Tab</span></td>
+                        <td>Navigate between elements</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Enter/Space</span></td>
+                        <td>Activate buttons and links</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Main Menu Navigation</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Arrow keys</span></td>
+                        <td>Navigate between Create/Join buttons</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Table Creation</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + C</span></td>
+                        <td>Create table (if form is valid)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Enter</span></td>
+                        <td>Move to next field or submit form</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Arrow keys</span></td>
+                        <td>Navigate position selection (North/East/South/West)</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Table Joining</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + J</span></td>
+                        <td>Join table (if form is valid)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Enter</span></td>
+                        <td>Move to next field or submit form</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Position Selection</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Arrow keys</span></td>
+                        <td>Navigate available positions</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Enter/Space</span></td>
+                        <td>Select position</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Waiting Room</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + S</span></td>
+                        <td>Start game (when 4 players present)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + L</span></td>
+                        <td>Leave table</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + C</span></td>
+                        <td>Focus on chat input</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Enter</span></td>
+                        <td>Send chat message (when in chat input)</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Basic Controls</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + M</span></td>
+                        <td>Leave game</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Enter</span></td>
+                        <td>Send chat message (when in chat input)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Tab/Arrow keys</span></td>
+                        <td>Navigate between game elements</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Bidding Phase</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + P</span></td>
+                        <td>Pass bid (when it's your turn)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">1-7</span></td>
+                        <td>Select bid level (then press suit key)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">S</span></td>
+                        <td>Spades suit (after selecting level)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">H</span></td>
+                        <td>Hearts suit (after selecting level)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">D</span></td>
+                        <td>Diamonds suit (after selecting level)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">C</span></td>
+                        <td>Clubs suit (after selecting level)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">N</span></td>
+                        <td>No Trump (after selecting level)</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Card Viewing (Your Hand)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + A</span></td>
+                        <td>Announce your spades and focus lowest card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + S</span></td>
+                        <td>Announce your hearts and focus lowest card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + D</span></td>
+                        <td>Announce your diamonds and focus lowest card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + F</span></td>
+                        <td>Announce your clubs and focus lowest card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + G</span></td>
+                        <td>Announce your entire hand (all suits)</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Card Viewing (Dummy Hand)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + Q</span></td>
+                        <td>Announce dummy spades and focus lowest card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + W</span></td>
+                        <td>Announce dummy hearts and focus lowest card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + E</span></td>
+                        <td>Announce dummy diamonds and focus lowest card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + R</span></td>
+                        <td>Announce dummy clubs and focus lowest card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + T</span></td>
+                        <td>Announce dummy entire hand (all suits)</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Information Commands</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + Z</span></td>
+                        <td>Announce cards in current trick</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + X</span></td>
+                        <td>Announce game state and contract</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + V</span></td>
+                        <td>Announce current player</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + O</span></td>
+                        <td>Announce current score (tricks won)</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Quick Card Play (Highest)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Ctrl + 1</span></td>
+                        <td>Play highest spade</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Ctrl + 2</span></td>
+                        <td>Play highest heart</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Ctrl + 3</span></td>
+                        <td>Play highest diamond</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Ctrl + 4</span></td>
+                        <td>Play highest club</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Quick Card Play (Lowest)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Ctrl + Shift + 1</span></td>
+                        <td>Play lowest spade</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Ctrl + Shift + 2</span></td>
+                        <td>Play lowest heart</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Ctrl + Shift + 3</span></td>
+                        <td>Play lowest diamond</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Ctrl + Shift + 4</span></td>
+                        <td>Play lowest club</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Manual Card Play</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Click/Enter</span></td>
+                        <td>Play specific card (navigate to card first)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Tab/Arrow keys</span></td>
+                        <td>Navigate between playable cards</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="highlight-box">
+                <strong>Important Notes:</strong>
+                <ul>
+                    <li>Card viewing commands work only when cards are visible</li>
+                    <li>Quick play commands work only during your turn</li>
+                    <li>Bidding commands work only during bidding phase</li>
+                    <li>Some commands are context-dependent</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="accessibility">
+            <h2>Accessibility Features</h2>
+            <p>BridgeCircle is designed with accessibility as a priority:</p>
+            
+            <h3>Screen Reader Support</h3>
+            <ul>
+                <li>All interface elements have proper ARIA labels</li>
+                <li>Game state changes are announced automatically</li>
+                <li>Card information is clearly communicated</li>
+                <li>Live regions update screen readers with important events</li>
+            </ul>
+            
+            <h3>Keyboard Navigation</h3>
+            <ul>
+                <li>Complete keyboard control - no mouse required</li>
+                <li>Logical tab order throughout the interface</li>
+                <li>Quick access shortcuts for common actions</li>
+                <li>Context-sensitive help available with <span class="kbd">Alt+H</span></li>
+            </ul>
+            
+            <h3>Visual Accessibility</h3>
+            <ul>
+                <li>High contrast color schemes</li>
+                <li>Clear visual focus indicators</li>
+                <li>Scalable text and interface elements</li>
+                <li>Dark mode support based on system preferences</li>
+            </ul>
+            
+            <h3>Audio Cues</h3>
+            <ul>
+                <li>Optional sound effects for game events</li>
+                <li>Card dealing and playing sounds</li>
+                <li>Volume control available in settings</li>
+            </ul>
+        </section>
+
+        <section id="troubleshooting">
+            <h2>Troubleshooting</h2>
+            
+            <h3>Connection Issues</h3>
+            <div class="warning-box">
+                <strong>Problem:</strong> Cannot connect to the game server<br>
+                <strong>Solution:</strong> Check your internet connection and refresh the page. The game will attempt to reconnect automatically.
+            </div>
+            
+            <h3>Table Full</h3>
+            <div class="warning-box">
+                <strong>Problem:</strong> "Table full" error when trying to join<br>
+                <strong>Solution:</strong> The table already has 4 players. Ask the host to create a new table or wait for a player to leave.
+            </div>
+            
+            <h3>Audio Not Working</h3>
+            <div class="warning-box">
+                <strong>Problem:</strong> Sound effects not playing<br>
+                <strong>Solution:</strong> Check that the "Sounds" checkbox is enabled in the waiting room. Some browsers require user interaction before allowing audio.
+            </div>
+            
+            <h3>Keyboard Shortcuts Not Working</h3>
+            <div class="warning-box">
+                <strong>Problem:</strong> Keyboard shortcuts not responding<br>
+                <strong>Solution:</strong> Ensure the game window has focus and you're in the correct game phase. Some shortcuts are context-dependent.
+            </div>
+            
+            <h3>Cards Not Displaying</h3>
+            <div class="warning-box">
+                <strong>Problem:</strong> Cards not showing in single row<br>
+                <strong>Solution:</strong> Try refreshing the page. On very narrow screens, horizontal scrolling may be required to see all cards.
+            </div>
+            
+            <h3>Getting Help</h3>
+            <p>For additional help:</p>
+            <ul>
+                <li>Press <span class="kbd">Alt+H</span> for context-sensitive help</li>
+                <li>Use <span class="kbd">Alt+I</span> to repeat the last announcement</li>
+                <li>Check that JavaScript is enabled in your browser</li>
+                <li>Ensure you're using a modern browser (Chrome, Firefox, Safari, Edge)</li>
+            </ul>
+        </section>
+
+        <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280;">
+            <p>BridgeCircle - Multiplayer Bridge Game</p>
+            <p>For the best experience, use with a screen reader or enable keyboard navigation.</p>
+        </footer>
+    </div>
+</body>
+</html>
