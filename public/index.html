@@ -4,14 +4,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BridgeCircle - Multiplayer</title>
+    <title>AccessibleBridge</title>
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/multiplayer.css">
     <meta name="description" content="Bridge multiplayer game">
 </head>
 <body>
     <div class="container" id="multiplayer-app">
-        <h1 id="main-title">BridgeCircle</h1>
+        <h1 id="main-title">AccessibleBridge</h1>
         
         <!-- ARIA Live area -->
         <div id="status-announcer" aria-live="polite" class="sr-only"></div>
@@ -375,14 +375,14 @@
         function updateTitle() {
             const mainTitle = document.getElementById('main-title');
             const titles = {
-                'start-menu': 'BridgeCircle',
+                'start-menu': 'AccessibleBridge',
                 'create-table': 'Create Table',
                 'join-table': 'Join Table',
                 'position-selection': 'Select Position',
                 'waiting-room': `Table ${tableCode}`,
                 'game': `Game ${tableCode}`
             };
-            mainTitle.textContent = titles[currentView] || 'BridgeCircle';
+            mainTitle.textContent = titles[currentView] || 'AccessibleBridge';
         }
 
         function updateActionButtons() {
@@ -457,7 +457,7 @@
             const statusArea = document.getElementById('status-area');
             
             const statusTexts = {
-                'start-menu': 'Welcome to BridgeCircle',
+                'start-menu': 'Welcome to AccessibleBridge',
                 'create-table': 'Create a new table',
                 'join-table': 'Join existing table',
                 'position-selection': 'Select your position',
@@ -479,7 +479,7 @@
             };
             
             const statusText = statusTexts[currentView];
-            statusArea.textContent = typeof statusText === 'function' ? statusText() : statusText || 'BridgeCircle';
+            statusArea.textContent = typeof statusText === 'function' ? statusText() : statusText || 'AccessibleBridge';
         }
 
         // CREATE TABLE
