@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BridgeCircle - Test Game View</title>
+    <style>
+        /* Base styles from main.css */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            color: #334155;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        /* Bridge-Specific Multiplayer Styles with Single Row Card Layout */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .form-input:focus {
+            outline: 3px solid #4299e1;
+            outline-offset: 2px;
+            border-color: #4299e1;
+        }
+
+        /* Enhanced Position Selection */
+        .select-position-button {
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .select-position-button:hover {
+            background: #2563eb;
+        }
+
+        .select-position-button[disabled] {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+
+        /* Waiting Room Enhancements */
+        .position-card.occupied {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        .position-card.you {
+            background: #bfdbfe;
+            border: 2px solid #2563eb;
+        }
+
+        /* =================== BRIDGE GAME LAYOUT =================== */
+
+        /* Game View - Optimized for Single Row Cards */
+        #game-view {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 5px;
+            box-sizing: border-box;
+            gap: 5px;
+            overflow: hidden;
+        }
+
+        /* Compact Game Header */
+        #game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.9em;
+            flex-shrink: 0;
+        }
+
+        #deal-info-area {
+            display: flex;
+            gap: 15px;
+            font-weight: bold;
+            color: #374151;
+        }
+
+        #score-area {
+            display: flex;
+            gap: 15px;
+            font-weight: bold;
+            color: #1e40af;
+            font-size: 1em;
+        }
+
+        /* Game Layout Container */
+        #game-layout-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* =================== SINGLE ROW CARD LAYOUT =================== */
+
+        /* Hand Areas - Compact for Single Row */
+        .hand-area {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #ffffff;
+            margin: 2px 0;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        /* Hand Title Styling (replaces h3) */
+        .hand-title {
+            font-weight: bold;
+            font-size: 0.95em;
+            margin-bottom: 6px;
+            color: #374151;
+            text-align: left;
+        }
+
+        /* Chat Title Styling (replaces h3) */
+        .chat-title {
+            font-weight: bold;
+            font-size: 1em;
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        /* Single Row Hand Container */
+        .single-row-hand {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 1px;
+            overflow: visible;
+            padding: 2px 0;
+            justify-content: flex-start;
+        }
+
+        /* Single Row Card Buttons */
+        .card-button-single {
+            padding: 4px 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            background: #ffffff;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.75em;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            white-space: nowrap;
+            min-width: 22px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .card-button-single:hover {
+            background: #f3f4f6;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .card-button-single:focus {
+            outline: 2px solid #93c5fd;
+            outline-offset: 1px;
+            z-index: 10;
+        }
+
+        .card-button-single:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Single Row Card Displays (non-interactive) */
+        .card-display-single {
+            padding: 4px 6px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.75em;
+            color: #6b7280;
+            white-space: nowrap;
+            min-width: 22px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* Dummy Hand (Top) */
+        .dummy-area {
+            background-color: #f0f9ff;
+            border-color: #0ea5e9;
+            order: 1;
+        }
+
+        /* Player Hand (Bottom) */
+        .player-area {
+            background-color: #fefce8;
+            border-color: #eab308;
+            order: 3;
+        }
+
+        /* Side Players Layout - Compact */
+        #side-players-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin: 5px 0;
+            gap: 10px;
+            order: 2;
+            flex-shrink: 0;
+        }
+
+        .side-player {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            min-width: 80px;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .side-player.current-player {
+            background: #dbeafe;
+            border-color: #3b82f6;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+        }
+
+        .player-info {
+            text-align: center;
+        }
+
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: #374151;
+            font-size: 0.9em;
+        }
+
+        .card-count {
+            font-size: 0.8em;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+        }
+
+        /* Central Play Area - Compact */
+        #play-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 15px;
+            min-height: 100px;
+        }
+
+        #contract-info {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #1e40af;
+            font-size: 1em;
+            padding: 6px 12px;
+            background: #eff6ff;
+            border-radius: 4px;
+            border: 1px solid #dbeafe;
+        }
+
+        /* Current Trick Display - Compact */
+        #current-trick-area {
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .current-trick-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+            gap: 8px;
+            justify-content: center;
+            max-width: 300px;
+        }
+
+        .played-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .played-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .player-label {
+            font-size: 0.7em;
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .played-card .card {
+            font-size: 1.1em;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 3px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            min-width: 32px;
+            text-align: center;
+        }
+
+        /* Enhanced Suit Styling */
+        .suit-spades, .suit-clubs {
+            color: #1f2937;
+        }
+
+        .suit-hearts, .suit-diamonds {
+            color: #dc2626;
+        }
+
+        /* Game Controls - Compact */
+        #game-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 8px 0;
+            padding: 8px;
+            order: 4;
+            flex-shrink: 0;
+        }
+
+        #game-controls button {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            font-weight: bold;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        #game-new-game-button {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+
+        #game-new-game-button:hover {
+            background: #059669;
+            border-color: #059669;
+        }
+
+        /* Chat Area - Compact */
+        #game-chat-area {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            order: 5;
+            flex-shrink: 0;
+        }
+
+        #game-chat-area h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 1em;
+        }
+
+        #game-chat-messages {
+            height: 80px;
+            overflow-y: auto;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+
+        #game-chat-input {
+            width: calc(100% - 60px);
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            margin-right: 8px;
+            font-size: 0.9em;
+        }
+
+        /* =================== RESPONSIVE DESIGN =================== */
+
+        /* Tablet View */
+        @media (max-width: 1024px) {
+            #game-view {
+                padding: 3px;
+            }
+            
+            .card-button-single,
+            .card-display-single {
+                padding: 5px 6px;
+                font-size: 0.8em;
+                min-width: 26px;
+            }
+            
+            .single-row-hand {
+                gap: 1px;
+            }
+            
+            #side-players-area {
+                margin: 3px 0;
+            }
+            
+            #play-area {
+                margin: 0 8px;
+            }
+        }
+
+        /* Mobile View */
+        @media (max-width: 768px) {
+            #game-view {
+                padding: 2px;
+                gap: 2px;
+            }
+            
+            #game-header {
+                flex-direction: column;
+                gap: 5px;
+                text-align: center;
+                padding: 4px 8px;
+                font-size: 0.75em;
+            }
+            
+            #deal-info-area,
+            #score-area {
+                gap: 8px;
+            }
+            
+            .hand-area {
+                padding: 4px;
+                margin: 1px 0;
+            }
+            
+            .hand-title {
+                font-size: 0.8em;
+                margin-bottom: 4px;
+            }
+            
+            #side-players-area {
+                flex-direction: column;
+                gap: 6px;
+                align-items: center;
+                margin: 2px 0;
+            }
+
+            #play-area {
+                margin: 3px 0;
+                min-height: 60px;
+            }
+
+            .current-trick-cards {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 4px;
+                max-width: 200px;
+            }
+
+            .card-button-single,
+            .card-display-single {
+                padding: 3px 4px;
+                font-size: 0.65em;
+                min-width: 18px;
+                border-radius: 2px;
+            }
+            
+            .single-row-hand {
+                gap: 0.5px;
+                justify-content: flex-start;
+            }
+            
+            #game-controls {
+                margin: 4px 0;
+                padding: 4px;
+                gap: 6px;
+            }
+            
+            #game-chat-area {
+                margin-top: 6px;
+                padding: 6px;
+            }
+            
+            .chat-title {
+                font-size: 0.9em;
+                margin-bottom: 4px;
+            }
+            
+            #game-chat-messages {
+                height: 50px;
+                padding: 4px;
+                font-size: 0.75em;
+            }
+            
+            #game-chat-input {
+                padding: 4px 6px;
+                font-size: 0.8em;
+            }
+        }
+
+        /* Small Mobile */
+        @media (max-width: 576px) {
+            #game-view {
+                padding: 1px;
+                gap: 1px;
+            }
+            
+            .hand-area {
+                padding: 3px;
+                margin: 0.5px 0;
+            }
+            
+            .hand-title {
+                font-size: 0.75em;
+                margin-bottom: 3px;
+            }
+            
+            .current-trick-cards {
+                grid-template-columns: 1fr;
+                gap: 3px;
+                max-width: 120px;
+            }
+            
+            .card-button-single,
+            .card-display-single {
+                padding: 2px 3px;
+                font-size: 0.6em;
+                min-width: 16px;
+                border-radius: 2px;
+            }
+            
+            .single-row-hand {
+                gap: 0px;
+            }
+            
+            #game-controls {
+                flex-direction: column;
+                gap: 4px;
+                margin: 2px 0;
+            }
+            
+            #game-chat-input {
+                width: calc(100% - 45px);
+                padding: 3px 4px;
+                font-size: 0.75em;
+            }
+            
+            #game-chat-messages {
+                height: 40px;
+                font-size: 0.7em;
+            }
+            
+            .chat-title {
+                font-size: 0.8em;
+            }
+            
+            /* Ensure cards fit on very small screens */
+            @media (max-width: 320px) {
+                .card-button-single,
+                .card-display-single {
+                    padding: 1px 2px;
+                    font-size: 0.55em;
+                    min-width: 14px;
+                }
+                
+                .hand-title {
+                    font-size: 0.7em;
+                    margin-bottom: 2px;
+                }
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="game-view">
+            <!-- Game Header with Deal Info and Scores -->
+            <div id="game-header">
+                <div id="deal-info-area">
+                    <span>Deal: <span id="deal-number">3</span></span>
+                    <span>Dealer: <span id="current-dealer">East</span></span>
+                </div>
+                <div id="score-area">
+                    <span id="ns-score">NS 4/13</span>
+                    <span id="ew-score">EW 2/13</span>
+                </div>
+            </div>
+            
+            <!-- Game Layout Container -->
+            <div id="game-layout-container">
+                <!-- Dummy Hand (Top) - North -->
+                <div id="dummy-hand-area" class="hand-area dummy-area">
+                    <div class="hand-title">North (Dummy - You control)</div>
+                    <div class="single-row-hand">
+                        <!-- Spades -->
+                        <button class="card-button-single suit-spades" onclick="playCard('spades', 'K')">♠K</button>
+                        <button class="card-button-single suit-spades" onclick="playCard('spades', '9')">♠9</button>
+                        <button class="card-button-single suit-spades" onclick="playCard('spades', '7')">♠7</button>
+                        <button class="card-button-single suit-spades" onclick="playCard('spades', '2')">♠2</button>
+                        
+                        <!-- Hearts -->
+                        <button class="card-button-single suit-hearts" onclick="playCard('hearts', 'A')">♥A</button>
+                        <button class="card-button-single suit-hearts" onclick="playCard('hearts', 'Q')">♥Q</button>
+                        <button class="card-button-single suit-hearts" onclick="playCard('hearts', '10')">♥10</button>
+                        
+                        <!-- Diamonds -->
+                        <button class="card-button-single suit-diamonds" onclick="playCard('diamonds', 'J')">♦J</button>
+                        <button class="card-button-single suit-diamonds" onclick="playCard('diamonds', '8')">♦8</button>
+                        <button class="card-button-single suit-diamonds" onclick="playCard('diamonds', '6')">♦6</button>
+                        
+                        <!-- Clubs -->
+                        <span class="card-display-single suit-clubs">♣ -</span>
+                    </div>
+                </div>
+                
+                <!-- Side Players -->
+                <div id="side-players-area">
+                    <div id="west-player-area" class="side-player">
+                        <div class="player-info">
+                            <span class="player-name">Alice</span>
+                            <span class="card-count">10</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Center Play Area -->
+                    <div id="play-area">
+                        <div id="contract-info">
+                            <span id="contract-display">3NT</span>
+                            <span id="declarer-info">by South (You)</span>
+                        </div>
+                        
+                        <!-- Current Trick Display -->
+                        <div id="current-trick-area">
+                            <div class="current-trick-cards">
+                                <div class="played-card">
+                                    <div class="player-label">West</div>
+                                    <div class="card suit-clubs">♣5</div>
+                                </div>
+                                <div class="played-card">
+                                    <div class="player-label">North</div>
+                                    <div class="card suit-clubs">♣A</div>
+                                </div>
+                                <div class="played-card">
+                                    <div class="player-label">East</div>
+                                    <div class="card suit-clubs">♣3</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="east-player-area" class="side-player current-player">
+                        <div class="player-info">
+                            <span class="player-name">Bob</span>
+                            <span class="card-count">10</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Player Hand (Bottom) - South (You) -->
+                <div id="player-hand-area" class="hand-area player-area">
+                    <div class="hand-title">South (You)</div>
+                    <div class="single-row-hand">
+                        <!-- Spades -->
+                        <button class="card-button-single suit-spades" onclick="playCard('spades', 'A')">♠A</button>
+                        <button class="card-button-single suit-spades" onclick="playCard('spades', 'Q')">♠Q</button>
+                        <button class="card-button-single suit-spades" onclick="playCard('spades', 'J')">♠J</button>
+                        
+                        <!-- Hearts -->
+                        <button class="card-button-single suit-hearts" onclick="playCard('hearts', 'K')">♥K</button>
+                        <button class="card-button-single suit-hearts" onclick="playCard('hearts', 'J')">♥J</button>
+                        <button class="card-button-single suit-hearts" onclick="playCard('hearts', '8')">♥8</button>
+                        <button class="card-button-single suit-hearts" onclick="playCard('hearts', '5')">♥5</button>
+                        
+                        <!-- Diamonds -->
+                        <button class="card-button-single suit-diamonds" onclick="playCard('diamonds', 'A')">♦A</button>
+                        <button class="card-button-single suit-diamonds" onclick="playCard('diamonds', 'K')">♦K</button>
+                        <button class="card-button-single suit-diamonds" onclick="playCard('diamonds', 'Q')">♦Q</button>
+                        
+                        <!-- Clubs -->
+                        <button class="card-button-single suit-clubs" onclick="playCard('clubs', '2')">♣2</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Game Controls -->
+            <div id="game-controls">
+                <button onclick="alert('New game started!')">New Game</button>
+                <button onclick="alert('Left game')">Leave Game</button>
+            </div>
+           
+            <!-- Game Chat -->
+            <div id="game-chat-area">
+                <div class="chat-title">Chat</div>
+                <div id="game-chat-messages">
+                    <div style="margin-bottom: 5px;"><strong>Alice:</strong> Nice bid!</div>
+                    <div style="margin-bottom: 5px;"><strong>Bob:</strong> Good luck with 3NT</div>
+                    <div style="margin-bottom: 5px;"><strong>Charlie:</strong> Leading ♣5</div>
+                </div>
+                <input type="text" id="game-chat-input" placeholder="Type message..." style="display: inline-block;">
+                <button onclick="sendMessage()" style="display: inline-block; width: 50px;">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function playCard(suit, card) {
+            alert(`Played ${suit} ${card}`);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('game-chat-input');
+            const messages = document.getElementById('game-chat-messages');
+            
+            if (input.value.trim()) {
+                messages.innerHTML += `<div style="margin-bottom: 5px;"><strong>You:</strong> ${input.value}</div>`;
+                messages.scrollTop = messages.scrollHeight;
+                input.value = '';
+            }
+        }
+
+        // Allow Enter key to send message
+        document.getElementById('game-chat-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        console.log('Bridge test view loaded - You are South (declarer), North is dummy, playing 3NT');
+    </script>
+</body>
+</html>
