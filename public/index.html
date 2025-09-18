@@ -159,62 +159,59 @@
                 </div>
             </div>
             
-            <!-- Dummy Hand (Top) - Single Row -->
+            <!-- Bidding Area -->
+            <section id="game-bidding-area" style="display: none;">
+                <h2>Bidding</h2>
+                <div id="game-bidding-history">
+                    <h3>History</h3>
+                    <p>No bids yet.</p>
+                </div>
+                <div id="game-bidding-controls">
+                    <h3>Your Bid</h3>
+                    <p>Waiting...</p>
+                </div>
+            </section>
+            
+            <!-- Game Layout: Dummy Hand (Top) -->
             <div id="dummy-hand-area" class="hand-area dummy-area">
-                <!-- Dummy hand will be inserted here as single row -->
+                <!-- Dummy hand will be inserted here -->
             </div>
             
-            <!-- Game Layout Container -->
-            <div id="game-layout-container">
-                <!-- Side Players and Center Area -->
-                <div id="side-players-area">
-                    <div id="west-player-area" class="side-player">
-                        <div class="player-info">
-                            <span class="player-name">West</span>
-                            <span class="card-count">13</span>
-                        </div>
+            <!-- Side Players -->
+            <div id="side-players-area">
+                <div id="west-player-area" class="side-player">
+                    <div class="player-info">
+                        <span class="player-name">West</span>
+                        <span class="card-count">13</span>
+                    </div>
+                </div>
+                
+                <!-- Center Play Area -->
+                <div id="play-area">
+                    <div id="contract-info" style="display: none;">
+                        <span id="contract-display"></span>
+                        <span id="declarer-info"></span>
                     </div>
                     
-                    <!-- Center Play Area -->
-                    <div id="play-area">
-                        <div id="contract-info" style="display: none;">
-                            <span id="contract-display"></span>
-                            <span id="declarer-info"></span>
-                        </div>
-                        
-                        <!-- Current Trick Display -->
-                        <div id="current-trick-area">
-                            <div id="game-played-cards-container">
-                                <p>No cards played yet.</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="east-player-area" class="side-player">
-                        <div class="player-info">
-                            <span class="player-name">East</span>
-                            <span class="card-count">13</span>
+                    <!-- Current Trick Display -->
+                    <div id="current-trick-area">
+                        <div id="game-played-cards-container">
+                            <p>No cards played yet.</p>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Bidding Area - Centered overlay -->
-                <section id="game-bidding-area" style="display: none;">
-                    <h2>Bidding</h2>
-                    <div id="game-bidding-history">
-                        <h3>History</h3>
-                        <p>No bids yet.</p>
+                <div id="east-player-area" class="side-player">
+                    <div class="player-info">
+                        <span class="player-name">East</span>
+                        <span class="card-count">13</span>
                     </div>
-                    <div id="game-bidding-controls">
-                        <h3>Your Bid</h3>
-                        <p>Waiting...</p>
-                    </div>
-                </section>
+                </div>
             </div>
             
-            <!-- Player Hand (Bottom) - Single Row -->
+            <!-- Player Hand (Bottom) -->
             <div id="player-hand-area" class="hand-area player-area">
-                <!-- Player hand will be inserted here as single row -->
+                <!-- Player hand will be inserted here -->
             </div>
             
             <!-- Game Controls -->
@@ -830,7 +827,6 @@
             });
         }
 
-        // MODIFIED: Single row card display function
         function renderHand(position, hand, targetArea) {
             if (!hand || !targetArea) return;
             
@@ -839,47 +835,50 @@
                 positionType = 'Dummy (You control)';
             }
             
-            // Create a single row of all cards
+            let html = `<h3>${positionName(position)} ${position === myPosition ? '' : `(${positionType})`}</h3>`;
+            
             const canPlayFromThisPosition = canPlayFromPosition(position);
             const isPlayPhase = gameState && gameState.gamePhase === 'play';
             
-            let html = `<div class="single-row-hand">`;
-            
-            // Collect all cards from all suits in order: spades, hearts, diamonds, clubs
-            const allCards = [];
-            const suitOrder = ['spades', 'hearts', 'diamonds', 'clubs'];
-            
-            suitOrder.forEach(suit => {
-                const cards = hand[suit] || [];
-                cards.forEach(card => {
-                    allCards.push({ suit, card });
-                });
-            });
-            
-            // Render all cards in a single row
-            allCards.forEach(({ suit, card }) => {
+            Object.entries(hand).forEach(([suit, cards]) => {
                 const suitClass = `suit-${suit}`;
                 
-                if (isPlayPhase && canPlayFromThisPosition) {
-                    html += `
-                        <button 
-                            class="card-button-single ${suitClass}"
-                            onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
-                            aria-label="${getSuitSymbol(suit)}${card}"
-                        >
-                            ${getSuitSymbol(suit)}${card}
-                        </button>
-                    `;
+                html += `
+                    <div class="suit-row">
+                        <div class="suit-label ${suitClass}">
+                            ${getSuitSymbol(suit)} ${getSuitName(suit)}
+                        </div>
+                        <div class="cards-buttons">
+                `;
+                
+                if (cards.length > 0) {
+                    cards.forEach(card => {
+                        const cardClass = `card-${suit}`;
+                        
+                        if (isPlayPhase && canPlayFromThisPosition) {
+                            html += `
+                                <button 
+                                    class="card-button ${cardClass}"
+                                    onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
+                                    aria-label="${getSuitSymbol(suit)}${card}"
+                                >
+                                    ${getSuitSymbol(suit)}${card}
+                                </button>
+                            `;
+                        } else {
+                            html += `
+                                <span class="card-display ${cardClass}">
+                                    ${getSuitSymbol(suit)}${card}
+                                </span>
+                            `;
+                        }
+                    });
                 } else {
-                    html += `
-                        <span class="card-display-single ${suitClass}">
-                            ${getSuitSymbol(suit)}${card}
-                        </span>
-                    `;
+                    html += `<span>-</span>`;
                 }
+                
+                html += `</div></div>`;
             });
-            
-            html += `</div>`;
             
             targetArea.innerHTML = html;
         }
@@ -2308,4 +2307,439 @@
                 showErrorWithAnnouncement('Connection lost. Reconnecting...');
             });
 
-            socket.
+            socket.on('reconnect', () => {
+                announceToScreenReader('Connection restored');
+                
+                if (tableCode) {
+                    socket.emit('getTableInfo', { tableCode: tableCode });
+                }
+            });
+        }
+
+        // INITIALIZATION
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('aanetKaytossa').addEventListener('change', muutaAaniAsetukset);
+
+            setupKeyboardListeners();
+            connectToServer();
+            setupSocketEventHandlers();
+            
+            document.getElementById('table-code-input').addEventListener('input', function() {
+                this.value = this.value.replace(/\D/g, '');
+                if (this.value.length > 4) {
+                    this.value = this.value.substring(0, 4);
+                }
+            });
+            
+            // Form submissions
+            ['create-name-input', 'table-name-input'].forEach((id, index) => {
+                document.getElementById(id).addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (index === 0) {
+                            document.getElementById('table-name-input').focus();
+                        } else {
+                            createTable();
+                        }
+                    }
+                });
+            });
+            
+            ['join-name-input', 'table-code-input'].forEach((id, index) => {
+                document.getElementById(id).addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (index === 0) {
+                            document.getElementById('table-code-input').focus();
+                        } else {
+                            joinTable();
+                        }
+                    }
+                });
+            });
+            
+            // Chat inputs
+            ['waiting-chat-input', 'game-chat-input'].forEach(id => {
+                document.getElementById(id).addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (id === 'waiting-chat-input') {
+                            sendWaitingChatMessage();
+                        } else {
+                            sendGameChatMessage();
+                        }
+                    }
+                });
+            });
+            
+            // Check URL for table code
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('code')) {
+                showJoinTable();
+                document.getElementById('table-code-input').value = urlParams.get('code');
+            } else {
+                showStartMenu();
+            }
+            
+            // Load saved name
+            const savedName = localStorage.getItem('playerName');
+            if (savedName) {
+                document.getElementById('create-name-input').value = savedName;
+                document.getElementById('join-name-input').value = savedName;
+            }
+            
+            setTimeout(() => {
+                announceToScreenReader('BridgeCircle loaded. Create table or join existing one.');
+            }, 1000);
+        });
+    </script>
+
+    <style>
+        /* Game Layout Styles */
+        #game-view {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 10px;
+        }
+
+        #game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        #deal-info-area {
+            display: flex;
+            gap: 20px;
+            font-weight: bold;
+        }
+
+        #score-area {
+            display: flex;
+            gap: 20px;
+            font-weight: bold;
+            color: #1e40af;
+        }
+
+        /* Hand Areas */
+        .hand-area {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #ffffff;
+            margin: 10px 0;
+        }
+
+        .dummy-area {
+            background-color: #f0f9ff;
+            border-color: #0ea5e9;
+        }
+
+        .player-area {
+            background-color: #fefce8;
+            border-color: #eab308;
+        }
+
+        /* Side Players Layout */
+        #side-players-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .side-player {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            min-width: 120px;
+        }
+
+        .side-player.current-player {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        .player-info {
+            text-align: center;
+        }
+
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .card-count {
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+
+        /* Play Area */
+        #play-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 20px;
+        }
+
+        #contract-info {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #1e40af;
+        }
+
+        #current-trick-area {
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .current-trick-cards {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .played-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .player-label {
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #6b7280;
+        }
+
+        .played-card .card {
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 5px 8px;
+            border-radius: 4px;
+            background: #f9fafb;
+        }
+
+        /* Suit Styling */
+        .suit-spades, .suit-clubs {
+            color: #1f2937;
+        }
+
+        .suit-hearts, .suit-diamonds {
+            color: #dc2626;
+        }
+
+        /* Card Buttons and Displays */
+        .suit-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .suit-label {
+            min-width: 80px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .cards-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .card-button {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            background: #ffffff;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .card-button:hover {
+            background: #f3f4f6;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .card-button:focus {
+            outline: 3px solid #93c5fd;
+            outline-offset: 2px;
+        }
+
+        .card-display {
+            padding: 8px 12px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        /* Game Controls */
+        #game-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+        }
+
+        /* Chat Area */
+        #game-chat-area {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        #game-chat-messages {
+            height: 150px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+
+        /* Bidding Styles */
+        .bidding-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .bid-level-group {
+            display: flex;
+            gap: 5px;
+        }
+
+        .bidding-buttons button {
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            background: #ffffff;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .bid-clubs {
+            color: #1f2937;
+        }
+
+        .bid-diamonds {
+            color: #dc2626;
+        }
+
+        .bid-hearts {
+            color: #dc2626;
+        }
+
+        .bid-spades {
+            color: #1f2937;
+        }
+
+        .bid-notrump {
+            color: #1e40af;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #side-players-area {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            #play-area {
+                margin: 15px 0;
+            }
+
+            .current-trick-cards {
+                gap: 10px;
+            }
+
+            .cards-buttons {
+                gap: 3px;
+            }
+
+            .card-button,
+            .card-display {
+                padding: 6px 8px;
+                font-size: 0.9em;
+            }
+        }
+
+        /* Dark Mode Support */
+        @media (prefers-color-scheme: dark) {
+            .hand-area,
+            .side-player,
+            #game-header,
+            #game-chat-area {
+                background: #2d3748;
+                border-color: #4a5568;
+                color: #e2e8f0;
+            }
+
+            .dummy-area {
+                background: #1e3a8a;
+                border-color: #3b82f6;
+            }
+
+            .player-area {
+                background: #7c2d12;
+                border-color: #ea580c;
+            }
+
+            .side-player.current-player {
+                background: #1e40af;
+                border-color: #60a5fa;
+            }
+
+            .played-card,
+            .card-button,
+            .card-display {
+                background: #374151;
+                border-color: #6b7280;
+                color: #e5e7eb;
+            }
+
+            .card-button:hover {
+                background: #4b5563;
+                border-color: #60a5fa;
+            }
+
+            #game-chat-messages {
+                background: #374151;
+                border-color: #6b7280;
+                color: #e5e7eb;
+            }
+        }
+    </style>
+</body>
+</html>
