@@ -29,18 +29,16 @@
 /* Enhanced Position Selection (extending main.css styles) */
 .select-position-button {
     padding: 8px 16px;
-    background: #3b82f6;
+    background: #005fcc;
     color: white;
     border: none;
     border-radius: 4px;
     font-size: 14px;
     cursor: pointer;
 }
-
 .select-position-button:hover {
-    background: #2563eb;
+    background: #004799;
 }
-
 .select-position-button[disabled] {
     background: #cbd5e0;
     cursor: not-allowed;
@@ -48,15 +46,13 @@
 
 /* Waiting Room Enhancements */
 .position-card.occupied {
-    background: #dbeafe;
-    border-color: #3b82f6;
+    background: #e8f4f8;
+    border-color: #005fcc;
 }
-
 .position-card.you {
-    background: #bfdbfe;
-    border: 2px solid #2563eb;
+    background: #d4edda;
+    border: 2px solid #28a745;
 }
-
 /* =================== BRIDGE GAME LAYOUT =================== */
 
 /* Game View - Optimized for Single Row Cards */
@@ -154,7 +150,7 @@
 /* Single Row Card Buttons */
 .card-button-single {
     padding: 6px 8px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #000000;
     border-radius: 4px;
     background: #ffffff;
     cursor: pointer;
@@ -170,18 +166,18 @@
 
 .card-button-single:hover {
     background: #f3f4f6;
-    border-color: #3b82f6;
+    border-color: #005fcc;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     z-index: 10;
 }
-
 .card-button-single:focus {
-    outline: 2px solid #93c5fd;
-    outline-offset: 1px;
+    outline: 3px solid #005fcc;
+    outline-offset: 2px;
+    background-color: #000000;
+    color: #FFFFFF;
     z-index: 10;
 }
-
 .card-button-single:active {
     transform: translateY(0);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -204,11 +200,10 @@
 
 /* Dummy Hand (Top) */
 .dummy-area {
-    background-color: #f0f9ff;
-    border-color: #0ea5e9;
+    background-color: #e8f4f8;
+    border-color: #005fcc;
     order: 1;
 }
-
 /* Player Hand (Bottom) */
 .player-area {
     background-color: #fefce8;
@@ -241,11 +236,10 @@
 }
 
 .side-player.current-player {
-    background: #dbeafe;
-    border-color: #3b82f6;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    background: #e8f4f8;
+    border-color: #005fcc;
+    box-shadow: 0 2px 4px rgba(0, 95, 204, 0.2);
 }
-
 .player-info {
     text-align: center;
 }
@@ -349,9 +343,8 @@
 }
 
 .suit-hearts, .suit-diamonds {
-    color: #dc2626;
+    color: #ff6b6b;
 }
-
 /* =================== BIDDING AREA - CENTERED OVERLAY =================== */
 
 #game-bidding-area {
@@ -404,10 +397,9 @@
 
 .bidding-buttons button:hover {
     background: #f3f4f6;
-    border-color: #6b7280;
+    border-color: #005fcc;
     transform: translateY(-1px);
 }
-
 .bid-clubs {
     color: #1f2937;
 }
@@ -651,24 +643,25 @@
         border-color: #ea580c;
     }
     
-    .side-player.current-player {
-        background: #1e40af;
-        border-color: #60a5fa;
-    }
-    
-    .played-card,
+.side-player.current-player {
+        background: #1a2c35;
+        border-color: #005fcc;
+    }    
+.played-card,
     .card-button-single,
     .card-display-single {
-        background: #374151;
-        border-color: #6b7280;
-        color: #e5e7eb;
+        background: #FFFFFF;
+        border-color: #000000;
+        color: #000000;
+    }    
+.card-button-single:hover {
+        background: #f3f4f6;
+        border-color: #005fcc;
+    }    
+.card-button-single:focus {
+        background: #000000;
+        color: #FFFFFF !important;
     }
-    
-    .card-button-single:hover {
-        background: #4b5563;
-        border-color: #60a5fa;
-    }
-    
     #game-chat-messages {
         background: #374151;
         border-color: #6b7280;
