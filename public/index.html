@@ -2062,6 +2062,12 @@
 
             socket.on('tableInfo', (data) => {
                 if (data && data.table) {
+                    if (data.table.state === 'playing') {
+                        // Jos peli on käynnissä, älä näytä waiting roomia
+                        // Server lähettää gameReconnect erikseen
+                        console.warn('Received tableInfo for playing game - ignoring');
+                        return;
+                    }
                     if (currentView === 'join-table' && data.table) {
                         resetJoinTableUI();
                         
@@ -2091,6 +2097,42 @@
                         announceToScreenReader(`You are ${positionName(data.playerPosition)}`);
                     }
                 }
+            });
+
+            socket.on('gameReconnect', (data) => {
+                console.log('Game reconnect received:', data);
+                
+                // Aseta globaalit muuttujat
+                tableCode = data.table.code;
+                myPosition = data.playerPosition;
+                gameState = data.gameState || {};
+                biddingState = data.biddingState || {};
+                dealNumber = data.dealNumber || 1;
+                currentDealer = data.dealer || 'south';
+                
+                // Päivitä käyttöliittymä
+                showGameView();
+                updateDealInfo();
+                
+                // Renderöi oikea pelivaihe
+                if (gameState.gamePhase === 'bidding') {
+                    document.getElementById('game-bidding-area').style.display = 'block';
+                    renderBiddingUI();
+                    announceToScreenReader(`Reconnected to game. Bidding phase. ${positionName(biddingState.currentBidder || 'unknown')}'s turn.`);
+                } else if (gameState.gamePhase === 'play') {
+                    document.getElementById('game-bidding-area').style.display = 'none';
+                    updateContractDisplay();
+                    const currentPlayerName = positionName(gameState.currentPlayer || 'unknown');
+                    announceToScreenReader(`Reconnected to game. Playing ${formatContract(gameState.contract)}. ${currentPlayerName}'s turn.`);
+                } else if (gameState.gamePhase === 'end') {
+                    document.getElementById('game-bidding-area').style.display = 'none';
+                    document.getElementById('game-new-game-button').style.display = 'block';
+                    announceToScreenReader('Reconnected to game. Game has ended.');
+                }
+                
+                updateGameUI();
+                
+                console.log('Game reconnect complete');
             });
 
             socket.on('playerJoined', (data) => {

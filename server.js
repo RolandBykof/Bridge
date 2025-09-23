@@ -377,6 +377,41 @@ function getTableInfo(socket, playerId, data) {
     
     // Join socket to room
     socket.join(tableCode);
+
+    // Jos peli on käynnissä ja pelaaja on pöydässä, lähetä pelin tila
+    if (table.state === 'playing' && existingPosition) {
+        console.log(`Reconnecting ${playerId} to game ${tableCode} as ${existingPosition}`);
+        
+        socket.emit('gameReconnect', {
+            table: filterTable(table),
+            playerPosition: existingPosition,
+            gameState: filterGameState(table.gameState, existingPosition),
+            biddingState: table.biddingState,
+            dealNumber: table.dealNumber || 1,
+            dealer: table.currentDealer || 'south'
+        });
+        
+        // Lähetä pelaajan kortit
+        if (table.gameState && table.gameState.hands && table.gameState.hands[existingPosition]) {
+            socket.emit('yourCards', {
+                position: existingPosition,
+                cards: table.gameState.hands[existingPosition]
+            });
+        }
+        
+        // Jos dummy on näkyvissä, lähetä sekin
+        if (table.gameState && table.gameState.dummy && 
+            table.gameState.gamePhase === 'play' &&
+            table.gameState.hands[table.gameState.dummy]) {
+            socket.emit('dummyRevealed', {
+                dummyPosition: table.gameState.dummy,
+                dummyCards: table.gameState.hands[table.gameState.dummy]
+            });
+        }
+        
+        console.log(`Sent game reconnect for ${tableCode} to ${playerId}`);
+        return; // ⚠️ TÄRKEÄ: Älä lähetä tableInfo
+    }
     
     socket.emit('tableInfo', {
         table: filterTable(table),
