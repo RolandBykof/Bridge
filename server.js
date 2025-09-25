@@ -323,9 +323,9 @@ function selectPosition(socket, playerId, data) {
 }
 
 function getTableInfo(socket, playerId, data) {
-    const { tableCode } = data;
+    const { tableCode, playerName } = data;  // ⭐ LISÄÄ playerName
     
-    console.log(`getTableInfo: tableCode=${tableCode}, playerId=${playerId}`);
+    console.log(`getTableInfo: tableCode=${tableCode}, playerId=${playerId}, playerName=${playerName}`);
     
     if (!tableCode) {
         console.log(`Table code missing`);
@@ -342,6 +342,13 @@ function getTableInfo(socket, playerId, data) {
     
     console.log(`Table ${tableCode} found`);
     
+    // ⭐ PÄIVITÄ PELAAJAN NIMI JOS ANNETTU
+    const currentPlayer = players.get(playerId);
+    if (currentPlayer && playerName) {
+        currentPlayer.name = playerName;
+        console.log(`Updated player ${playerId} name to ${playerName}`);
+    }
+    
     // Check if player is already in table
     let playerAlreadyInTable = false;
     let existingPosition = null;
@@ -356,28 +363,27 @@ function getTableInfo(socket, playerId, data) {
     }
     
     // If not found by socket.id, try to find by name
-    if (!playerAlreadyInTable) {
-        const currentPlayer = players.get(playerId);
-        if (currentPlayer && currentPlayer.name) {
-            for (const [pos, tablePlayer] of Object.entries(table.players)) {
-                if (tablePlayer && 
-                    tablePlayer.name === currentPlayer.name && 
-                    tablePlayer.type === 'human') {
-                    console.log(`Found player by name: ${currentPlayer.name} at position ${pos}, updating socket.id`);
-                    table.players[pos].id = playerId;
+    if (!playerAlreadyInTable && playerName) {  // ⭐ KÄYTÄ playerName parametria
+        for (const [pos, tablePlayer] of Object.entries(table.players)) {
+            if (tablePlayer && 
+                tablePlayer.name === playerName && 
+                tablePlayer.type === 'human') {
+                console.log(`Found player by name: ${playerName} at position ${pos}, updating socket.id`);
+                table.players[pos].id = playerId;
+                if (currentPlayer) {
                     currentPlayer.table = tableCode;
                     currentPlayer.position = pos;
-                    playerAlreadyInTable = true;
-                    existingPosition = pos;
-                    break;
                 }
+                playerAlreadyInTable = true;
+                existingPosition = pos;
+                break;
             }
         }
     }
     
     // Join socket to room
     socket.join(tableCode);
-
+    
     // Jos peli on käynnissä ja pelaaja on pöydässä, lähetä pelin tila
     if (table.state === 'playing' && existingPosition) {
         console.log(`Reconnecting ${playerId} to game ${tableCode} as ${existingPosition}`);
@@ -410,7 +416,7 @@ function getTableInfo(socket, playerId, data) {
         }
         
         console.log(`Sent game reconnect for ${tableCode} to ${playerId}`);
-        return; // ⚠️ TÄRKEÄ: Älä lähetä tableInfo
+        return;
     }
     
     socket.emit('tableInfo', {
