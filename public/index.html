@@ -1579,28 +1579,33 @@ socket.emit('getTableInfo', { tableCode: code, playerName: name });  // ‚≠ê LIS√
          * Announces the current trick
          */
         function announceCurrentTrick() {
-            if (!gameState || gameState.gamePhase !== 'play') {
-                announceToScreenReader('The game is not in play phase yet.');
-                return;
-            }
-            
-            if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
-                announceToScreenReader('No cards played.');
-                return;
-            }
-            
-            let message = 'Current trick: ';
-            
-            for (const card of gameState.currentTrick) {
-                message += `${positionName(card.player)} ${getSuitName(card.suit)} ${card.card}. `;
-            }
-            
-            announceToScreenReader(message);
-        }
+  try {
+    // Expect a global 'currentTrick' array of objects like { player, suit, card }.
+    // Also expect helper functions: positionName(pos), getSuitName(suit), and announceToAria(message).
+    if (typeof currentTrick === 'undefined' || !Array.isArray(currentTrick) || currentTrick.length === 0) {
+      return;
+    }
+    let parts = [];
+    for (const card of currentTrick) {
+      let who = (typeof positionName === 'function') ? positionName(card.player) : String(card.player);
+      let suitName = (typeof getSuitName === 'function') ? getSuitName(card.suit) : String(card.suit);
+      parts.push(`${who} ${suitName} ${card.card}`.trim());
+    }
+    const message = parts.join(', ');
+    if (typeof announceToAria === 'function') {
+      announceToAria(message);
+    } else if (typeof speak === 'function') {
+      speak(message);
+    } else {
+      // Fallback: console
+      console.log('[announceCurrentTrick]', message);
+    }
+  } catch (e) {
+    console.error('announceCurrentTrick error:', e);
+  }
+}
 
-        /**
-         * Announces the game state
-         */
+
         function announceGameState() {
             if (!gameState) {
                 announceToScreenReader('No game in progress.');

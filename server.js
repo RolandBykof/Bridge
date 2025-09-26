@@ -862,19 +862,6 @@ function moveToPlayPhase(table) {
     currentPlayer: table.gameState.currentPlayer,
     gameState: filterGameState(table.gameState, null)
   });
-  
-  // Send players their cards for play phase
-  for (const [position, playerData] of Object.entries(table.players)) {
-    if (playerData.type === 'human' && playerData.id) {
-      const player = players.get(playerData.id);
-      if (player && player.socket) {
-        player.socket.emit('playPhaseCards', {
-          position,
-          cards: table.gameState.hands[position]
-        });
-      }
-    }
-  }
 }
 
 /**
