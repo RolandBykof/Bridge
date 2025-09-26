@@ -2198,7 +2198,6 @@ socket.emit('getTableInfo', { tableCode: code, playerName: name });  // ‚≠ê LIS√
                     if (!gameState.hands) gameState.hands = {};
                     gameState.hands[data.dummyPosition] = data.dummyCards;
                     renderAllHands();
-                    announceToScreenReader(`Dummy revealed: ${positionName(data.dummyPosition)}`);
                 }
             });
 
