@@ -179,9 +179,9 @@
             
             <!-- Side Players -->
             <div id="side-players-area">
-                <div id="west-player-area" class="side-player">
+                <div id="left-player-area" class="side-player">
                     <div class="player-info">
-                        <span class="player-name">West</span>
+                        <span class="player-name">Left Player</span>
                     </div>
                 </div>
                 
@@ -200,9 +200,9 @@
                     </div>
                 </div>
                 
-                <div id="east-player-area" class="side-player">
+                <div id="right-player-area" class="side-player">
                     <div class="player-info">
-                        <span class="player-name">East</span>
+                        <span class="player-name">Right Player</span>
                     </div>
                 </div>
             </div>
@@ -825,6 +825,29 @@ socket.emit('getTableInfo', { tableCode: code, playerName: name });
             });
         }
 
+/**
+ * Determine which positions are side players based on current player position
+ * Returns { left: 'position', right: 'position' }
+ */
+function getSidePlayerPositions() {
+    if (!myPosition) {
+        return { left: 'west', right: 'east' };
+    }
+    
+    // If player is North or South, side players are West and East
+    if (myPosition === 'north' || myPosition === 'south') {
+        return { left: 'west', right: 'east' };
+    }
+    
+    // If player is West or East, side players are North and South
+    if (myPosition === 'west' || myPosition === 'east') {
+        return { left: 'north', right: 'south' };
+    }
+    
+    // Default fallback
+    return { left: 'west', right: 'east' };
+}
+
         function renderHand(position, hand, targetArea) {
             if (!hand || !targetArea) return;
             
@@ -904,29 +927,43 @@ socket.emit('getTableInfo', { tableCode: code, playerName: name });
             updateSidePlayersInfo();
         }
 
-        function updateSidePlayersInfo() {
-            const positions = ['west', 'east'];
-            
-            positions.forEach(position => {
-                const playerArea = document.getElementById(`${position}-player-area`);
-                const nameElement = playerArea.querySelector('.player-name');
-                const countElement = playerArea.querySelector('.card-count');
-                
-                if (gameState && gameState.players && gameState.players[position]) {
-                    nameElement.textContent = gameState.players[position].name;
-                } else {
-                    nameElement.textContent = positionName(position);
-                }
-               
-              
-                // Mark current player
-                if (gameState && gameState.currentPlayer === position) {
-                    playerArea.classList.add('current-player');
-                } else {
-                    playerArea.classList.remove('current-player');
-                }
-            });
-        }
+function updateSidePlayersInfo() {
+    const sidePlayers = getSidePlayerPositions();
+    
+    // Update left player
+    const leftPlayerArea = document.getElementById('left-player-area');
+    const leftNameElement = leftPlayerArea.querySelector('.player-name');
+    const leftPosition = sidePlayers.left;
+    
+    if (gameState && gameState.players && gameState.players[leftPosition]) {
+        leftNameElement.textContent = gameState.players[leftPosition].name;
+    } else {
+        leftNameElement.textContent = positionName(leftPosition);
+    }
+    
+    if (gameState && gameState.currentPlayer === leftPosition) {
+        leftPlayerArea.classList.add('current-player');
+    } else {
+        leftPlayerArea.classList.remove('current-player');
+    }
+    
+    // Update right player
+    const rightPlayerArea = document.getElementById('right-player-area');
+    const rightNameElement = rightPlayerArea.querySelector('.player-name');
+    const rightPosition = sidePlayers.right;
+    
+    if (gameState && gameState.players && gameState.players[rightPosition]) {
+        rightNameElement.textContent = gameState.players[rightPosition].name;
+    } else {
+        rightNameElement.textContent = positionName(rightPosition);
+    }
+    
+    if (gameState && gameState.currentPlayer === rightPosition) {
+        rightPlayerArea.classList.add('current-player');
+    } else {
+        rightPlayerArea.classList.remove('current-player');
+    }
+}
 
         function updateCurrentTrickDisplay() {
             const container = document.getElementById('game-played-cards-container');
