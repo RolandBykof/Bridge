@@ -182,7 +182,6 @@
                 <div id="west-player-area" class="side-player">
                     <div class="player-info">
                         <span class="player-name">West</span>
-                        <span class="card-count">13</span>
                     </div>
                 </div>
                 
@@ -204,7 +203,6 @@
                 <div id="east-player-area" class="side-player">
                     <div class="player-info">
                         <span class="player-name">East</span>
-                        <span class="card-count">13</span>
                     </div>
                 </div>
             </div>
@@ -903,7 +901,6 @@ socket.emit('getTableInfo', { tableCode: code, playerName: name });
                 renderHand(gameState.dummy, gameState.hands[gameState.dummy], dummyArea);
             }
             
-            // Update side players card counts
             updateSidePlayersInfo();
         }
 
@@ -920,14 +917,8 @@ socket.emit('getTableInfo', { tableCode: code, playerName: name });
                 } else {
                     nameElement.textContent = positionName(position);
                 }
-                
-                if (gameState && gameState.hands && gameState.hands[position]) {
-                    const totalCards = Object.values(gameState.hands[position]).reduce((sum, cards) => sum + cards.length, 0);
-                    countElement.textContent = totalCards;
-                } else {
-                    countElement.textContent = '13';
-                }
-                
+               
+              
                 // Mark current player
                 if (gameState && gameState.currentPlayer === position) {
                     playerArea.classList.add('current-player');
