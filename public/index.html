@@ -562,7 +562,7 @@
             if (!socket || !socket.connected) connectToServer();
             
             if (socket) {
-socket.emit('getTableInfo', { tableCode: code, playerName: name });  // ⭐ LISÄÄ playerName
+socket.emit('getTableInfo', { tableCode: code, playerName: name });  
             } else {
                 showErrorWithAnnouncement('Connection failed');
                 resetJoinTableUI();
@@ -1575,36 +1575,26 @@ socket.emit('getTableInfo', { tableCode: code, playerName: name });  // ⭐ LIS�
             announceToScreenReader(message);
         }
 
-        /**
-         * Announces the current trick
-         */
-        function announceCurrentTrick() {
-  try {
-    // Expect a global 'currentTrick' array of objects like { player, suit, card }.
-    // Also expect helper functions: positionName(pos), getSuitName(suit), and announceToAria(message).
-    if (typeof currentTrick === 'undefined' || !Array.isArray(currentTrick) || currentTrick.length === 0) {
-      return;
+function announceCurrentTrick() {
+    try {
+        if (!gameState || !gameState.currentTrick || !Array.isArray(gameState.currentTrick) || gameState.currentTrick.length === 0) {
+            announceToScreenReader('No cards played yet.');
+            return;
+        }
+        
+        let parts = [];
+        for (const card of gameState.currentTrick) {
+            let who = positionName(card.player);
+            let suitName = getSuitName(card.suit);
+            parts.push(`${who} ${suitName} ${card.card}`.trim());
+        }
+        const message = parts.join(', ');
+        announceToScreenReader(message);
+    } catch (e) {
+        console.error('announceCurrentTrick error:', e);
+        announceToScreenReader('Error reading current trick.');
     }
-    let parts = [];
-    for (const card of currentTrick) {
-      let who = (typeof positionName === 'function') ? positionName(card.player) : String(card.player);
-      let suitName = (typeof getSuitName === 'function') ? getSuitName(card.suit) : String(card.suit);
-      parts.push(`${who} ${suitName} ${card.card}`.trim());
-    }
-    const message = parts.join(', ');
-    if (typeof announceToAria === 'function') {
-      announceToAria(message);
-    } else if (typeof speak === 'function') {
-      speak(message);
-    } else {
-      // Fallback: console
-      console.log('[announceCurrentTrick]', message);
-    }
-  } catch (e) {
-    console.error('announceCurrentTrick error:', e);
-  }
 }
-
 
         function announceGameState() {
             if (!gameState) {
@@ -2066,6 +2056,10 @@ socket.emit('getTableInfo', { tableCode: code, playerName: name });  // ⭐ LIS�
             });
 
             socket.on('tableInfo', (data) => {
+    if (!data) {
+        showErrorWithAnnouncement('Invalid server response');
+        return;
+    }
                 if (data && data.table) {
                     if (data.table.state === 'playing') {
                         // Jos peli on käynnissä, älä näytä waiting roomia
