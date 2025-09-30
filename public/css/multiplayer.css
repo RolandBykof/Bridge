@@ -1,5 +1,5 @@
 /* Bridge-Specific Multiplayer Styles with Single Row Card Layout */
-/* These styles extend main.css with bridge game layout */
+/* KORJATTU VERSIO - Varmistaa että omien ja dummyn kortit näkyvät samanaikaisesti */
 
 /* Form Enhancements (extending main.css form styles) */
 .form-group {
@@ -53,17 +53,20 @@
     background: #d4edda;
     border: 2px solid #28a745;
 }
+
 /* =================== BRIDGE GAME LAYOUT =================== */
 
-/* Game View - Optimized for Single Row Cards */
+/* KORJAUS: Game View - Sallii scrollaus ja varmistaa kaikkien elementtien näkymisen */
 #game-view {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    min-height: 100vh; /* MUUTETTU: height → min-height */
+    max-height: none; /* LISÄTTY: Ei rajoiteta korkeutta */
     padding: 5px;
     box-sizing: border-box;
     gap: 5px;
-    overflow: hidden;
+    overflow-y: auto; /* MUUTETTU: hidden → auto (sallii scrollaus) */
+    overflow-x: hidden; /* LISÄTTY: Piilottaa vain vaakasuora ylimeno */
 }
 
 /* Compact Game Header */
@@ -100,20 +103,30 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    overflow: hidden;
+    overflow: visible; /* MUUTETTU: hidden → visible */
+    min-height: 0; /* LISÄTTY: Sallii flexbox-lasten kutistuminen */
 }
 
 /* =================== SINGLE ROW CARD LAYOUT =================== */
 
-/* Hand Areas - Compact for Single Row */
+/* KORJAUS: Hand Areas - Varmistaa että alueet näkyvät aina */
 .hand-area {
+    display: block !important; /* LISÄTTY: Pakottaa näkymään */
     padding: 8px;
     border: 1px solid #ddd;
     border-radius: 6px;
     background-color: #ffffff;
     margin: 2px 0;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow: visible; /* MUUTETTU: hidden → visible */
+    min-height: 60px; /* LISÄTTY: Minimikorkeus varmistaa näkyvyyden */
+}
+
+/* KORJAUS: Estä alueiden piilottaminen */
+.hand-area h3 {
+    margin: 0 0 8px 0;
+    font-size: 0.9em;
+    color: #374151;
 }
 
 /* Single Row Hand Container */
@@ -124,7 +137,6 @@
     overflow-x: auto;
     overflow-y: hidden;
     padding: 2px 0;
-    /* Ensure horizontal scrolling if needed */
     scrollbar-width: thin;
     scrollbar-color: #cbd5e0 #f1f5f9;
 }
@@ -171,6 +183,7 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     z-index: 10;
 }
+
 .card-button-single:focus {
     outline: 3px solid #005fcc;
     outline-offset: 2px;
@@ -178,6 +191,7 @@
     color: #FFFFFF;
     z-index: 10;
 }
+
 .card-button-single:active {
     transform: translateY(0);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -198,13 +212,37 @@
     flex-shrink: 0;
 }
 
-/* Dummy Hand (Top) */
+/* KORJAUS: Dummy ja Player alueet - Varmistetaan näkyvyys */
+#dummy-hand-area {
+    display: block !important; /* LISÄTTY: Pakottaa näkymään */
+    background-color: #e8f4f8;
+    border-color: #005fcc;
+    order: 1;
+    min-height: 80px; /* LISÄTTY: Varmistaa riittävä korkeus */
+}
+
+#player-hand-area {
+    display: block !important; /* LISÄTTY: Pakottaa näkymään */
+    background-color: #fefce8;
+    border-color: #eab308;
+    order: 3;
+    min-height: 80px; /* LISÄTTY: Varmistaa riittävä korkeus */
+}
+
+/* KORJAUS: Piilota VAIN jos todella tyhjä (ei sisältöä) */
+#dummy-hand-area:empty,
+#player-hand-area:empty {
+    display: none !important;
+}
+
+/* Dummy Hand (Top) - ylimääräinen luokka yhteensopivuuden vuoksi */
 .dummy-area {
     background-color: #e8f4f8;
     border-color: #005fcc;
     order: 1;
 }
-/* Player Hand (Bottom) */
+
+/* Player Hand (Bottom) - ylimääräinen luokka yhteensopivuuden vuoksi */
 .player-area {
     background-color: #fefce8;
     border-color: #eab308;
@@ -240,6 +278,7 @@
     border-color: #005fcc;
     box-shadow: 0 2px 4px rgba(0, 95, 204, 0.2);
 }
+
 .player-info {
     text-align: center;
 }
@@ -250,7 +289,6 @@
     color: #374151;
     font-size: 0.9em;
 }
-
 
 /* Central Play Area - Compact */
 #play-area {
@@ -337,6 +375,7 @@
 .suit-hearts, .suit-diamonds {
     color: #ff6b6b;
 }
+
 /* =================== BIDDING AREA - CENTERED OVERLAY =================== */
 
 #game-bidding-area {
@@ -392,6 +431,7 @@
     border-color: #005fcc;
     transform: translateY(-1px);
 }
+
 .bid-clubs {
     color: #1f2937;
 }
@@ -481,6 +521,25 @@
     margin-right: 8px;
     font-size: 0.9em;
 }
+
+/* LISÄTTY: Debug-tyylit (poista käytöstä kun ongelma on ratkaistu) */
+/*
+#dummy-hand-area::before {
+    content: "DUMMY AREA";
+    display: block;
+    font-size: 0.7em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+#player-hand-area::before {
+    content: "YOUR CARDS";
+    display: block;
+    font-size: 0.7em;
+    color: #666;
+    margin-bottom: 5px;
+}
+*/
 
 /* =================== RESPONSIVE DESIGN =================== */
 
@@ -575,6 +634,7 @@
 @media (max-width: 576px) {
     .hand-area {
         padding: 6px;
+        min-height: 50px; /* MUUTETTU: Pienempi min-height mobiilissa */
     }
     
     .current-trick-cards {
@@ -625,35 +685,41 @@
         color: #e2e8f0;
     }
     
+    #dummy-hand-area,
     .dummy-area {
         background: #1e3a8a;
         border-color: #3b82f6;
     }
     
+    #player-hand-area,
     .player-area {
         background: #7c2d12;
         border-color: #ea580c;
     }
     
-.side-player.current-player {
+    .side-player.current-player {
         background: #1a2c35;
         border-color: #005fcc;
-    }    
-.played-card,
+    }
+    
+    .played-card,
     .card-button-single,
     .card-display-single {
         background: #FFFFFF;
         border-color: #000000;
         color: #000000;
-    }    
-.card-button-single:hover {
+    }
+    
+    .card-button-single:hover {
         background: #f3f4f6;
         border-color: #005fcc;
-    }    
-.card-button-single:focus {
+    }
+    
+    .card-button-single:focus {
         background: #000000;
         color: #FFFFFF !important;
     }
+    
     #game-chat-messages {
         background: #374151;
         border-color: #6b7280;
@@ -681,5 +747,28 @@
     
     .single-row-hand::-webkit-scrollbar-thumb:hover {
         background: #9ca3af;
+    }
+}
+
+/* =================== ACCESSIBILITY & HIGH CONTRAST =================== */
+@media (prefers-contrast: high) {
+    .hand-area {
+        border-width: 2px;
+    }
+    
+    .card-button-single:focus {
+        outline-width: 4px;
+        outline-offset: 3px;
+    }
+}
+
+/* =================== REDUCED MOTION =================== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }
