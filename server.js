@@ -23,6 +23,7 @@ const players = new Map(); // Players by Socket ID
 const CARD_SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const CARD_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const MAX_IDLE_TIME = 3600000; // 1 hour in milliseconds
+const RECONNECT_TIMEOUT = 300000; // 5 minuuttia
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -176,21 +177,65 @@ function handleDisconnect(playerId) {
   const player = players.get(playerId);
   if (!player) return;
   
-  // If player was in a table, remove from it
+  console.log(`Player ${playerId} disconnected from table ${player.table || 'none'}`);
+  
+  // Jos pelaaja on pöydässä
   if (player.table) {
     const table = tables.get(player.table);
     if (table) {
-      removePlayerFromTable(player, table);
+      // KORJAUS: Jos peli on käynnissä, älä poista pelaajaa välittömästi
+      if (table.state === 'playing') {
+        // Merkitse pelaaja katkenneeksi
+        const position = player.position;
+        if (position && table.players[position]) {
+          table.players[position].disconnected = true;
+          table.players[position].disconnectTime = Date.now();
+          
+          // Ilmoita muille pelaajille
+          sendToTablePlayers(table, {
+            type: 'playerDisconnected',
+            position: position,
+            playerName: player.name,
+            message: `${player.name} (${positionName(position)}) lost connection. Waiting for reconnect...`
+          });
+          
+          console.log(`Player ${player.name} marked as disconnected, waiting for reconnect`);
+          
+          // Aseta timeout pelaajan lopulliseen poistamiseen
+          setTimeout(() => {
+            const currentTable = tables.get(player.table);
+            if (currentTable && currentTable.players[position]) {
+              const tablePlayer = currentTable.players[position];
+              // Jos pelaaja on edelleen katkennneena (ei ole liittynyt takaisin)
+              if (tablePlayer.disconnected && tablePlayer.id === playerId) {
+                console.log(`Player ${player.name} reconnect timeout - removing from game`);
+                
+                // Poista pelaaja lopullisesti
+                removePlayerFromTable(player, currentTable);
+                
+                sendToTablePlayers(currentTable, {
+                  type: 'playerRemovedTimeout',
+                  position: position,
+                  message: `${player.name} could not reconnect and was removed from the game.`
+                });
+              }
+            }
+          }, RECONNECT_TIMEOUT);
+        }
+      } else {
+        // Jos peli ei ole käynnissä (waiting room), poista normaalisti
+        removePlayerFromTable(player, table);
+      }
     }
   }
   
-  // Remove player
-  players.delete(playerId);
+  // Älä poista players Map:stä vielä jos peli on käynnissä
+  // Näin pelaaja voi liittyä takaisin
+  if (!player.table || !tables.get(player.table) || tables.get(player.table).state !== 'playing') {
+    players.delete(playerId);
+  }
 }
 
-/**
- * Join an existing table
- */
 function joinTable(socket, playerId, data) {
   const { playerName, tableCode } = data;
   
@@ -323,7 +368,7 @@ function selectPosition(socket, playerId, data) {
 }
 
 function getTableInfo(socket, playerId, data) {
-    const { tableCode, playerName } = data;  // ⭐ LISÄÄ playerName
+    const { tableCode, playerName } = data;
     
     console.log(`getTableInfo: tableCode=${tableCode}, playerId=${playerId}, playerName=${playerName}`);
     
@@ -340,16 +385,16 @@ function getTableInfo(socket, playerId, data) {
         return;
     }
     
-    console.log(`Table ${tableCode} found`);
+    console.log(`Table ${tableCode} found, state: ${table.state}`);
     
-    // ⭐ PÄIVITÄ PELAAJAN NIMI JOS ANNETTU
+    // Päivitä pelaajan nimi jos annettu
     const currentPlayer = players.get(playerId);
     if (currentPlayer && playerName) {
         currentPlayer.name = playerName;
         console.log(`Updated player ${playerId} name to ${playerName}`);
     }
     
-    // Check if player is already in table
+    // Tarkista onko pelaaja jo pöydässä socket.id:llä
     let playerAlreadyInTable = false;
     let existingPosition = null;
     
@@ -362,26 +407,65 @@ function getTableInfo(socket, playerId, data) {
         }
     }
     
-    // If not found by socket.id, try to find by name
-    if (!playerAlreadyInTable && playerName) {  // ⭐ KÄYTÄ playerName parametria
+    // KORJAUS: Jos ei löydy ID:llä, etsi nimellä (reconnect-tilanne)
+    if (!playerAlreadyInTable && playerName) {
         for (const [pos, tablePlayer] of Object.entries(table.players)) {
             if (tablePlayer && 
                 tablePlayer.name === playerName && 
                 tablePlayer.type === 'human') {
-                console.log(`Found player by name: ${playerName} at position ${pos}, updating socket.id`);
-                table.players[pos].id = playerId;
-                if (currentPlayer) {
-                    currentPlayer.table = tableCode;
-                    currentPlayer.position = pos;
+                console.log(`Found player by name: ${playerName} at position ${pos}`);
+                
+                // KORJAUS: Tarkista oliko pelaaja katkennneena
+                if (tablePlayer.disconnected) {
+                    console.log(`Player ${playerName} was disconnected, reconnecting...`);
+                    
+                    // Päivitä socket.id ja poista disconnected-merkintä
+                    table.players[pos].id = playerId;
+                    table.players[pos].disconnected = false;
+                    delete table.players[pos].disconnectTime;
+                    
+                    // Päivitä players Map
+                    if (currentPlayer) {
+                        currentPlayer.table = tableCode;
+                        currentPlayer.position = pos;
+                    } else {
+                        players.set(playerId, {
+                            socket: socket,
+                            table: tableCode,
+                            name: playerName,
+                            position: pos,
+                            connected: Date.now()
+                        });
+                    }
+                    
+                    playerAlreadyInTable = true;
+                    existingPosition = pos;
+                    
+                    // Ilmoita muille pelaajille uudelleenliittymisestä
+                    sendToTablePlayers(table, {
+                        type: 'playerReconnected',
+                        position: pos,
+                        playerName: playerName,
+                        message: `${playerName} (${positionName(pos)}) reconnected!`
+                    });
+                    
+                    break;
+                } else {
+                    // Päivitä normaalisti jos ei ollut disconnected
+                    table.players[pos].id = playerId;
+                    if (currentPlayer) {
+                        currentPlayer.table = tableCode;
+                        currentPlayer.position = pos;
+                    }
+                    playerAlreadyInTable = true;
+                    existingPosition = pos;
+                    break;
                 }
-                playerAlreadyInTable = true;
-                existingPosition = pos;
-                break;
             }
         }
     }
     
-    // Join socket to room
+    // Liitä socket huoneeseen
     socket.join(tableCode);
     
     // Jos peli on käynnissä ja pelaaja on pöydässä, lähetä pelin tila
@@ -426,6 +510,7 @@ function getTableInfo(socket, playerId, data) {
     
     console.log(`Sent tableInfo for ${tableCode} to ${playerId}`);
 }
+
 
 /**
  * Remove player from table
