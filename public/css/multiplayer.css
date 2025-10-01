@@ -1,5 +1,5 @@
 /* Bridge-Specific Multiplayer Styles with Single Row Card Layout */
-/* KORJATTU VERSIO - Varmistaa että omien ja dummyn kortit näkyvät samanaikaisesti */
+/* KORJATTU VERSIO - Kortit näkyvät aina ilman scrollausta */
 
 /* Form Enhancements (extending main.css form styles) */
 .form-group {
@@ -56,17 +56,17 @@
 
 /* =================== BRIDGE GAME LAYOUT =================== */
 
-/* KORJAUS: Game View - Sallii scrollaus ja varmistaa kaikkien elementtien näkymisen */
+/* Game View - Sallii scrollaus ja varmistaa kaikkien elementtien näkymisen */
 #game-view {
     display: flex;
     flex-direction: column;
-    min-height: 100vh; /* MUUTETTU: height → min-height */
-    max-height: none; /* LISÄTTY: Ei rajoiteta korkeutta */
+    min-height: 100vh;
+    max-height: none;
     padding: 5px;
     box-sizing: border-box;
     gap: 5px;
-    overflow-y: auto; /* MUUTETTU: hidden → auto (sallii scrollaus) */
-    overflow-x: hidden; /* LISÄTTY: Piilottaa vain vaakasuora ylimeno */
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* Compact Game Header */
@@ -103,63 +103,42 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    overflow: visible; /* MUUTETTU: hidden → visible */
-    min-height: 0; /* LISÄTTY: Sallii flexbox-lasten kutistuminen */
+    overflow: visible;
+    min-height: 0;
 }
 
 /* =================== SINGLE ROW CARD LAYOUT =================== */
 
-/* KORJAUS: Hand Areas - Varmistaa että alueet näkyvät aina */
+/* Hand Areas - Aina näkyvissä */
 .hand-area {
-    display: block !important; /* LISÄTTY: Pakottaa näkymään */
+    display: block !important;
     padding: 8px;
     border: 1px solid #ddd;
     border-radius: 6px;
     background-color: #ffffff;
     margin: 2px 0;
     flex-shrink: 0;
-    overflow: visible; /* MUUTETTU: hidden → visible */
-    min-height: 60px; /* LISÄTTY: Minimikorkeus varmistaa näkyvyyden */
+    overflow: visible;
+    min-height: 60px;
 }
 
-/* KORJAUS: Estä alueiden piilottaminen */
 .hand-area h3 {
     margin: 0 0 8px 0;
     font-size: 0.9em;
     color: #374151;
 }
 
-/* Single Row Hand Container */
+/* Single Row Hand Container - EI SCROLLAUSTA */
 .single-row-hand {
     display: flex;
     flex-wrap: nowrap;
     gap: 2px;
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: hidden;
     padding: 2px 0;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e0 #f1f5f9;
 }
 
-.single-row-hand::-webkit-scrollbar {
-    height: 4px;
-}
-
-.single-row-hand::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 2px;
-}
-
-.single-row-hand::-webkit-scrollbar-thumb {
-    background: #cbd5e0;
-    border-radius: 2px;
-}
-
-.single-row-hand::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
-}
-
-/* Single Row Card Buttons */
+/* Single Row Card Buttons - RESPONSIVE */
 .card-button-single {
     padding: 6px 8px;
     border: 1px solid #000000;
@@ -171,9 +150,12 @@
     transition: all 0.2s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     white-space: nowrap;
-    min-width: 28px;
+    min-width: 24px;
+    max-width: 40px;
+    flex-shrink: 1;
+    flex-grow: 0;
+    flex-basis: auto;
     text-align: center;
-    flex-shrink: 0;
 }
 
 .card-button-single:hover {
@@ -197,7 +179,7 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Single Row Card Displays (non-interactive) */
+/* Single Row Card Displays (non-interactive) - RESPONSIVE */
 .card-display-single {
     padding: 6px 8px;
     background: #f9fafb;
@@ -207,42 +189,39 @@
     font-size: 0.85em;
     color: #6b7280;
     white-space: nowrap;
-    min-width: 28px;
+    min-width: 24px;
+    max-width: 40px;
+    flex-shrink: 1;
+    flex-grow: 0;
+    flex-basis: auto;
     text-align: center;
-    flex-shrink: 0;
 }
 
-/* KORJAUS: Dummy ja Player alueet - Varmistetaan näkyvyys */
+/* Dummy ja Player alueet - Aina näkyvissä */
 #dummy-hand-area {
-    display: block !important; /* LISÄTTY: Pakottaa näkymään */
+    display: block !important;
     background-color: #e8f4f8;
     border-color: #005fcc;
     order: 1;
-    min-height: 80px; /* LISÄTTY: Varmistaa riittävä korkeus */
+    min-height: 80px;
 }
 
 #player-hand-area {
-    display: block !important; /* LISÄTTY: Pakottaa näkymään */
+    display: block !important;
     background-color: #fefce8;
     border-color: #eab308;
     order: 3;
-    min-height: 80px; /* LISÄTTY: Varmistaa riittävä korkeus */
+    min-height: 80px;
 }
 
-/* KORJAUS: Piilota VAIN jos todella tyhjä (ei sisältöä) */
-#dummy-hand-area:empty,
-#player-hand-area:empty {
-    display: none !important;
-}
-
-/* Dummy Hand (Top) - ylimääräinen luokka yhteensopivuuden vuoksi */
+/* Dummy Hand (Top) */
 .dummy-area {
     background-color: #e8f4f8;
     border-color: #005fcc;
     order: 1;
 }
 
-/* Player Hand (Bottom) - ylimääräinen luokka yhteensopivuuden vuoksi */
+/* Player Hand (Bottom) */
 .player-area {
     background-color: #fefce8;
     border-color: #eab308;
@@ -522,25 +501,6 @@
     font-size: 0.9em;
 }
 
-/* LISÄTTY: Debug-tyylit (poista käytöstä kun ongelma on ratkaistu) */
-/*
-#dummy-hand-area::before {
-    content: "DUMMY AREA";
-    display: block;
-    font-size: 0.7em;
-    color: #666;
-    margin-bottom: 5px;
-}
-
-#player-hand-area::before {
-    content: "YOUR CARDS";
-    display: block;
-    font-size: 0.7em;
-    color: #666;
-    margin-bottom: 5px;
-}
-*/
-
 /* =================== RESPONSIVE DESIGN =================== */
 
 /* Tablet View */
@@ -553,7 +513,8 @@
     .card-display-single {
         padding: 5px 6px;
         font-size: 0.8em;
-        min-width: 26px;
+        min-width: 22px;
+        max-width: 35px;
     }
     
     .single-row-hand {
@@ -604,7 +565,8 @@
     .card-display-single {
         padding: 4px 5px;
         font-size: 0.75em;
-        min-width: 24px;
+        min-width: 20px;
+        max-width: 30px;
     }
     
     .single-row-hand {
@@ -634,7 +596,7 @@
 @media (max-width: 576px) {
     .hand-area {
         padding: 6px;
-        min-height: 50px; /* MUUTETTU: Pienempi min-height mobiilissa */
+        min-height: 50px;
     }
     
     .current-trick-cards {
@@ -646,7 +608,8 @@
     .card-display-single {
         padding: 3px 4px;
         font-size: 0.7em;
-        min-width: 22px;
+        min-width: 18px;
+        max-width: 26px;
     }
     
     .single-row-hand {
@@ -735,18 +698,6 @@
         background: #1e3a8a;
         border-color: #3b82f6;
         color: #dbeafe;
-    }
-    
-    .single-row-hand::-webkit-scrollbar-track {
-        background: #374151;
-    }
-    
-    .single-row-hand::-webkit-scrollbar-thumb {
-        background: #6b7280;
-    }
-    
-    .single-row-hand::-webkit-scrollbar-thumb:hover {
-        background: #9ca3af;
     }
 }
 
