@@ -1,5 +1,5 @@
 /* Bridge-Specific Multiplayer Styles with Single Row Card Layout */
-/* KORJATTU VERSIO - Kortit näkyvät aina ilman scrollausta */
+/* YKSINKERTAISTETTU VERSIO - Kaikki kortit yhdellä rivillä ilman maa-otsikoita */
 
 /* Form Enhancements (extending main.css form styles) */
 .form-group {
@@ -107,7 +107,7 @@
     min-height: 0;
 }
 
-/* =================== SINGLE ROW CARD LAYOUT =================== */
+/* =================== YKSINKERTAISTETTU KORTTILAYOUT =================== */
 
 /* Hand Areas - Aina näkyvissä */
 .hand-area {
@@ -122,14 +122,18 @@
     min-height: 60px;
 }
 
-.hand-area h3 {
-    margin: 0 0 8px 0;
+/* Hand Header - pelaajan nimi ilman h3 */
+.hand-header {
+    font-weight: 600;
     font-size: 0.9em;
     color: #374151;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e5e7eb;
 }
 
-/* Single Row Hand Container - EI SCROLLAUSTA */
-.single-row-hand {
+/* Kaikki kortit yhdellä rivillä */
+.all-cards-row {
     display: flex;
     flex-wrap: nowrap;
     gap: 2px;
@@ -138,37 +142,7 @@
     padding: 2px 0;
 }
 
-/* Cards Buttons Container - sama käyttäytyminen kuin single-row-hand */
-.cards-buttons {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 2px;
-    overflow-x: hidden;
-    overflow-y: hidden;
-    padding: 2px 0;
-}
-
-/* Single Row Card Buttons - RESPONSIVE */
-.card-button-single {
-    padding: 6px 8px;
-    border: 1px solid #000000;
-    border-radius: 4px;
-    background: #ffffff;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.85em;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    white-space: nowrap;
-    min-width: 24px;
-    max-width: 40px;
-    flex-shrink: 1;
-    flex-grow: 0;
-    flex-basis: auto;
-    text-align: center;
-}
-
-/* Card Button - RESPONSIVE (käytetään renderHand() funktiossa) */
+/* Card Button - RESPONSIVE */
 .card-button {
     padding: 6px 8px;
     border: 1px solid #000000;
@@ -188,7 +162,6 @@
     text-align: center;
 }
 
-.card-button-single:hover,
 .card-button:hover {
     background: #f3f4f6;
     border-color: #005fcc;
@@ -197,7 +170,6 @@
     z-index: 10;
 }
 
-.card-button-single:focus,
 .card-button:focus {
     outline: 3px solid #005fcc;
     outline-offset: 2px;
@@ -206,31 +178,12 @@
     z-index: 10;
 }
 
-.card-button-single:active,
 .card-button:active {
     transform: translateY(0);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Single Row Card Displays (non-interactive) - RESPONSIVE */
-.card-display-single {
-    padding: 6px 8px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    font-weight: bold;
-    font-size: 0.85em;
-    color: #6b7280;
-    white-space: nowrap;
-    min-width: 24px;
-    max-width: 40px;
-    flex-shrink: 1;
-    flex-grow: 0;
-    flex-basis: auto;
-    text-align: center;
-}
-
-/* Card Display - RESPONSIVE (käytetään renderHand() funktiossa) */
+/* Card Display - RESPONSIVE */
 .card-display {
     padding: 6px 8px;
     background: #f9fafb;
@@ -248,7 +201,16 @@
     text-align: center;
 }
 
-/* Dummy ja Player alueet - Aina näkyvissä */
+/* Enhanced Suit Styling */
+.suit-spades, .suit-clubs {
+    color: #1f2937;
+}
+
+.suit-hearts, .suit-diamonds {
+    color: #ff6b6b;
+}
+
+/* Dummy ja Player alueet */
 #dummy-hand-area {
     display: block !important;
     background-color: #e8f4f8;
@@ -265,14 +227,12 @@
     min-height: 80px;
 }
 
-/* Dummy Hand (Top) */
 .dummy-area {
     background-color: #e8f4f8;
     border-color: #005fcc;
     order: 1;
 }
 
-/* Player Hand (Bottom) */
 .player-area {
     background-color: #fefce8;
     border-color: #eab308;
@@ -397,30 +357,21 @@
     text-align: center;
 }
 
-/* Enhanced Suit Styling */
-.suit-spades, .suit-clubs {
-    color: #1f2937;
-}
-
-.suit-hearts, .suit-diamonds {
-    color: #ff6b6b;
-}
-
-/* =================== BIDDING AREA - CENTERED OVERLAY =================== */
+/* =================== BIDDING AREA - YLÖS SIJOITETTU =================== */
 
 #game-bidding-area {
     position: absolute;
-    top: 50%;
+    top: 10px;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateX(-50%);
     background: #fefce8;
     border: 2px solid #eab308;
     border-radius: 8px;
-    padding: 20px;
+    padding: 15px;
     z-index: 100;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
     max-width: 90vw;
-    max-height: 80vh;
+    max-height: 40vh;
     overflow-y: auto;
 }
 
@@ -428,6 +379,7 @@
     margin-top: 0;
     color: #92400e;
     text-align: center;
+    font-size: 1.1em;
 }
 
 .bidding-buttons {
@@ -560,8 +512,6 @@
         padding: 3px;
     }
     
-    .card-button-single,
-    .card-display-single,
     .card-button,
     .card-display {
         padding: 5px 6px;
@@ -570,8 +520,7 @@
         max-width: 35px;
     }
     
-    .single-row-hand,
-    .cards-buttons {
+    .all-cards-row {
         gap: 1px;
     }
     
@@ -615,8 +564,6 @@
         gap: 6px;
     }
 
-    .card-button-single,
-    .card-display-single,
     .card-button,
     .card-display {
         padding: 4px 5px;
@@ -625,8 +572,7 @@
         max-width: 30px;
     }
     
-    .single-row-hand,
-    .cards-buttons {
+    .all-cards-row {
         gap: 1px;
     }
     
@@ -644,8 +590,13 @@
     }
     
     #game-bidding-area {
-        padding: 15px;
+        padding: 12px;
         max-width: 95vw;
+        max-height: 35vh;
+    }
+    
+    #game-bidding-area h2 {
+        font-size: 1em;
     }
 }
 
@@ -661,8 +612,6 @@
         gap: 4px;
     }
     
-    .card-button-single,
-    .card-display-single,
     .card-button,
     .card-display {
         padding: 3px 4px;
@@ -671,8 +620,7 @@
         max-width: 26px;
     }
     
-    .single-row-hand,
-    .cards-buttons {
+    .all-cards-row {
         gap: 1px;
     }
     
@@ -687,6 +635,11 @@
     
     #game-chat-messages {
         height: 60px;
+    }
+    
+    #game-bidding-area {
+        padding: 10px;
+        max-height: 30vh;
     }
 }
 
@@ -708,6 +661,11 @@
         color: #e2e8f0;
     }
     
+    .hand-header {
+        color: #e2e8f0;
+        border-bottom-color: #4a5568;
+    }
+    
     #dummy-hand-area,
     .dummy-area {
         background: #1e3a8a;
@@ -726,8 +684,6 @@
     }
     
     .played-card,
-    .card-button-single,
-    .card-display-single,
     .card-button,
     .card-display {
         background: #FFFFFF;
@@ -735,13 +691,11 @@
         color: #000000;
     }
     
-    .card-button-single:hover,
     .card-button:hover {
         background: #f3f4f6;
         border-color: #005fcc;
     }
     
-    .card-button-single:focus,
     .card-button:focus {
         background: #000000;
         color: #FFFFFF !important;
@@ -771,7 +725,6 @@
         border-width: 2px;
     }
     
-    .card-button-single:focus,
     .card-button:focus {
         outline-width: 4px;
         outline-offset: 3px;

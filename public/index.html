@@ -848,61 +848,59 @@ function getSidePlayerPositions() {
     return { left: 'west', right: 'east' };
 }
 
-        function renderHand(position, hand, targetArea) {
-            if (!hand || !targetArea) return;
-            
-            let positionType = position === myPosition ? 'You' : 'Human';
-            if (position === gameState?.dummy && gameState?.declarer === myPosition) {
-                positionType = 'Dummy (You control)';
-            }
-            
-            let html = `<h3>${positionName(position)} ${position === myPosition ? '' : `(${positionType})`}</h3>`;
-            
-            const canPlayFromThisPosition = canPlayFromPosition(position);
-            const isPlayPhase = gameState && gameState.gamePhase === 'play';
-            
-            Object.entries(hand).forEach(([suit, cards]) => {
-                const suitClass = `suit-${suit}`;
+function renderHand(position, hand, targetArea) {
+    if (!hand || !targetArea) return;
+    
+    let positionType = position === myPosition ? 'You' : 'Human';
+    if (position === gameState?.dummy && gameState?.declarer === myPosition) {
+        positionType = 'Dummy (You control)';
+    }
+    
+    const canPlayFromThisPosition = canPlayFromPosition(position);
+    const isPlayPhase = gameState && gameState.gamePhase === 'play';
+    
+    // Pelaajan nimi (ei h3)
+    let html = `<div class="hand-header">${positionName(position)} ${position === myPosition ? '' : `(${positionType})`}</div>`;
+    
+    // Kaikki kortit yhdelle riville järjestyksessä: Spades, Hearts, Diamonds, Clubs
+    html += `<div class="all-cards-row">`;
+    
+    const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
+    const suitNames = { spades: 'Spades', hearts: 'Hearts', diamonds: 'Diamonds', clubs: 'Clubs' };
+    
+    for (const suit of suits) {
+        const cards = hand[suit] || [];
+        const suitSymbol = getSuitSymbol(suit);
+        const suitClass = `suit-${suit}`;
+        
+        if (cards.length > 0) {
+            cards.forEach(card => {
+                const cardLabel = `${suitNames[suit]} ${card}`;
                 
-                html += `
-                    <div class="suit-row">
-                        <div class="suit-label ${suitClass}">
-                            ${getSuitSymbol(suit)} ${getSuitName(suit)}
-                        </div>
-                        <div class="cards-buttons">
-                `;
-                
-                if (cards.length > 0) {
-                    cards.forEach(card => {
-                        const cardClass = `card-${suit}`;
-                        
-                        if (isPlayPhase && canPlayFromThisPosition) {
-                            html += `
-                                <button 
-                                    class="card-button ${cardClass}"
-                                    onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
-                                    aria-label="${getSuitSymbol(suit)}${card}"
-                                >
-                                    ${getSuitSymbol(suit)}${card}
-                                </button>
-                            `;
-                        } else {
-                            html += `
-                                <span class="card-display ${cardClass}">
-                                    ${getSuitSymbol(suit)}${card}
-                                </span>
-                            `;
-                        }
-                    });
+                if (isPlayPhase && canPlayFromThisPosition) {
+                    html += `
+                        <button 
+                            class="card-button ${suitClass}"
+                            onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
+                            aria-label="${cardLabel}"
+                        >
+                            ${suitSymbol}${card}
+                        </button>
+                    `;
                 } else {
-                    html += `<span>-</span>`;
+                    html += `
+                        <span class="card-display ${suitClass}" aria-label="${cardLabel}">
+                            ${suitSymbol}${card}
+                        </span>
+                    `;
                 }
-                
-                html += `</div></div>`;
             });
-            
-            targetArea.innerHTML = html;
         }
+    }
+    
+    html += `</div>`;
+    targetArea.innerHTML = html;
+}
 
         function renderAllHands() {
             if (!gameState || !gameState.hands) return;
