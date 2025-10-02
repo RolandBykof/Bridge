@@ -603,7 +603,7 @@
 /* Small Mobile */
 @media (max-width: 576px) {
     .hand-area {
-        padding: 6px;
+        padding: 4px;
         min-height: 50px;
     }
     
@@ -614,14 +614,15 @@
     
     .card-button,
     .card-display {
-        padding: 3px 4px;
-        font-size: 0.7em;
-        min-width: 18px;
-        max-width: 26px;
+        padding: 4px 6px;
+        font-size: 0.85em;
+        min-width: 24x;
+        max-width: 34px;
+        font-weight: 800;         
     }
     
     .all-cards-row {
-        gap: 1px;
+        gap: 0px;
     }
     
     #game-controls {
