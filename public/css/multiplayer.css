@@ -1,5 +1,5 @@
 /* Bridge-Specific Multiplayer Styles with Single Row Card Layout */
-/* YKSINKERTAISTETTU VERSIO - Kaikki kortit yhdellä rivillä ilman maa-otsikoita */
+/* LOPULLINEN VERSIO - Kirkkaat kontrastiset kortit, yksinkertaistettu layout */
 
 /* Form Enhancements (extending main.css form styles) */
 .form-group {
@@ -142,14 +142,15 @@
     padding: 2px 0;
 }
 
-/* Card Button - RESPONSIVE */
-.card-button {
+/* Card Button ja Display - KIRKKAAT KONTRASTIT kuten Bridge-assistantissa */
+.card-button,
+.card-display {
     padding: 6px 8px;
-    border: 1px solid #000000;
+    border: 2px solid #000000;
     border-radius: 4px;
-    background: #ffffff;
+    background: #FFFFFF;
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 800;
     font-size: 0.85em;
     transition: all 0.2s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -160,6 +161,7 @@
     flex-grow: 0;
     flex-basis: auto;
     text-align: center;
+    color: #000000;
 }
 
 .card-button:hover {
@@ -183,31 +185,13 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Card Display - RESPONSIVE */
-.card-display {
-    padding: 6px 8px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    font-weight: bold;
-    font-size: 0.85em;
-    color: #6b7280;
-    white-space: nowrap;
-    min-width: 24px;
-    max-width: 40px;
-    flex-shrink: 1;
-    flex-grow: 0;
-    flex-basis: auto;
-    text-align: center;
-}
-
-/* Enhanced Suit Styling */
+/* Enhanced Suit Styling - Punainen/Musta kuten Bridge-assistantissa */
 .suit-spades, .suit-clubs {
-    color: #1f2937;
+    color: #000000;
 }
 
 .suit-hearts, .suit-diamonds {
-    color: #ff6b6b;
+    color: #dc2626;
 }
 
 /* Dummy ja Player alueet */
@@ -600,7 +584,7 @@
     }
 }
 
-/* Small Mobile */
+/* Small Mobile - PARANNETTU LUETTAVUUS */
 @media (max-width: 576px) {
     .hand-area {
         padding: 4px;
@@ -616,9 +600,9 @@
     .card-display {
         padding: 4px 6px;
         font-size: 0.85em;
-        min-width: 24x;
+        min-width: 24px;
         max-width: 34px;
-        font-weight: 800;         
+        font-weight: 800;
     }
     
     .all-cards-row {
@@ -684,6 +668,7 @@
         border-color: #005fcc;
     }
     
+    /* Kortit säilyvät kirkkaina myös dark modessa */
     .played-card,
     .card-button,
     .card-display {
@@ -700,6 +685,15 @@
     .card-button:focus {
         background: #000000;
         color: #FFFFFF !important;
+    }
+    
+    /* Maasymbolit dark modessa */
+    .suit-hearts, .suit-diamonds {
+        color: #dc2626;
+    }
+    
+    .suit-spades, .suit-clubs {
+        color: #000000;
     }
     
     #game-chat-messages {
