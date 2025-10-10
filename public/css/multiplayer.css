@@ -584,7 +584,7 @@
     }
 }
 
-/* Small Mobile - PARANNETTU LUETTAVUUS */
+/* Small Mobile - KAIKKI 13 KORTTIA NÄKYVIIN */
 @media (max-width: 576px) {
     .hand-area {
         padding: 4px;
@@ -598,15 +598,16 @@
     
     .card-button,
     .card-display {
-        padding: 4px 6px;
-        font-size: 0.85em;
-        min-width: 24px;
-        max-width: 34px;
+        padding: 2px 3px;
+        font-size: 0.7em;
+        min-width: 18px;
+        max-width: 26px;
         font-weight: 800;
     }
     
     .all-cards-row {
         gap: 0px;
+        overflow-x: hidden;
     }
     
     #game-controls {
