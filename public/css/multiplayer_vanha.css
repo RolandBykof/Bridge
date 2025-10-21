@@ -1,5 +1,5 @@
-/* Bridge-Specific Multiplayer Styles with Correct Position Layout */
-/* Saavutettavuus: Korkeat kontrastit, kirkkaat värit korteissa */
+/* Bridge-Specific Multiplayer Styles with Single Row Card Layout */
+/* LOPULLINEN VERSIO - Kirkkaat kontrastiset kortit, yksinkertaistettu layout */
 
 /* Form Enhancements (extending main.css form styles) */
 .form-group {
@@ -97,11 +97,21 @@
     font-size: 1em;
 }
 
-/* =================== POSITION AREAS - CORRECT LAYOUT =================== */
+/* Game Layout Container */
+#game-layout-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: visible;
+    min-height: 0;
+}
 
-/* Position Areas - Base styling */
-.position-area {
-    display: block;
+/* =================== YKSINKERTAISTETTU KORTTILAYOUT =================== */
+
+/* Hand Areas - Aina näkyvissä */
+.hand-area {
+    display: block !important;
     padding: 8px;
     border: 1px solid #ddd;
     border-radius: 6px;
@@ -110,72 +120,6 @@
     flex-shrink: 0;
     overflow: visible;
     min-height: 60px;
-}
-
-/* Top Position */
-#top-position-area {
-    order: 1;
-    min-height: 80px;
-}
-
-/* Middle Row with three columns */
-#middle-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin: 5px 0;
-    gap: 10px;
-    order: 2;
-    flex-shrink: 0;
-}
-
-#left-position-area,
-#right-position-area {
-    flex: 0 0 100px;
-    min-width: 80px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.side-position {
-    padding: 10px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    transition: all 0.3s ease;
-}
-
-/* Bottom Position (Always player) */
-#bottom-position-area {
-    order: 3;
-    background-color: #fefce8;
-    border-color: #eab308;
-    min-height: 80px;
-}
-
-/* Position states */
-.position-area.has-cards {
-    min-height: 80px;
-}
-
-.position-area.is-dummy {
-    background-color: #e8f4f8;
-    border-color: #005fcc;
-}
-
-.position-area.is-current-player {
-    background: #e8f4f8;
-    border-color: #005fcc;
-    box-shadow: 0 2px 4px rgba(0, 95, 204, 0.2);
-}
-
-/* Player name styling */
-.position-name {
-    font-weight: bold;
-    margin-bottom: 3px;
-    color: #374151;
-    font-size: 0.9em;
-    text-align: center;
 }
 
 /* Hand Header - pelaajan nimi ilman h3 */
@@ -198,7 +142,7 @@
     padding: 2px 0;
 }
 
-/* Card Button ja Display - KIRKKAAT KONTRASTIT */
+/* Card Button ja Display - KIRKKAAT KONTRASTIT kuten Bridge-assistantissa */
 .card-button,
 .card-display {
     padding: 6px 8px;
@@ -241,7 +185,7 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Enhanced Suit Styling - Punainen/Musta */
+/* Enhanced Suit Styling - Punainen/Musta kuten Bridge-assistantissa */
 .suit-spades, .suit-clubs {
     color: #000000;
 }
@@ -250,13 +194,84 @@
     color: #dc2626;
 }
 
-/* Central Play Area */
+/* Dummy ja Player alueet */
+#dummy-hand-area {
+    display: block !important;
+    background-color: #e8f4f8;
+    border-color: #005fcc;
+    order: 1;
+    min-height: 80px;
+}
+
+#player-hand-area {
+    display: block !important;
+    background-color: #fefce8;
+    border-color: #eab308;
+    order: 3;
+    min-height: 80px;
+}
+
+.dummy-area {
+    background-color: #e8f4f8;
+    border-color: #005fcc;
+    order: 1;
+}
+
+.player-area {
+    background-color: #fefce8;
+    border-color: #eab308;
+    order: 3;
+}
+
+/* Side Players Layout - Compact */
+#side-players-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 5px 0;
+    gap: 10px;
+    order: 2;
+    flex-shrink: 0;
+}
+
+.side-player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    min-width: 80px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.side-player.current-player {
+    background: #e8f4f8;
+    border-color: #005fcc;
+    box-shadow: 0 2px 4px rgba(0, 95, 204, 0.2);
+}
+
+.player-info {
+    text-align: center;
+}
+
+.player-name {
+    font-weight: bold;
+    margin-bottom: 3px;
+    color: #374151;
+    font-size: 0.9em;
+}
+
+/* Central Play Area - Compact */
 #play-area {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    margin: 0 15px;
     min-height: 100px;
 }
 
@@ -493,14 +508,12 @@
         gap: 1px;
     }
     
-    #middle-row {
+    #side-players-area {
         margin: 3px 0;
     }
     
-    #left-position-area,
-    #right-position-area {
-        flex: 0 0 80px;
-        min-width: 60px;
+    #play-area {
+        margin: 0 8px;
     }
 }
 
@@ -519,17 +532,15 @@
         gap: 10px;
     }
     
-    #middle-row {
+    #side-players-area {
         flex-direction: column;
         gap: 8px;
-        align-items: stretch;
+        align-items: center;
         margin: 3px 0;
     }
-    
-    #left-position-area,
-    #right-position-area {
-        flex: 0 0 auto;
-        min-width: 100%;
+
+    #play-area {
+        margin: 5px 0;
     }
 
     .current-trick-cards {
@@ -575,7 +586,7 @@
 
 /* Small Mobile - KAIKKI 13 KORTTIA NÄKYVIIN */
 @media (max-width: 576px) {
-    .position-area {
+    .hand-area {
         padding: 4px;
         min-height: 50px;
     }
@@ -627,7 +638,8 @@
         color: #e2e8f0;
     }
     
-    .position-area,
+    .hand-area,
+    .side-player,
     #game-header,
     #game-chat-area {
         background: #2d3748;
@@ -640,28 +652,21 @@
         border-bottom-color: #4a5568;
     }
     
-    .position-area.is-dummy {
+    #dummy-hand-area,
+    .dummy-area {
         background: #1e3a8a;
         border-color: #3b82f6;
     }
     
-    #bottom-position-area {
+    #player-hand-area,
+    .player-area {
         background: #7c2d12;
         border-color: #ea580c;
     }
     
-    .position-area.is-current-player {
+    .side-player.current-player {
         background: #1a2c35;
         border-color: #005fcc;
-    }
-    
-    .side-position {
-        background: #374151;
-        border-color: #4a5568;
-    }
-    
-    .position-name {
-        color: #e2e8f0;
     }
     
     /* Kortit säilyvät kirkkaina myös dark modessa */
@@ -712,7 +717,7 @@
 
 /* =================== ACCESSIBILITY & HIGH CONTRAST =================== */
 @media (prefers-contrast: high) {
-    .position-area {
+    .hand-area {
         border-width: 2px;
     }
     
