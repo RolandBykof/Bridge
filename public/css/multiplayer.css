@@ -630,24 +630,24 @@
     .position-area,
     #game-header,
     #game-chat-area {
-        background: #2d3748;
-        border-color: #4a5568;
-        color: #e2e8f0;
+        background: #ffffff;        /* ← Valkoinen */
+        border-color: #e2e8f0;
+        color: #1f2937;             /* ← Tumma teksti */
     }
     
     .hand-header {
-        color: #e2e8f0;
-        border-bottom-color: #4a5568;
+        color: #1f2937;             /* ← Tumma teksti vaalealla taustalla */
+        border-bottom-color: #e5e7eb;
     }
     
     .position-area.is-dummy {
-        background: #1e3a8a;
-        border-color: #3b82f6;
+        background: #e8f4f8;        /* ← Vaalea sininen (sama kuin light modessa) */
+        border-color: #005fcc;
     }
     
     #bottom-position-area {
-        background: #7c2d12;
-        border-color: #ea580c;
+        background: #fefce8;        /* ← Vaalea keltainen (sama kuin light modessa) */
+        border-color: #eab308;
     }
     
     .position-area.is-current-player {
@@ -656,8 +656,8 @@
     }
     
     .side-position {
-        background: #374151;
-        border-color: #4a5568;
+        background: #f8fafc;        /* ← Vaalea harmaa (sama kuin light modessa) */
+        border-color: #e2e8f0;
     }
     
     .position-name {
