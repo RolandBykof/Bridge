@@ -1972,22 +1972,22 @@ if (isPlayPhase && canPlayFromThisPosition) {
                     }
 
                     // Card playing shortcuts - low cards
-                    if (e.altKey && e.key === '1') {
+                    if (e.ctrlKey && e.shiftKey && e.key === '1') {
                         e.preventDefault();
                         playLowestCard('spades');
                         return;
                     }
-                    if (e.altKey && e.key === '2') {
+                    if (e.ctrlKey && e.shiftKey && e.key === '2') {
                         e.preventDefault();
                         playLowestCard('hearts');
                         return;
                     }
-                    if (e.altKey && e.key === '3') {
+                    if (e.ctrlKey && e.shiftKey && e.key === '3') {
                         e.preventDefault();
                         playLowestCard('diamonds');
                         return;
                     }
-                    if (e.altKey && e.key === '4') {
+                    if (e.ctrlKey && e.shiftKey && e.key === '4') {
                         e.preventDefault();
                         playLowestCard('clubs');
                         return;
