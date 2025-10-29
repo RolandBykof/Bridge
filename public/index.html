@@ -885,23 +885,25 @@
                     cards.forEach(card => {
                         const cardLabel = `${suitNames[suit]} ${card}`;
                         
-                        if (isPlayPhase && canPlayFromThisPosition) {
-                            html += `
-                                <button 
-                                    class="card-button ${suitClass}"
-                                    onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
-                                    aria-label="${cardLabel}"
-                                >
-                                    ${suitSymbol}${card}
-                                </button>
-                            `;
-                        } else {
-                            html += `
-                                <span class="card-display ${suitClass}" aria-label="${cardLabel}">
-                                    ${suitSymbol}${card}
-                                </span>
-                            `;
-                        }
+if (isPlayPhase && canPlayFromThisPosition) {
+    html += `
+        <button 
+            class="card-button ${suitClass}"
+            onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
+            aria-label="${cardLabel}"
+        >
+            <span class="card-suit">${suitSymbol}</span>
+            <span class="card-rank">${card}</span>
+        </button>
+    `;
+} else {
+    html += `
+        <span class="card-display ${suitClass}" aria-label="${cardLabel}">
+            <span class="card-suit">${suitSymbol}</span>
+            <span class="card-rank">${card}</span>
+        </span>
+    `;
+}
                     });
                 }
             }
@@ -983,9 +985,10 @@
                 html += `
                     <div class="played-card">
                         <div class="player-label">${positionName(card.player)}</div>
-                        <div class="card ${suitClass}">
-                            ${getSuitSymbol(card.suit)}${card.card}
-                        </div>
+<div class="card ${suitClass}">
+    <span class="card-suit">${getSuitSymbol(card.suit)}</span>
+    <span class="card-rank">${card.card}</span>
+</div>
                     </div>
                 `;
             }

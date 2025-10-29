@@ -198,26 +198,49 @@
     padding: 2px 0;
 }
 
-/* Card Button ja Display - KIRKKAAT KONTRASTIT */
+/* Card Button ja Display - PYSTYSUORA ASETTELU */
 .card-button,
 .card-display {
-    padding: 8px 12px;
+    /* Pystysuora flexbox-asettelu */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    
+    /* Mitat - kapeampi mutta korkeampi */
+    padding: 4px 6px;
+    min-width: 32px;
+    max-width: 48px;
+    min-height: 48px;
+    
+    /* Säilytetään ennallaan */
     border: 2px solid #000000;
     border-radius: 4px;
     background: #FFFFFF;
     cursor: pointer;
     font-weight: 800;
-    font-size: 1.1em;
     transition: all 0.2s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    white-space: nowrap;
-    min-width: 24px;
-    max-width: 40px;
     flex-shrink: 1;
     flex-grow: 0;
     flex-basis: auto;
     text-align: center;
     color: #000000;
+}
+
+/* Korttirakenne - symboli ja arvo erikseen */
+.card-suit {
+    font-size: 1.3em;
+    line-height: 1;
+    display: block;
+}
+
+.card-rank {
+    font-size: 1.1em;
+    line-height: 1;
+    display: block;
+    font-weight: 900;
 }
 
 .card-button:hover {
@@ -315,15 +338,32 @@
     letter-spacing: 0.5px;
 }
 
+/* Pelatut kortit - pystysuora asettelu */
 .played-card .card {
-    font-size: 1.4em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    
+    font-size: 1em;
     font-weight: bold;
     padding: 8px 12px;
     border-radius: 3px;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
-    min-width: 32px;
+    min-width: 40px;
+    min-height: 50px;
     text-align: center;
+}
+
+/* Pelatut kortit - symboli ja arvo */
+.played-card .card .card-suit {
+    font-size: 1.4em;
+}
+
+.played-card .card .card-rank {
+    font-size: 1.2em;
 }
 
 /* =================== BIDDING AREA - YLÖS SIJOITETTU =================== */
@@ -483,10 +523,18 @@
     
     .card-button,
     .card-display {
-        padding: 5px 6px;
-        font-size: 0.8em;
-        min-width: 22px;
-        max-width: 35px;
+        padding: 3px 5px;
+        min-width: 28px;
+        max-width: 42px;
+        min-height: 42px;
+    }
+    
+    .card-suit {
+        font-size: 1.2em;
+    }
+    
+    .card-rank {
+        font-size: 1em;
     }
     
     .all-cards-row {
@@ -539,10 +587,18 @@
 
     .card-button,
     .card-display {
-        padding: 4px 5px;
-        font-size: 0.75em;
-        min-width: 20px;
-        max-width: 30px;
+        padding: 3px 4px;
+        min-width: 24px;
+        max-width: 36px;
+        min-height: 38px;
+    }
+    
+    .card-suit {
+        font-size: 1.1em;
+    }
+    
+    .card-rank {
+        font-size: 0.9em;
     }
     
     .all-cards-row {
@@ -588,10 +644,18 @@
     .card-button,
     .card-display {
         padding: 2px 3px;
-        font-size: 0.7em;
-        min-width: 18px;
-        max-width: 26px;
+        min-width: 20px;
+        max-width: 30px;
+        min-height: 34px;
         font-weight: 800;
+    }
+    
+    .card-suit {
+        font-size: 1em;
+    }
+    
+    .card-rank {
+        font-size: 0.8em;
     }
     
     .all-cards-row {
@@ -630,23 +694,23 @@
     .position-area,
     #game-header,
     #game-chat-area {
-        background: #ffffff;        /* ← Valkoinen */
+        background: #ffffff;
         border-color: #e2e8f0;
-        color: #1f2937;             /* ← Tumma teksti */
+        color: #1f2937;
     }
     
     .hand-header {
-        color: #1f2937;             /* ← Tumma teksti vaalealla taustalla */
+        color: #1f2937;
         border-bottom-color: #e5e7eb;
     }
     
     .position-area.is-dummy {
-        background: #e8f4f8;        /* ← Vaalea sininen (sama kuin light modessa) */
+        background: #e8f4f8;
         border-color: #005fcc;
     }
     
     #bottom-position-area {
-        background: #fefce8;        /* ← Vaalea keltainen (sama kuin light modessa) */
+        background: #fefce8;
         border-color: #eab308;
     }
     
@@ -656,7 +720,7 @@
     }
     
     .side-position {
-        background: #f8fafc;        /* ← Vaalea harmaa (sama kuin light modessa) */
+        background: #f8fafc;
         border-color: #e2e8f0;
     }
     
