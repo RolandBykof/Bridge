@@ -1410,7 +1410,7 @@ if (isPlayPhase && canPlayFromThisPosition) {
                 { key: 'Alt + T', desc: 'Announce dummy entire hand (all suits)' },
                 
                 { key: '', desc: '--- Game: Information Commands ---' },
-                { key: 'Alt + Z', desc: 'Announce cards in current trick' },
+                { key: 'Alt + C', desc: 'Announce cards in current trick' },
                 { key: 'Alt + X', desc: 'Announce game state and contract' },
                 { key: 'Alt + V', desc: 'Announce current player' },
                 { key: 'Alt + O', desc: 'Announce current score (tricks won)' },
@@ -1928,7 +1928,7 @@ if (isPlayPhase && canPlayFromThisPosition) {
                     }
 
                     // Game state shortcuts
-                    if (e.altKey && e.key.toLowerCase() === 'z') {
+                    if (e.altKey && e.key.toLowerCase() === 'c') {
                         e.preventDefault();
                         announceCurrentTrick();
                         return;
