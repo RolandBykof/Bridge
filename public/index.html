@@ -2062,11 +2062,8 @@ if (isPlayPhase && canPlayFromThisPosition) {
                 } else if (currentView === 'join-table' && e.altKey && e.key.toLowerCase() === 'j') {
                     e.preventDefault();
                     joinTable();
-                } else if (currentView === 'waiting-room') {
-                    if (e.altKey && e.key.toLowerCase() === 's') {
-                        e.preventDefault();
-                        startGameFromWaiting();
-                    } else if (e.altKey && e.key.toLowerCase() === 'l') {
+                } 
+else if (e.altKey && e.key.toLowerCase() === 'l') {
                         e.preventDefault();
                         leaveTableFromWaiting();
                     } else if (e.altKey && e.key.toLowerCase() === 'c') {
