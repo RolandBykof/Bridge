@@ -136,6 +136,13 @@
                 <span id="aaniStatus" role="status" aria-live="polite">Disabled</span>
             </div>
             
+            <!-- Speech synthesizer settings -->
+            <div>
+                <input type="checkbox" id="useSynthesizer">
+                <label for="useSynthesizer">Use synthesizer</label>
+                <span id="synthStatus" role="status" aria-live="polite">Disabled</span>
+            </div>
+            
             <!-- Chat -->
             <div>
                 <h3>Chat</h3>
@@ -229,6 +236,8 @@
     <script>
         // GLOBAL STATE
         let aanetAlustettu = false;
+        let useSynthesizerEnabled = false;
+        let speechSynthesis = window.speechSynthesis;
         const sounds = {
             deal: new Howl({ src: ['/deal.mp3'], volume: 0.5 }),
             hit: new Howl({ src: ['/hit.mp3'], volume: 0.5 })
@@ -287,6 +296,7 @@
 
                 setTimeout(() => {
                     document.getElementById('status-announcer').textContent = announcement.message;
+                    speakMessage(announcement.message);
                     this.currentTimeout = setTimeout(() => {
                         this.processNext();
                     }, announcement.estimatedDuration);
@@ -311,6 +321,26 @@
             }
         };
 
+
+        // SPEECH SYNTHESIS FUNCTION
+        function speakMessage(message) {
+            if (!useSynthesizerEnabled || !speechSynthesis) {
+                return;
+            }
+            
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+            
+            // Create utterance
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.lang = 'en-US';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            
+            // Speak the message
+            speechSynthesis.speak(utterance);
+        }
         function announceToScreenReader(message) {
             announcementQueue.add(message);
         }
@@ -1538,6 +1568,22 @@ if (isPlayPhase && canPlayFromThisPosition) {
             }
         }
 
+        function muutaSyntetisaattoriAsetukset() {
+            const checkbox = document.getElementById('useSynthesizer');
+            const statusTeksti = document.getElementById('synthStatus');
+            
+            useSynthesizerEnabled = checkbox.checked;
+            statusTeksti.textContent = useSynthesizerEnabled ? 'Enabled' : 'Disabled';
+            
+            // Save setting to localStorage
+            localStorage.setItem('useSynthesizer', useSynthesizerEnabled.toString());
+            
+            // Announce the change
+            if (useSynthesizerEnabled) {
+                speakMessage('Synthesizer enabled');
+            }
+        }
+
         // ADVANCED FUNCTIONS FOR KEYBOARD SHORTCUTS
         
         /**
@@ -2506,6 +2552,7 @@ updateWaitingRoomPositions(data.table);
         // INITIALIZATION
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('aanetKaytossa').addEventListener('change', muutaAaniAsetukset);
+            document.getElementById('useSynthesizer').addEventListener('change', muutaSyntetisaattoriAsetukset);
 
             setupKeyboardListeners();
             connectToServer();
@@ -2573,6 +2620,14 @@ updateWaitingRoomPositions(data.table);
             if (savedName) {
                 document.getElementById('create-name-input').value = savedName;
                 document.getElementById('join-name-input').value = savedName;
+            }
+            
+            // Load saved synthesizer setting
+            const savedSynth = localStorage.getItem('useSynthesizer');
+            if (savedSynth === 'true') {
+                document.getElementById('useSynthesizer').checked = true;
+                useSynthesizerEnabled = true;
+                document.getElementById('synthStatus').textContent = 'Enabled';
             }
             
             setTimeout(() => {
