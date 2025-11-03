@@ -129,12 +129,9 @@
     flex-shrink: 0;
 }
 
-#left-position-area,
-#right-position-area {
-    flex: 0 0 100px;
-    min-width: 80px;
-    display: flex;
-    flex-direction: column;
+#left-position-area .all-cards-row,
+#right-position-area .all-cards-row {
+    flex-direction: column;  /* Kortit pystysuoraan */
     align-items: center;
 }
 
