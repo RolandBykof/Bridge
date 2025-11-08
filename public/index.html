@@ -256,7 +256,6 @@
         let selectedCreatePosition = 'south';
         let selectedJoinPosition = null;
         let availableJoinPositions = [];
-        let trickClearTimeout = null;
         let lastAnnouncementTime = 0;
         let socket = null;
 
@@ -2463,55 +2462,53 @@ updateWaitingRoomPositions(data.table);
                 renderAllHands();
             });
 
-            socket.on('cardPlayed', (data) => {
-                if (trickClearTimeout) {
-                    clearTimeout(trickClearTimeout);
-                    trickClearTimeout = null;
-                }
-                
-                if (!gameState.currentTrick) gameState.currentTrick = [];
-                gameState.currentTrick = data.currentTrick;
-                
-                if (gameState.hands[data.position]) {
-                    const suitCards = gameState.hands[data.position][data.suit];
-                    if (suitCards) {
-                        const index = suitCards.indexOf(data.card);
-                        if (index > -1) {
-                            suitCards.splice(index, 1);
-                        }
-                    }
-                }
-                
-                renderAllHands();
-                updateCurrentTrickDisplay();
+socket.on('cardPlayed', (data) => {
+    // ← POISTETTU: trickClearTimeout käsittely
+    
+    if (!gameState.currentTrick) gameState.currentTrick = [];
+    
+    // Päivitä tikki (tyhjentää automaattisesti jos uusi tikki alkaa)
+    gameState.currentTrick = data.currentTrick;
+    
+    if (gameState.hands[data.position]) {
+        const suitCards = gameState.hands[data.position][data.suit];
+        if (suitCards) {
+            const index = suitCards.indexOf(data.card);
+            if (index > -1) {
+                suitCards.splice(index, 1);
+            }
+        }
+    }
+    
+    renderAllHands();
+    updateCurrentTrickDisplay();
 
-                announceToScreenReader(`${positionName(data.position)} ${getSuitName(data.suit)} ${data.card}`);
-            });
+    announceToScreenReader(`${positionName(data.position)} ${getSuitName(data.suit)} ${data.card}`);
+});
 
-            socket.on('trickComplete', (data) => {
-                if (trickClearTimeout) {
-                    clearTimeout(trickClearTimeout);
-                    trickClearTimeout = null;
-                }
-                
-                gameState.currentTrick = [];
-                gameState.tricks = data.tricks;
-                gameState.currentPlayer = data.nextPlayer;
-                
-                updateGameUI();
-                updateCurrentTrickDisplay();
-                
-                const winner = positionName(data.winner);
-                const next = positionName(data.nextPlayer);
-                
-                const isUserNext = (data.nextPlayer === myPosition) || 
-                                 (data.nextPlayer === gameState.dummy && gameState.declarer === myPosition);
-                
-                const message = isUserNext ? `${winner} won. Your turn.` : `${winner} won. ${next} plays.`;
-                
-                announceToScreenReader(message);
-                updateStatus();
-            });
+socket.on('trickComplete', (data) => {
+    // ← POISTETTU: trickClearTimeout käsittely
+    
+    // ÄLÄ tyhjennä currentTrick - se tyhjennetään cardPlayed:ssa
+    // gameState.currentTrick = [];
+    
+    gameState.tricks = data.tricks;
+    gameState.currentPlayer = data.nextPlayer;
+    
+    updateGameUI();
+    // updateCurrentTrickDisplay(); // Kortit pysyvät näkyvissä
+    
+    const winner = positionName(data.winner);
+    const next = positionName(data.nextPlayer);
+    
+    const isUserNext = (data.nextPlayer === myPosition) || 
+                     (data.nextPlayer === gameState.dummy && gameState.declarer === myPosition);
+    
+    const message = isUserNext ? `${winner} won. Your turn.` : `${winner} won. ${next} plays.`;
+    
+    announceToScreenReader(message);
+    updateStatus();
+});
 
             socket.on('nextPlayer', (data) => {
                 gameState.currentPlayer = data.currentPlayer;
