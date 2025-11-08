@@ -2392,7 +2392,7 @@ updateWaitingRoomPositions(data.table);
                 updateGameUI();
                 renderBiddingUI();
                 
-                announceToScreenReader('Game started. Bidding begins.');
+announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer)}.`);
             });
 
             socket.on('yourCards', (data) => {
@@ -2538,7 +2538,7 @@ socket.on('trickComplete', (data) => {
                 
                 document.getElementById('game-bidding-area').style.display = 'block';
                 
-                announceToScreenReader(`Deal ${dealNumber}. ${positionName(currentDealer)} deals. Bidding begins.`);
+announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer)}.`);
             });
 
             socket.on('dealError', (data) => {
