@@ -2403,7 +2403,6 @@ announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer
                 gameState.hands[data.position] = data.cards;
                 renderAllHands();
                 toistaAani('deal');
-                announceToScreenReader('Cards dealt');
             });
 
             socket.on('dummyRevealed', (data) => {
