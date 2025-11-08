@@ -1585,7 +1585,16 @@ if (isPlayPhase && canPlayFromThisPosition) {
             }
         }
 
-        // ADVANCED FUNCTIONS FOR KEYBOARD SHORTCUTS
+/**
+ * Returns suit name in singular or plural form
+ */
+function getSuitNameWithCount(suit, count) {
+    const singular = { spades: 'Spade', hearts: 'Heart', diamonds: 'Diamond', clubs: 'Club' };
+    const plural = { spades: 'Spades', hearts: 'Hearts', diamonds: 'Diamonds', clubs: 'Clubs' };
+    
+    return count === 1 ? singular[suit] : plural[suit];
+}
+
         
         /**
          * Announces cards in a specific suit from a hand AND focuses on lowest card
@@ -1613,45 +1622,49 @@ const message = `No ${getSuitName(suit)}s.`;
                 return;
             }
             
-const message = `${cards.length} ${getSuitName(suit)}s: ${cards.join(', ')}`;
+const message = `${cards.length} ${getSuitNameWithCount(suit, cards.length)}: ${cards.join(', ')}`;
             announceToScreenReader(message);
             
             // Focus on lowest card
             focusOnLowestCard(position, suit);
         }
 
-        /**
-         * Announces all cards in a hand
-         */
-        function announceEntireHand(position) {
-            const canViewCards = canViewHandCards(position);
-            
-            if (!canViewCards) {
-                const message = `Cannot view ${positionName(position)}'s cards at this time.`;
-                announceToScreenReader(message);
-                return;
-            }
-            
-            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
-            if (!hand) {
-                announceToScreenReader(`No cards available for ${positionName(position)}.`);
-                return;
-            }
-            
-let message = `Your hand: `;
-
-for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-    const cards = hand[suit] || [];
-    message += `${cards.length} ${getSuitName(suit)}s`;
-    if (cards.length > 0) {
-        message += `: ${cards.join(', ')}. `;
-    } else {
-        message += `. `;
+/**
+ * Announces all cards in a hand
+ */
+function announceEntireHand(position) {
+    const canViewCards = canViewHandCards(position);
+    
+    if (!canViewCards) {
+        const message = `Cannot view ${positionName(position)}'s cards at this time.`;
+        announceToScreenReader(message);
+        return;
     }
-}
-            
-            announceToScreenReader(message);
+    
+    const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+    if (!hand) {
+        announceToScreenReader(`No cards available for ${positionName(position)}.`);
+        return;
+    }
+    
+    let message = `Your hand: `;
+    const suitMessages = [];
+    
+    for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+        const cards = hand[suit] || [];
+        const count = cards.length;
+        const suitName = getSuitNameWithCount(suit, count);
+        
+        if (count > 0) {
+            suitMessages.push(`${count} ${suitName}: ${cards.join(', ')}`);
+        } else {
+            suitMessages.push(`0 ${suitName}`);
         }
+    }
+    
+    message += suitMessages.join('. ') + '.';
+    announceToScreenReader(message);
+}
 
         function announceCurrentTrick() {
             try {
