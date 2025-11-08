@@ -1638,16 +1638,17 @@ const message = `${cards.length} ${getSuitName(suit)}s: ${cards.join(', ')}`;
                 return;
             }
             
-            let message = `${positionName(position)}'s hand: `;
-            
-            for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
-                const cards = hand[suit] || [];
-                if (cards.length > 0) {
-                    message += `${getSuitName(suit)}s: ${cards.join(', ')}. `;
-                } else {
-                    message += `No ${getSuitName(suit)}s. `;
-                }
-            }
+let message = `Your hand: `;
+
+for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
+    const cards = hand[suit] || [];
+    message += `${cards.length} ${getSuitName(suit)}s`;
+    if (cards.length > 0) {
+        message += `: ${cards.join(', ')}. `;
+    } else {
+        message += `. `;
+    }
+}
             
             announceToScreenReader(message);
         }
