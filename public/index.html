@@ -1608,12 +1608,12 @@ if (isPlayPhase && canPlayFromThisPosition) {
             const cards = hand[suit] || [];
             
             if (cards.length === 0) {
-                const message = `${positionName(position)} has no ${getSuitName(suit)}s.`;
+const message = `No ${getSuitName(suit)}s.`;
                 announceToScreenReader(message);
                 return;
             }
             
-            const message = `${positionName(position)}'s ${getSuitName(suit)}s: ${cards.join(', ')}`;
+const message = `${cards.length} ${getSuitName(suit)}s: ${cards.join(', ')}`;
             announceToScreenReader(message);
             
             // Focus on lowest card
