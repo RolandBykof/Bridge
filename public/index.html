@@ -166,19 +166,7 @@
                 </div>
             </div>
             
-            <!-- Bidding Area -->
-            <section id="game-bidding-area" style="display: none;">
-                <h2>Bidding</h2>
-                <div id="game-bidding-history">
-                    <h3>History</h3>
-                    <p>No bids yet.</p>
-                </div>
-                <div id="game-bidding-controls">
-                    <h3>Your Bid</h3>
-                    <p>Waiting...</p>
-                </div>
-            </section>
-            
+           
             <!-- Game Layout: Top Position -->
             <div id="top-position-area" class="position-area">
                 <!-- Top player rendered here -->
@@ -190,20 +178,33 @@
                     <!-- Left player rendered here -->
                 </div>
                 
-                <!-- Center Play Area -->
-                <div id="play-area">
-                    <div id="contract-info" style="display: none;">
-                        <span id="contract-display"></span>
-                        <span id="declarer-info"></span>
-                    </div>
-                    
-                    <!-- Current Trick Display -->
-                    <div id="current-trick-area">
-                        <div id="game-played-cards-container">
-                            <p>No cards played yet.</p>
-                        </div>
-                    </div>
-                </div>
+<!-- Center Play Area -->
+<div id="play-area">
+    <!-- Bidding Area - UUSI SIJAINTI -->
+    <section id="game-bidding-area" style="display: none;">
+        <h2>Bidding</h2>
+        <div id="game-bidding-history">
+            <h3>History</h3>
+            <p>No bids yet.</p>
+        </div>
+        <div id="game-bidding-controls">
+            <h3>Your Bid</h3>
+            <p>Waiting...</p>
+        </div>
+    </section>
+    
+    <div id="contract-info" style="display: none;">
+        <span id="contract-display"></span>
+        <span id="declarer-info"></span>
+    </div>
+    
+    <!-- Current Trick Display -->
+    <div id="current-trick-area">
+        <div id="game-played-cards-container">
+            <p>No cards played yet.</p>
+        </div>
+    </div>
+</div>
                 
                 <div id="right-position-area" class="position-area side-position">
                     <!-- Right player rendered here -->
