@@ -1704,7 +1704,9 @@ function announceEntireHand(position) {
             } else if (gameState.gamePhase === 'bidding') {
                 message += `Current bidder: ${positionName(biddingState ? biddingState.currentBidder : 'unknown')}.`;
             }
-            
+                if (myPosition) {
+        message += ` You are ${positionName(myPosition)}.`;
+    }
             announceToScreenReader(message);
         }
 
