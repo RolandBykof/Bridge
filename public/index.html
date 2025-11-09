@@ -835,9 +835,8 @@
                 return;
             }
             
-            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
-                const leadSuit = gameState.currentTrick[0].suit;
-                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.currentTrick.length < 4) {                const leadSuit = gameState.currentTrick[0].suit;
+               if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
                     showErrorWithAnnouncement(`Must follow suit: ${getSuitName(leadSuit)}`);
                     return;
                 }
