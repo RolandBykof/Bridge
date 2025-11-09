@@ -1664,6 +1664,45 @@ function announceEntireHand(position) {
     announceToScreenReader(message);
 }
 
+/**
+ * Announces the bidding history
+ */
+function announceBiddingHistory() {
+    if (!biddingState || !biddingState.bidHistory || biddingState.bidHistory.length === 0) {
+        announceToScreenReader('No bids yet.');
+        return;
+    }
+    
+    const positions = ['west', 'north', 'east', 'south'];
+    const dealerIndex = positions.indexOf(biddingState.dealer || 'south');
+    
+    let parts = [];
+    let currentPosition = dealerIndex;
+    
+    for (const bidObj of biddingState.bidHistory) {
+        const position = positions[currentPosition];
+        const posName = positionName(position);
+        
+        let bidText;
+        if (bidObj.bid === 'P') {
+            bidText = 'passes';
+        } else if (bidObj.bid === 'X') {
+            bidText = 'doubles';
+        } else if (bidObj.bid === 'XX') {
+            bidText = 'redoubles';
+        } else {
+            bidText = formatBid(bidObj.bid);
+        }
+        
+        parts.push(`${posName} ${bidText}`);
+        
+        currentPosition = (currentPosition + 1) % 4;
+    }
+    
+    const message = parts.join(', ') + '.';
+    announceToScreenReader(message);
+}
+
         function announceCurrentTrick() {
             try {
                 if (!gameState || !gameState.currentTrick || !Array.isArray(gameState.currentTrick) || gameState.currentTrick.length === 0) {
@@ -1989,11 +2028,16 @@ function announceEntireHand(position) {
                     }
 
                     // Game state shortcuts
-                    if (e.altKey && e.key.toLowerCase() === 'c') {
-                        e.preventDefault();
-                        announceCurrentTrick();
-                        return;
-                    }
+if (e.altKey && e.key.toLowerCase() === 'c') {
+    e.preventDefault();
+    // Tarjousvaiheessa: lue tarjoushistoria, pelivaiheessa: lue nykyinen tikki
+    if (gameState && gameState.gamePhase === 'bidding') {
+        announceBiddingHistory();
+    } else {
+        announceCurrentTrick();
+    }
+    return;
+}
                     if (e.altKey && e.key.toLowerCase() === 'x') {
                         e.preventDefault();
                         announceGameState();
