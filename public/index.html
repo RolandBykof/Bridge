@@ -805,50 +805,57 @@
             return false;
         }
 
-        function attemptToPlayCard(suit, card, fromPosition) {
-            if (!tableCode || !gameState || gameState.gamePhase !== 'play') {
-                showErrorWithAnnouncement('Cannot play card now');
-                return;
-            }
-            
-            const actualPosition = fromPosition || myPosition;
-            const currentPlayer = gameState.currentPlayer;
-            
-            let isValidTurn = false;
-            
-            if (currentPlayer === myPosition && actualPosition === myPosition) {
-                isValidTurn = true;
-            } else if (currentPlayer === gameState.dummy && actualPosition === gameState.dummy) {
-                if (gameState.declarer === myPosition) {
-                    isValidTurn = true;
-                }
-            }
-            
-            if (!isValidTurn) {
-                showErrorWithAnnouncement(`It's ${positionName(currentPlayer)}'s turn`);
-                return;
-            }
-            
-            const hand = gameState.hands[actualPosition];
-            if (!hand || !hand[suit] || !hand[suit].includes(card)) {
-                showErrorWithAnnouncement(`You don't have ${getSuitName(suit)} ${card}`);
-                return;
-            }
-            
-if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.currentTrick.length < 4) {                const leadSuit = gameState.currentTrick[0].suit;
-               if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
-                    showErrorWithAnnouncement(`Must follow suit: ${getSuitName(leadSuit)}`);
-                    return;
-                }
-            }
-            
-            socket.emit('playCard', {
-                tableCode: tableCode,
-                position: actualPosition,
-                suit: suit,
-                card: card
-            });
+function attemptToPlayCard(suit, card, fromPosition) {
+    if (!tableCode || !gameState || gameState.gamePhase !== 'play') {
+        showErrorWithAnnouncement('Cannot play card now');
+        return;
+    }
+    
+    const actualPosition = fromPosition || myPosition;
+    const currentPlayer = gameState.currentPlayer;
+    
+    let isValidTurn = false;
+    
+    if (currentPlayer === myPosition && actualPosition === myPosition) {
+        isValidTurn = true;
+    } else if (currentPlayer === gameState.dummy && actualPosition === gameState.dummy) {
+        if (gameState.declarer === myPosition) {
+            isValidTurn = true;
         }
+    }
+    
+    if (!isValidTurn) {
+        showErrorWithAnnouncement(`It's ${positionName(currentPlayer)}'s turn`);
+        return;
+    }
+    
+    const hand = gameState.hands[actualPosition];
+    if (!hand || !hand[suit] || !hand[suit].includes(card)) {
+        showErrorWithAnnouncement(`You don't have ${getSuitName(suit)} ${card}`);
+        return;
+    }
+    
+    // ← UUSI: Jos tikki on täysi (4 korttia), tyhjennä se - uusi tikki alkaa
+    if (gameState.currentTrick && gameState.currentTrick.length === 4) {
+        gameState.currentTrick = [];
+    }
+    
+    // Tarkista maa-vaatimus
+    if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+        const leadSuit = gameState.currentTrick[0].suit;
+        if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+            showErrorWithAnnouncement(`Must follow suit: ${getSuitName(leadSuit)}`);
+            return;
+        }
+    }
+    
+    socket.emit('playCard', {
+        tableCode: tableCode,
+        position: actualPosition,
+        suit: suit,
+        card: card
+    });
+}
 
         /**
          * Determine all four position placements based on current player position
