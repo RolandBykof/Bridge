@@ -1005,14 +1005,14 @@ function playCard(socket, playerId, data) {
     return;
   }
   
-  // Check following suit
-  if (table.gameState.currentTrick.length > 0) {
+// Check following suit (only if trick is in progress, not complete)
+if (table.gameState.currentTrick.length > 0 && table.gameState.currentTrick.length < 4) {
     const leadingSuit = table.gameState.currentTrick[0].suit;
     if (suit !== leadingSuit && hand[leadingSuit] && hand[leadingSuit].length > 0) {
       sendError(socket, 'You must follow suit');
       return;
     }
-  }
+}
   
   // Process card play
   processCardPlay(table, position, suit, card);
