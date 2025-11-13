@@ -1868,13 +1868,15 @@ function announceBiddingHistory() {
                 return;
             }
             
-            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
-                const leadSuit = gameState.currentTrick[0].suit;
-                if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
-                    announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
-                    return;
-                }
-            }
+// Tarkista maa-vaatimus vain jos tikki on käynnissä (1-3 korttia)
+// Jos tikissä on 4 korttia, se on valmis ja uusi tikki alkaa
+if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.currentTrick.length < 4) {
+    const leadSuit = gameState.currentTrick[0].suit;
+    if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
+        showErrorWithAnnouncement(`Must follow suit: ${getSuitName(leadSuit)}`);
+        return;
+    }
+}
             
             const highestCard = findHighestCard(cards);
             
