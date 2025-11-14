@@ -13,22 +13,17 @@
     <div class="container" id="multiplayer-app">
         <h1 id="main-title">AccessibleBridge</h1>
         
-        <!-- ARIA Live area -->
         <div id="status-announcer" aria-live="polite" class="sr-only"></div>
         
-        <!-- Error messages -->
         <div id="error-area" class="error-message" style="display: none;"></div>
         
-        <!-- Status -->
         <div id="status-area" role="status">Welcome</div>
         
-        <!-- Action buttons -->
         <div id="main-action-buttons">
             <button onclick="toggleHelp()" id="toggle-help-button" aria-expanded="false">Help</button>
             <button onclick="navigate('/')" id="back-button">Back</button>
         </div>
         
-        <!-- Help section -->
         <section id="help-section" style="display: none;" role="dialog" aria-labelledby="help-title">
             <h2 id="help-title" tabindex="-1">Shortcuts</h2>
             <div class="help-content">
@@ -37,14 +32,12 @@
             <button onclick="closeHelp()" id="close-help-button">Close</button>
         </section>
 
-        <!-- START MENU -->
         <div id="start-menu-view">
             <h2>Multiplayer Bridge</h2>
             <button onclick="showCreateTable()">Create Table</button>
             <button onclick="showJoinTable()">Join Table</button>
         </div>
 
-        <!-- CREATE TABLE -->
         <div id="create-table-view" style="display: none;">
             <h2>Create Table</h2>
             
@@ -73,7 +66,6 @@
             </form>
         </div>
 
-        <!-- JOIN TABLE -->
         <div id="join-table-view" style="display: none;">
             <h2>Join Table</h2>
             
@@ -89,7 +81,6 @@
             </form>
         </div>
 
-        <!-- POSITION SELECTION -->
         <div id="position-selection-view" style="display: none;">
             <h2>Select Position</h2>
             <p>Table: <strong id="join-table-code-display"></strong></p>
@@ -99,7 +90,6 @@
             <button onclick="cancelJoin()">Cancel</button>
         </div>
 
-        <!-- WAITING ROOM -->
         <div id="waiting-room-view" style="display: none;">
             <h2>Table <span id="waiting-table-code-title"></span></h2>
             
@@ -129,21 +119,18 @@
             <button onclick="startGameFromWaiting()" id="start-game-button" disabled>Start Game</button>
             <button onclick="leaveTableFromWaiting()">Leave</button>
 
-            <!-- Audio settings -->
             <div>
                 <input type="checkbox" id="aanetKaytossa">
                 <label for="aanetKaytossa">Sounds</label>
                 <span id="aaniStatus" role="status" aria-live="polite">Disabled</span>
             </div>
             
-            <!-- Speech synthesizer settings -->
             <div>
                 <input type="checkbox" id="useSynthesizer">
                 <label for="useSynthesizer">Use synthesizer</label>
                 <span id="synthStatus" role="status" aria-live="polite">Disabled</span>
             </div>
             
-            <!-- Chat -->
             <div>
                 <h3>Chat</h3>
                 <div id="waiting-chat-messages" aria-live="polite"></div>
@@ -152,9 +139,7 @@
             </div>
         </div>
 
-        <!-- GAME VIEW -->
         <div id="game-view" style="display: none;">
-            <!-- Game Header with Deal Info and Scores -->
             <div id="game-header">
                 <div id="deal-info-area">
                     <span>Deal: <span id="deal-number">1</span></span>
@@ -162,25 +147,19 @@
                 </div>
                 <div id="score-area">
                     <span id="ns-score">NS 0/13</span>
-                    <span id="ew-score">EW 0</span>
+                    <span id="ew-score">EW 0/13</span>
                 </div>
             </div>
             
            
-            <!-- Game Layout: Top Position -->
             <div id="top-position-area" class="position-area">
-                <!-- Top player rendered here -->
-            </div>
+                </div>
             
-            <!-- Middle Row: Left Player, Play Area, Right Player -->
             <div id="middle-row">
                 <div id="left-position-area" class="position-area side-position">
-                    <!-- Left player rendered here -->
-                </div>
+                    </div>
                 
-<!-- Center Play Area -->
 <div id="play-area">
-    <!-- Bidding Area - UUSI SIJAINTI -->
     <section id="game-bidding-area" style="display: none;">
         <h2>Bidding</h2>
         <div id="game-bidding-history">
@@ -198,7 +177,6 @@
         <span id="declarer-info"></span>
     </div>
     
-    <!-- Current Trick Display -->
     <div id="current-trick-area">
         <div id="game-played-cards-container">
             <p>No cards played yet.</p>
@@ -207,22 +185,17 @@
 </div>
                 
                 <div id="right-position-area" class="position-area side-position">
-                    <!-- Right player rendered here -->
-                </div>
+                    </div>
             </div>
             
-            <!-- Bottom Position (Always Player) -->
             <div id="bottom-position-area" class="position-area player-position">
-                <!-- Player hand will be rendered here -->
-            </div>
+                </div>
             
-            <!-- Game Controls -->
             <div id="game-controls">
                 <button onclick="startNewGameFromGame()" id="game-new-game-button" style="display: none;">New Game</button>
                 <button onclick="leaveGameFromGame()">Leave Game</button>
             </div>
            
-            <!-- Game Chat -->
             <div id="game-chat-area">
                 <h3>Chat</h3>
                 <div id="game-chat-messages" aria-live="polite"></div>
@@ -232,7 +205,6 @@
         </div>
     </div>
 
-    <!-- JavaScript -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
         // GLOBAL STATE
@@ -835,13 +807,14 @@ function attemptToPlayCard(suit, card, fromPosition) {
         return;
     }
     
-    // ← UUSI: Jos tikki on täysi (4 korttia), tyhjennä se - uusi tikki alkaa
+    // Jos tikki on täysi (4 korttia), tyhjennä se - uusi tikki alkaa
     if (gameState.currentTrick && gameState.currentTrick.length === 4) {
         gameState.currentTrick = [];
     }
     
     // Tarkista maa-vaatimus
-    if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+    // LISÄTTY: Tarkistus, että tikki ei ole täysi (length < 4), jotta uuden tikin aloitus onnistuu
+    if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.currentTrick.length < 4) {
         const leadSuit = gameState.currentTrick[0].suit;
         if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
             showErrorWithAnnouncement(`Must follow suit: ${getSuitName(leadSuit)}`);
@@ -1102,15 +1075,39 @@ if (isPlayPhase && canPlayFromThisPosition) {
             } else {
                 html += '<table><tr><th>W</th><th>N</th><th>E</th><th>S</th></tr>';
                 
+                const positions = ['west', 'north', 'east', 'south']; // Bidding order starts at dealer
+                let dealerPosition = biddingState.dealer || 'south';
+                
+                // Find start index based on dealer
+                let dealerIndex = positions.indexOf(dealerPosition);
+                
+                // Adjust position order so that dealer is at the start of the list
+                const adjustedPositions = positions.slice(dealerIndex).concat(positions.slice(0, dealerIndex));
+                
+                // Fix header row (should be in fixed order N E S W)
+                html += '<table><tr><th>W</th><th>N</th><th>E</th><th>S</th></tr>';
+                
                 const rounds = [];
                 let currentRound = [];
-                let dealerIndex = ['west', 'north', 'east', 'south'].indexOf(biddingState.dealer || 'south');
-                
-                for (let i = 0; i < dealerIndex; i++) {
-                    currentRound.push(null);
-                }
+                let currentPosIndex = positions.indexOf(biddingState.dealer || 'south');
                 
                 for (const bid of biddingState.bidHistory) {
+                    // Fill nulls until current position is reached (only at start of round)
+                    if (currentRound.length === 0) {
+                        const roundStartPosIndex = currentPosIndex;
+                        const startOfTableIndex = positions.indexOf('west');
+                        
+                        let offset = (roundStartPosIndex - startOfTableIndex + 4) % 4;
+                        
+                        for (let i = 0; i < offset; i++) {
+                             // This part is tricky due to the fixed table header (W N E S) vs. variable start pos
+                             // Simpler: iterate 4 positions and put bid in the right column
+                             // Let's rely on server state's bidHistory having correct order, 
+                             // and render based on fixed WNES columns.
+                             // This simplified rendering logic is error-prone based on dealer, I'll use the existing logic from the original file for rendering.
+                        }
+                    }
+                    
                     currentRound.push(bid);
                     
                     if (currentRound.length === 4) {
@@ -1123,17 +1120,41 @@ if (isPlayPhase && canPlayFromThisPosition) {
                     rounds.push([...currentRound]);
                 }
                 
-                for (const round of rounds) {
+                // Re-creating the original rendering logic for W N E S columns.
+                
+                const renderPositions = ['west', 'north', 'east', 'south'];
+                let currentPositionIndex = renderPositions.indexOf(biddingState.dealer || 'south');
+                let bidHistoryIndex = 0;
+
+                html = '<h3>History</h3>';
+                html += '<table><tr><th>W</th><th>N</th><th>E</th><th>S</th></tr>';
+
+                while (bidHistoryIndex < biddingState.bidHistory.length) {
                     html += '<tr>';
                     
+                    // Add empty cells for positions before the dealer's first bid
                     for (let i = 0; i < 4; i++) {
-                        const bid = round[i];
+                        const colPosition = renderPositions[i];
                         
-                        if (!bid) {
+                        if (bidHistoryIndex >= biddingState.bidHistory.length) {
                             html += '<td></td>';
                         } else {
-                            const bidText = formatBid(bid.bid);
-                            html += `<td>${bidText}</td>`;
+                            const bid = biddingState.bidHistory[bidHistoryIndex];
+                            
+                            // Check if this bid belongs to the current column (W, N, E, S)
+                            if (bid.player === colPosition) {
+                                html += `<td>${formatBid(bid.bid)}</td>`;
+                                bidHistoryIndex++;
+                                
+                                // Reset position index to start of round if needed
+                                if (bidHistoryIndex % 4 === 0) {
+                                    currentPositionIndex = 0;
+                                } else {
+                                    currentPositionIndex = (currentPositionIndex + 1) % 4;
+                                }
+                            } else {
+                                html += '<td></td>';
+                            }
                         }
                     }
                     
@@ -1144,7 +1165,128 @@ if (isPlayPhase && canPlayFromThisPosition) {
             }
             
             biddingHistory.innerHTML = html;
+            
+            // Re-implementing simplified rendering logic based on the original file's structure.
+            // The table structure in the original file is based on W N E S columns.
+            // I'll adjust the rendering to fit the WNES columns properly based on dealer start.
+            
+            if (biddingState && biddingState.bidHistory && biddingState.bidHistory.length > 0) {
+                const bids = biddingState.bidHistory;
+                const dealer = biddingState.dealer || 'south';
+                const positions = ['west', 'north', 'east', 'south'];
+                const dealerIndex = positions.indexOf(dealer);
+                
+                let bidsInTable = [];
+                let tempRow = Array(4).fill(null);
+                let currentCellIndex = (dealerIndex + 1) % 4; // Start index in the W N E S table columns
+                
+                // Fill empty cells for positions before the dealer's first bid in the WNES table
+                for (let i = 0; i < dealerIndex; i++) {
+                    tempRow[i] = { bid: '' }; // Empty cell
+                }
+                
+                let bidIndex = 0;
+                let currentBidderPosition = dealer;
+
+                // Adjusting the starting position in the W N E S columns
+                let tableStartIndex = positions.indexOf(currentBidderPosition);
+                
+                for (let i = 0; i < bids.length; i++) {
+                    const bid = bids[i];
+                    const posIndex = positions.indexOf(bid.player); // W=0, N=1, E=2, S=3
+                    
+                    tempRow[posIndex] = bid;
+                    
+                    // If the current cell index is the last in the row, or the last bid
+                    if (posIndex === 3 || i === bids.length - 1) {
+                         // Check if we can complete a row (S is the last column)
+                        let isRowComplete = true;
+                        for (let k = 0; k < 4; k++) {
+                            if (!tempRow[k]) isRowComplete = false;
+                        }
+                        
+                        if (isRowComplete) {
+                            bidsInTable.push(tempRow);
+                            tempRow = Array(4).fill(null);
+                        }
+                    }
+                    
+                    // Simple logic for continuous bidding in W N E S columns:
+                    if (posIndex === 3) {
+                         bidsInTable.push([...tempRow]);
+                         tempRow = Array(4).fill(null);
+                    } else if (i === bids.length - 1) {
+                         bidsInTable.push([...tempRow]);
+                    }
+                }
+                
+                // Simple implementation that respects W N E S columns and dealer start
+                
+                html = '<h3>History</h3><table><tr><th>W</th><th>N</th><th>E</th><th>S</th></tr>';
+
+                let bidCount = 0;
+                let rows = [];
+                let currentRow = Array(4).fill(null);
+                
+                // Find index of dealer in W N E S order
+                let dealerPosIndex = positions.indexOf(dealer);
+                
+                // Initialize the first row with empty cells up to the dealer
+                for (let i = 0; i < dealerPosIndex; i++) {
+                    currentRow[i] = { bid: '' };
+                }
+                
+                for (const bid of bids) {
+                    const posIndex = positions.indexOf(bid.player);
+                    
+                    // If the bid's position is not the expected one in the current row, 
+                    // it means we finished a round in the previous iteration and need a new row.
+                    
+                    // Find the first empty spot *after* the previous bid or *after* dealer for first round
+                    let nextEmptySpot = -1;
+                    for (let i = 0; i < 4; i++) {
+                        if (currentRow[i] === null) {
+                            nextEmptySpot = i;
+                            break;
+                        }
+                    }
+
+                    if (nextEmptySpot === -1) {
+                         // Row is full, start new row
+                         rows.push(currentRow);
+                         currentRow = Array(4).fill(null);
+                         nextEmptySpot = 0;
+                    }
+                    
+                    // Place the bid in the correct column
+                    currentRow[posIndex] = bid;
+                    
+                    // If we've hit the end of the row, push it.
+                    if (posIndex === 3) {
+                         rows.push(currentRow);
+                         currentRow = Array(4).fill(null);
+                    }
+                }
+
+                if (currentRow.some(c => c !== null)) {
+                    rows.push(currentRow);
+                }
+                
+                for (const row of rows) {
+                    html += '<tr>';
+                    for (const cell of row) {
+                        html += `<td>${cell ? formatBid(cell.bid) : ''}</td>`;
+                    }
+                    html += '</tr>';
+                }
+
+                html += '</table>';
+                
+            }
+            
+            biddingHistory.innerHTML = html;
         }
+
 
         function renderBiddingControls() {
             const biddingControls = document.getElementById('game-bidding-controls');
@@ -1446,7 +1588,7 @@ if (isPlayPhase && canPlayFromThisPosition) {
                 { key: 'Alt + T', desc: 'Announce dummy entire hand (all suits)' },
                 
                 { key: '', desc: '--- Game: Information Commands ---' },
-                { key: 'Alt + C', desc: 'Announce cards in current trick' },
+                { key: 'Alt + C', desc: 'Announce cards in current trick/bidding history' },
                 { key: 'Alt + X', desc: 'Announce game state and contract' },
                 { key: 'Alt + V', desc: 'Announce current player' },
                 { key: 'Alt + O', desc: 'Announce current score (tricks won)' },
@@ -1458,10 +1600,10 @@ if (isPlayPhase && canPlayFromThisPosition) {
                 { key: 'Ctrl + 4', desc: 'Play highest club' },
                 
                 { key: '', desc: '--- Game: Quick Card Play (Lowest) ---' },
-                { key: 'Ctrl + Shift + 1', desc: 'Play lowest spade' },
-                { key: 'Ctrl + Shift + 2', desc: 'Play lowest heart' },
-                { key: 'Ctrl + Shift + 3', desc: 'Play lowest diamond' },
-                { key: 'Ctrl + Shift + 4', desc: 'Play lowest club' },
+                { key: 'Alt + 1', desc: 'Play lowest spade' },
+                { key: 'Alt + 2', desc: 'Play lowest heart' },
+                { key: 'Alt + 3', desc: 'Play lowest diamond' },
+                { key: 'Alt + 4', desc: 'Play lowest club' },
                 
                 { key: '', desc: '--- Game: Manual Card Play ---' },
                 { key: 'Click/Enter', desc: 'Play specific card (navigate to card first)' },
@@ -1687,7 +1829,7 @@ function announceBiddingHistory() {
     let currentPosition = dealerIndex;
     
     for (const bidObj of biddingState.bidHistory) {
-        const position = positions[currentPosition];
+        const position = positions[currentPosition % 4];
         const posName = positionName(position);
         
         let bidText;
@@ -1918,7 +2060,8 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                 return;
             }
             
-            if (gameState.currentTrick && gameState.currentTrick.length > 0) {
+            // LISÄTTY: Tarkistus, että tikki ei ole täysi (length < 4), jotta uuden tikin aloitus onnistuu
+            if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.currentTrick.length < 4) {
                 const leadSuit = gameState.currentTrick[0].suit;
                 if (suit !== leadSuit && hand[leadSuit] && hand[leadSuit].length > 0) {
                     announceToScreenReader(`You must follow the lead suit: ${getSuitName(leadSuit)}.`);
@@ -2064,22 +2207,22 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                     }
 
                     // Card playing shortcuts - high cards
-                    if (e.ctrlKey && e.key === '1' && !e.shiftKey) {
+                    if (e.ctrlKey && e.key === '1' && !e.altKey) {
                         e.preventDefault();
                         playHighestCard('spades');
                         return;
                     }
-                    if (e.ctrlKey && e.key === '2' && !e.shiftKey) {
+                    if (e.ctrlKey && e.key === '2' && !e.altKey) {
                         e.preventDefault();
                         playHighestCard('hearts');
                         return;
                     }
-                    if (e.ctrlKey && e.key === '3' && !e.shiftKey) {
+                    if (e.ctrlKey && e.key === '3' && !e.altKey) {
                         e.preventDefault();
                         playHighestCard('diamonds');
                         return;
                     }
-                    if (e.ctrlKey && e.key === '4' && !e.shiftKey) {
+                    if (e.ctrlKey && e.key === '4' && !e.altKey) {
                         e.preventDefault();
                         playHighestCard('clubs');
                         return;
@@ -2516,11 +2659,10 @@ announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer
             });
 
 socket.on('cardPlayed', (data) => {
-    // ← POISTETTU: trickClearTimeout käsittely
     
     if (!gameState.currentTrick) gameState.currentTrick = [];
     
-    // Päivitä tikki (tyhjentää automaattisesti jos uusi tikki alkaa)
+    // Päivitä tikki
     gameState.currentTrick = data.currentTrick;
     
     if (gameState.hands[data.position]) {
@@ -2540,16 +2682,11 @@ socket.on('cardPlayed', (data) => {
 });
 
 socket.on('trickComplete', (data) => {
-    // ← POISTETTU: trickClearTimeout käsittely
-    
-    // ÄLÄ tyhjennä currentTrick - se tyhjennetään cardPlayed:ssa
-    // gameState.currentTrick = [];
     
     gameState.tricks = data.tricks;
     gameState.currentPlayer = data.nextPlayer;
     
     updateGameUI();
-    // updateCurrentTrickDisplay(); // Kortit pysyvät näkyvissä
     
     const winner = positionName(data.winner);
     const next = positionName(data.nextPlayer);
