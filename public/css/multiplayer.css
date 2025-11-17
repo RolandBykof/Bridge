@@ -113,7 +113,7 @@
 }
 
 /* Top Position */
-#top-position-area {
+#top-position-rea {
     order: 1;
     min-height: 80px;
 }
@@ -144,11 +144,8 @@
     transition: all 0.3s ease;
 }
 
-/* Bottom Position (Always player) */
 #bottom-position-area {
     order: 3;
-    background-color: #fefce8;
-    border-color: #eab308;
     min-height: 80px;
 }
 
@@ -158,8 +155,6 @@
 }
 
 .position-area.is-dummy {
-    background-color: #bde4f4;
-    border-color: #005fcc;
 }
 
 .position-area.is-current-player {
@@ -786,13 +781,9 @@
     }
     
     .position-area.is-dummy {
-        background: #e8f4f8;
-        border-color: #005fcc;
     }
     
     #bottom-position-area {
-        background: #fefce8;
-        border-color: #eab308;
     }
     
     .position-area.is-current-player {
