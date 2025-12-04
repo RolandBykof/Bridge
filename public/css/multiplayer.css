@@ -110,6 +110,8 @@
     flex-shrink: 0;
     overflow: visible;
     min-height: 60px;
+    /* CHANGE: Animaatio siirretty tänne, jotta se toimii kaikilla alueilla */
+    transition: all 0.3s ease;
 }
 
 /* Top Position */
@@ -141,7 +143,7 @@
     padding: 10px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    transition: all 0.3s ease;
+    /* CHANGE: transition poistettu täältä, koska se on nyt .position-area luokassa */
 }
 
 /* Bottom Position (Always player) - YHTENÄISET VÄRIT */
@@ -168,6 +170,10 @@
     background: #e8f4f8 !important;
     border-color: #005fcc !important;
     box-shadow: 0 2px 4px rgba(0, 95, 204, 0.2) !important;
+    /* CHANGE: Paksumpi reunus erottuu vaikka kortit olisivat tiellä */
+    border-width: 2px !important; 
+    /* Pienennä paddingia 1px, jotta elementti ei hypi koon muuttuessa */
+    padding: 7px !important; 
 }
 
 /* Player name styling */
@@ -295,13 +301,21 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Enhanced Suit Styling - Punainen/Musta */
-.suit-spades, .suit-clubs {
-    color: #000000;
+/* CHANGE: Enhanced Suit Styling - Nelivärinen pakka (Four-Color Deck) */
+.suit-spades {
+    color: #000000; /* Musta */
 }
 
-.suit-hearts, .suit-diamonds {
-    color: #dc2626;
+.suit-hearts {
+    color: #dc2626; /* Punainen */
+}
+
+.suit-clubs {
+    color: #15803d; /* Vihreä - erottuu Padasta */
+}
+
+.suit-diamonds {
+    color: #d97706; /* Oranssi/Kulta - erottuu Hertasta */
 }
 
 /* Central Play Area */
@@ -335,7 +349,7 @@
     width: 100%;
 }
 
-/* START CHANGE: New Grid Layout */
+/* New Grid Layout for Trick Cards */
 .current-trick-cards {
     display: grid;
     /* Määritellään 3x3 ristikko: ylä, ala, vasen, oikea */
@@ -374,10 +388,8 @@
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease;
-    /* Poistetaan vanhat marginaalit */
     margin: 0;
 }
-/* END CHANGE */
 
 .played-card:hover {
     transform: translateY(-1px);
@@ -717,14 +729,6 @@
         min-width: 100%;
     }
 
-    /* CHANGE: Removed grid-template-columns override to keep 3x3 layout */
-    /*
-    .current-trick-cards {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 6px;
-    }
-    */
-
     .card-button,
     .card-display {
         padding: 3px 4px;
@@ -956,14 +960,11 @@
         color: #FFFFFF !important;
     }
     
-    /* Maasymbolit dark modessa */
-    .suit-hearts, .suit-diamonds {
-        color: #dc2626;
-    }
-    
-    .suit-spades, .suit-clubs {
-        color: #000000;
-    }
+    /* CHANGE: Dark Mode Four-Color Deck Colors */
+    .suit-hearts { color: #ef4444; }    /* Kirkkaampi punainen */
+    .suit-diamonds { color: #f59e0b; }  /* Kirkkaampi oranssi/kulta */
+    .suit-clubs { color: #22c55e; }     /* Kirkkaampi vihreä */
+    .suit-spades { color: #e5e7eb; }    /* Vaalea harmaa/valkoinen tummalla taustalla */
     
     #game-chat-messages {
         background: #374151;
