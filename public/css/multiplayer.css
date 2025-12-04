@@ -113,7 +113,7 @@
 }
 
 /* Top Position */
-#top-position-rea {
+#top-position-area {
     order: 1;
     min-height: 80px;
 }
@@ -144,8 +144,10 @@
     transition: all 0.3s ease;
 }
 
+/* Bottom Position (Always player) - YHTENÄISET VÄRIT */
 #bottom-position-area {
     order: 3;
+    /* Käyttää position-area perusvärejä (valkoinen) */
     min-height: 80px;
 }
 
@@ -154,13 +156,18 @@
     min-height: 80px;
 }
 
+/* Dummy - YHTENÄISET VÄRIT */
 .position-area.is-dummy {
+    /* Käyttää position-area perusvärejä (valkoinen) */
 }
 
-.position-area.is-current-player {
-    background: #e8f4f8;
-    border-color: #005fcc;
-    box-shadow: 0 2px 4px rgba(0, 95, 204, 0.2);
+/* KAIKKI alueet vuorolla - YHTENÄINEN SININEN KOROSTUS */
+.position-area.is-current-player,
+#bottom-position-area.is-current-player,
+.position-area.is-dummy.is-current-player {
+    background: #e8f4f8 !important;
+    border-color: #005fcc !important;
+    box-shadow: 0 2px 4px rgba(0, 95, 204, 0.2) !important;
 }
 
 /* Player name styling */
@@ -182,7 +189,36 @@
     border-bottom: 1px solid #e5e7eb;
 }
 
-/* Kaikki kortit yhdellä rivillä */
+/* =================== SIVUALUEIDEN KORTIT RIVEITTÄIN =================== */
+
+/* Sivualueiden kortit pinotaan pystysuoraan */
+#left-position-area .hand-container,
+#right-position-area .hand-container {
+    display: flex;
+    flex-direction: column;  /* Rivit allekkain */
+    gap: 4px;
+    width: 100%;
+    align-items: center;
+}
+
+/* Jokainen maa omalla rivillään sivualueilla */
+#left-position-area .suit-row,
+#right-position-area .suit-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+    justify-content: center;
+}
+
+/* Varmista että kortit eivät mene liian leveiksi sivualueilla */
+#left-position-area .card-button,
+#right-position-area .card-button,
+#left-position-area .card-display,
+#right-position-area .card-display {
+    flex-shrink: 1;
+}
+
+/* Kaikki kortit yhdellä rivillä (top ja bottom) */
 .all-cards-row {
     display: flex;
     flex-wrap: nowrap;
@@ -616,6 +652,17 @@
         padding: 9px 11px;
         font-size: 0.85em;
     }
+    
+    /* Sivualueet tablet */
+    #left-position-area .hand-container,
+    #right-position-area .hand-container {
+        gap: 3px;
+    }
+    
+    #left-position-area .suit-row,
+    #right-position-area .suit-row {
+        gap: 1px;
+    }
 }
 
 /* Mobile View */
@@ -693,6 +740,28 @@
         padding: 8px 10px;
         font-size: 0.8em;
     }
+    
+    /* Sivualueet mobile */
+    #left-position-area .hand-container,
+    #right-position-area .hand-container {
+        gap: 2px;
+    }
+    
+    #left-position-area .suit-row,
+    #right-position-area .suit-row {
+        gap: 1px;
+    }
+    
+    /* Pienemmät kortit sivualueilla mobiilissa */
+    #left-position-area .card-button,
+    #right-position-area .card-button,
+    #left-position-area .card-display,
+    #right-position-area .card-display {
+        min-width: 20px;
+        max-width: 28px;
+        min-height: 34px;
+        padding: 2px 3px;
+    }
 }
 
 /* Small Mobile - KAIKKI 13 KORTTIA NÄKYVIIN */
@@ -756,6 +825,39 @@
     #game-bidding-controls {
         padding: 8px;
     }
+    
+    /* Sivualueet small mobile */
+    #left-position-area .hand-container,
+    #right-position-area .hand-container {
+        gap: 1px;
+    }
+    
+    #left-position-area .suit-row,
+    #right-position-area .suit-row {
+        gap: 0px;
+    }
+    
+    /* Erittäin pienet kortit sivualueilla */
+    #left-position-area .card-button,
+    #right-position-area .card-button,
+    #left-position-area .card-display,
+    #right-position-area .card-display {
+        min-width: 18px;
+        max-width: 24px;
+        min-height: 30px;
+        padding: 1px 2px;
+        font-weight: 800;
+    }
+    
+    #left-position-area .card-suit,
+    #right-position-area .card-suit {
+        font-size: 0.9em;
+    }
+    
+    #left-position-area .card-rank,
+    #right-position-area .card-rank {
+        font-size: 0.75em;
+    }
 }
 
 /* =================== DARK MODE SUPPORT =================== */
@@ -780,15 +882,22 @@
         border-bottom-color: #e5e7eb;
     }
     
+    /* Dummy - YHTENÄISET VÄRIT (dark mode) */
     .position-area.is-dummy {
+        /* Käyttää position-area perusvärejä */
     }
     
+    /* Bottom - YHTENÄISET VÄRIT (dark mode) */
     #bottom-position-area {
+        /* Käyttää position-area perusvärejä */
     }
     
-    .position-area.is-current-player {
-        background: #1a2c35;
-        border-color: #005fcc;
+    /* KAIKKI alueet vuorolla - YHTENÄINEN KOROSTUS (dark mode) */
+    .position-area.is-current-player,
+    #bottom-position-area.is-current-player,
+    .position-area.is-dummy.is-current-player {
+        background: #1a2c35 !important;
+        border-color: #005fcc !important;
     }
     
     .side-position {
