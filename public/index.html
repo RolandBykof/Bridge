@@ -1031,33 +1031,50 @@ function renderHand(position, hand, targetElement) {
             }
         }
 
-        function updateCurrentTrickDisplay() {
-            const container = document.getElementById('game-played-cards-container');
-            if (!container) return;
-            
-            if (!gameState || !gameState.currentTrick || gameState.currentTrick.length === 0) {
-                container.innerHTML = '<p>No cards played yet</p>';
-                return;
-            }
-            
-            let html = '<div class="current-trick-cards">';
-            
-            for (const card of gameState.currentTrick) {
-                const suitClass = `suit-${card.suit}`;
-                html += `
-                    <div class="played-card">
-                        <div class="player-label">${positionName(card.player)}</div>
-<div class="card ${suitClass}">
-    <span class="card-suit">${getSuitSymbol(card.suit)}</span>
-    <span class="card-rank">${card.card}</span>
-</div>
-                    </div>
-                `;
-            }
-            
-            html += '</div>';
-            container.innerHTML = html;
+function updateCurrentTrickDisplay() {
+    const container = document.getElementById('game-played-cards-container');
+    if (!container) return;
+    
+    if (!gameState || !gameState.currentTrick || gameState.currentTrick.length === 0) {
+        container.innerHTML = '<p>No cards played yet</p>';
+        return;
+    }
+    
+    // 1. Hae nykyinen asettelu (missä ilmansuunnassa kukin pelaaja on ruudulla)
+    const layout = getPositionLayout();
+    
+    let html = '<div class="current-trick-cards">';
+    
+    for (const card of gameState.currentTrick) {
+        const suitClass = `suit-${card.suit}`;
+        
+        // 2. Määritä kortin sijainti ruudukossa
+        let gridAreaClass = '';
+        
+        if (card.player === layout.bottom) {
+            gridAreaClass = 'trick-pos-bottom'; // Sinä (tai South jos katsoja)
+        } else if (card.player === layout.top) {
+            gridAreaClass = 'trick-pos-top';    // Partneri
+        } else if (card.player === layout.left) {
+            gridAreaClass = 'trick-pos-left';   // Vasen vastustaja
+        } else if (card.player === layout.right) {
+            gridAreaClass = 'trick-pos-right';  // Oikea vastustaja
         }
+
+        html += `
+            <div class="played-card ${gridAreaClass}">
+                <div class="player-label">${positionName(card.player)}</div>
+                <div class="card ${suitClass}">
+                    <span class="card-suit">${getSuitSymbol(card.suit)}</span>
+                    <span class="card-rank">${card.card}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
 
         function updateGameUI() {
             if (!gameState) return;

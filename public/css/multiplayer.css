@@ -335,25 +335,49 @@
     width: 100%;
 }
 
+/* START CHANGE: New Grid Layout */
 .current-trick-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
-    gap: 8px;
-    justify-content: center;
-    max-width: 300px;
+    /* Määritellään 3x3 ristikko: ylä, ala, vasen, oikea */
+    grid-template-areas:
+        ". top ."
+        "left . right"
+        ". bottom .";
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 4px;
+    
+    /* Kiinteä koko ristikolle, jotta se pysyy muodossa */
+    width: 220px; 
+    height: 180px; 
+    align-items: center;
+    justify-items: center;
+    margin: 0 auto;
 }
+
+/* Yksittäiset sijainnit gridissä */
+.trick-pos-top { grid-area: top; }
+.trick-pos-bottom { grid-area: bottom; }
+.trick-pos-left { grid-area: left; }
+.trick-pos-right { grid-area: right; }
 
 .played-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 8px;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 4px;
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease;
+    /* Poistetaan vanhat marginaalit */
+    margin: 0;
 }
+/* END CHANGE */
 
 .played-card:hover {
     transform: translateY(-1px);
@@ -693,10 +717,13 @@
         min-width: 100%;
     }
 
+    /* CHANGE: Removed grid-template-columns override to keep 3x3 layout */
+    /*
     .current-trick-cards {
         grid-template-columns: repeat(2, 1fr);
         gap: 6px;
     }
+    */
 
     .card-button,
     .card-display {
@@ -771,9 +798,10 @@
         min-height: 50px;
     }
     
+    /* CHANGE: Just resize the grid, don't change columns */
     .current-trick-cards {
-        grid-template-columns: 1fr;
-        gap: 4px;
+        width: 180px;
+        height: 150px;
     }
     
     .card-button,
