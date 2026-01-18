@@ -110,7 +110,7 @@
     flex-shrink: 0;
     overflow: visible;
     min-height: 60px;
-    /* CHANGE: Animaatio siirretty tänne, jotta se toimii kaikilla alueilla */
+    /* Animaatio siirretty tänne, jotta se toimii kaikilla alueilla */
     transition: all 0.3s ease;
 }
 
@@ -143,7 +143,6 @@
     padding: 10px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    /* CHANGE: transition poistettu täältä, koska se on nyt .position-area luokassa */
 }
 
 /* Bottom Position (Always player) - YHTENÄISET VÄRIT */
@@ -170,7 +169,7 @@
     background: #e8f4f8 !important;
     border-color: #005fcc !important;
     box-shadow: 0 2px 4px rgba(0, 95, 204, 0.2) !important;
-    /* CHANGE: Paksumpi reunus erottuu vaikka kortit olisivat tiellä */
+    /* Paksumpi reunus erottuu vaikka kortit olisivat tiellä */
     border-width: 2px !important; 
     /* Pienennä paddingia 1px, jotta elementti ei hypi koon muuttuessa */
     padding: 7px !important; 
@@ -301,7 +300,7 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* CHANGE: Enhanced Suit Styling - Nelivärinen pakka (Four-Color Deck) */
+/* Enhanced Suit Styling - Nelivärinen pakka (Four-Color Deck) */
 .suit-spades {
     color: #000000; /* Musta */
 }
@@ -318,6 +317,11 @@
     color: #d97706; /* Oranssi/Kulta - erottuu Hertasta */
 }
 
+/* CHANGE: Uusi tyyli NT-sopimuksille */
+.suit-notrump {
+    color: #1e40af; /* Tummansininen (sama kuin pisteissä) */
+}
+
 /* Central Play Area */
 #play-area {
     flex: 1;
@@ -328,11 +332,12 @@
     min-height: 100px;
 }
 
+/* CHANGE: Contract Info - Tekstin perusväri mustaksi, jotta maavärit toimivat */
 #contract-info {
     text-align: center;
     font-weight: bold;
     margin-bottom: 10px;
-    color: #1e40af;
+    color: #000000; /* Muutettu sinisestä mustaksi */
     font-size: 1em;
     padding: 6px 12px;
     background: #eff6ff;
@@ -960,11 +965,12 @@
         color: #FFFFFF !important;
     }
     
-    /* CHANGE: Dark Mode Four-Color Deck Colors */
+    /* CHANGE: Dark Mode Four-Color Deck Colors including NT */
     .suit-hearts { color: #ef4444; }    /* Kirkkaampi punainen */
     .suit-diamonds { color: #f59e0b; }  /* Kirkkaampi oranssi/kulta */
     .suit-clubs { color: #22c55e; }     /* Kirkkaampi vihreä */
     .suit-spades { color: #e5e7eb; }    /* Vaalea harmaa/valkoinen tummalla taustalla */
+    .suit-notrump { color: #93c5fd; }   /* Vaaleansininen Sangi dark modessa */
     
     #game-chat-messages {
         background: #374151;

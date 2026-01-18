@@ -1101,11 +1101,12 @@ function updateCurrentTrickDisplay() {
             }
         }
 
-        function updateContractDisplay() {
+function updateContractDisplay() {
             const contractInfo = document.getElementById('contract-info');
             
             if (gameState && gameState.contract && gameState.declarer) {
-                document.getElementById('contract-display').textContent = formatContract(gameState.contract);
+                // MUUTOS: Käytämme nyt innerHTML:ää ja pyydämme formatContract-funktiota palauttamaan HTML:ää (true)
+                document.getElementById('contract-display').innerHTML = formatContract(gameState.contract, true);
                 document.getElementById('declarer-info').textContent = `by ${positionName(gameState.declarer)}`;
                 contractInfo.style.display = 'block';
             } else {
@@ -1500,22 +1501,36 @@ function updateCurrentTrickDisplay() {
             return symbols[suit] || suit;
         }
 
-        function formatContract(contract) {
+function formatContract(contract, asHtml = false) {
             if (!contract) return "No contract";
             
             const level = contract.charAt(0);
             const suit = contract.charAt(1);
             let suitSymbol;
-            
+            let suitClass = '';
+
             switch(suit) {
-                case 'C': suitSymbol = '♣'; break;
-                case 'D': suitSymbol = '♦'; break;
-                case 'H': suitSymbol = '♥'; break;
-                case 'S': suitSymbol = '♠'; break;
-                case 'N': suitSymbol = 'NT'; break;
+                case 'C': suitSymbol = '♣'; suitClass = 'suit-clubs'; break;
+                case 'D': suitSymbol = '♦'; suitClass = 'suit-diamonds'; break;
+                case 'H': suitSymbol = '♥'; suitClass = 'suit-hearts'; break;
+                case 'S': suitSymbol = '♠'; suitClass = 'suit-spades'; break;
+                case 'N': suitSymbol = 'NT'; suitClass = 'suit-notrump'; break;
                 default: suitSymbol = suit;
             }
             
+            // Jos pyydetään HTML-muotoa (värejä varten)
+            if (asHtml) {
+                let result = `${level}<span class="${suitClass}">${suitSymbol}</span>`;
+                
+                if (contract.includes('XX')) {
+                    result += ' XX';
+                } else if (contract.includes('X')) {
+                    result += ' X';
+                }
+                return result;
+            }
+
+            // Normaalitilanne (tekstimuoto, esim. ruudunlukuohjelmille)
             let result = `${level}${suitSymbol}`;
             
             if (contract.includes('XX')) {
