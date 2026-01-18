@@ -1019,9 +1019,11 @@ function renderHand(position, hand, targetElement) {
         }
 
         function renderPlayerNameOnly(element, position) {
-            const playerName = gameState?.players?.[position]?.name || positionName(position);
-            
-            element.innerHTML = `<div class="position-name">${playerName}</div>`;
+    const playerName = gameState?.players?.[position]?.name;
+    const posName = positionName(position);
+    const displayText = playerName ? `${posName} (${playerName})` : posName;
+    
+    element.innerHTML = `<div class="position-name">${displayText}</div>`;
             element.classList.remove('has-cards', 'is-dummy');
             
             if (position === gameState?.currentPlayer) {
