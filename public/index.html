@@ -1691,7 +1691,9 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Alt + 2', desc: 'Play lowest heart' },
                 { key: 'Alt + 3', desc: 'Play lowest diamond' },
                 { key: 'Alt + 4', desc: 'Play lowest club' },
-                
+                { key: 'Alt + ↓', desc: 'Play lowest card of led suit' },
+                { key: 'Alt + ↑', desc: 'Play highest card of led suit' },
+
                 { key: '', desc: '--- Game: Manual Card Play ---' },
                 { key: 'Click/Enter', desc: 'Play specific card (navigate to card first)' },
                 { key: 'Tab/Arrow keys', desc: 'Navigate between playable cards' },
@@ -2334,6 +2336,36 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                     if (e.altKey && e.key === '4') {
                         e.preventDefault();
                         playLowestCard('clubs');
+                        return;
+                    }
+
+// Lead suit shortcuts - play lowest/highest of led suit
+                    if (e.altKey && e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (!gameState || gameState.gamePhase !== 'play') {
+                            announceToScreenReader("Game is not in play phase.");
+                            return;
+                        }
+                        if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                            announceToScreenReader("No suit has been led yet. You must lead a card.");
+                            return;
+                        }
+                        const leadSuit = gameState.currentTrick[0].suit;
+                        playLowestCard(leadSuit);
+                        return;
+                    }
+                    if (e.altKey && e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (!gameState || gameState.gamePhase !== 'play') {
+                            announceToScreenReader("Game is not in play phase.");
+                            return;
+                        }
+                        if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                            announceToScreenReader("No suit has been led yet. You must lead a card.");
+                            return;
+                        }
+                        const leadSuit = gameState.currentTrick[0].suit;
+                        playHighestCard(leadSuit);
                         return;
                     }
 
