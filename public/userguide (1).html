@@ -234,6 +234,10 @@
             <h2>Overview</h2>
             <p>AccessibleBridge is a multiplayer bridge game that allows you to play with friends or other players online. The game supports the full bridge experience including bidding and card play phases, with comprehensive accessibility features and keyboard shortcuts designed specifically for screen reader users and keyboard navigation.</p>
             
+            <div class="warning-box">
+                <strong>Note:</strong> AccessibleBridge is designed as a <strong>playing platform</strong>, not a scoring system. The game tracks tricks won during each deal but does not calculate duplicate or rubber bridge scores. Players are expected to keep their own score using external tools if desired.
+            </div>
+            
             <div class="feature-grid">
                 <div class="feature-card">
                     <h4>Multiplayer Support</h4>
@@ -312,6 +316,9 @@
                 <li>Card dealing sounds</li>
                 <li>Card play sounds</li>
             </ul>
+            
+            <h3>Speech Synthesizer</h3>
+            <p>Enable the "Use synthesizer" option to have game events spoken aloud using the browser's text-to-speech engine. This works in addition to screen reader announcements and is useful for users who want audible feedback without a dedicated screen reader.</p>
         </section>
 
         <section id="game-phases">
@@ -319,13 +326,19 @@
             
             <section id="bidding-phase">
                 <h3>Bidding Phase</h3>
-                <p>The game begins with the bidding phase. During your turn to bid:</p>
+                <p>The game begins with the bidding phase. The dealer starts the bidding. During your turn to bid:</p>
                 <ul>
                     <li>A bidding box will appear in the center of the screen</li>
                     <li>You can Pass, Double/Redouble, or make a contract bid</li>
                     <li>Contract bids range from 1♣ to 7NT</li>
                     <li>Each bid must be higher than the previous bid</li>
+                    <li>Bidding ends after three consecutive passes following any bid</li>
+                    <li>If all four players pass initially, a new deal starts automatically</li>
                 </ul>
+                
+                <div class="highlight-box">
+                    <strong>Screen Reader Tip:</strong> During the bidding phase, switch your screen reader to <strong>focus mode</strong> (also called forms mode or interactive mode). In NVDA, press <span class="kbd">Insert + Space</span> or just start typing. In JAWS, press <span class="kbd">Insert + Z</span> or <span class="kbd">Enter</span> on a form field. This allows you to use the keyboard shortcuts (1-7 for level, S/H/D/C/N for suit) to enter bids directly.
+                </div>
                 
                 <h4>Bidding Controls</h4>
                 <ul>
@@ -346,6 +359,10 @@
                     <li>The highest card of the led suit wins (unless trumped)</li>
                 </ul>
                 
+                <div class="highlight-box">
+                    <strong>Screen Reader Tip:</strong> During the playing phase, switch your screen reader to <strong>browse mode</strong> (also called virtual cursor mode). In NVDA, press <span class="kbd">Insert + Space</span> to toggle. In JAWS, press <span class="kbd">Insert + Z</span>. This prevents the screen reader from announcing the window title after every card played, providing a smoother gameplay experience. You can still use all keyboard shortcuts (Alt+A/S/D/F for your hand, Alt+1-4 for quick play, etc.) in browse mode.
+                </div>
+                
                 <h4>Card Layout</h4>
                 <p>The interface shows:</p>
                 <ul>
@@ -353,6 +370,15 @@
                     <li><strong>Center:</strong> Current trick and game information</li>
                     <li><strong>Sides:</strong> West and East player information</li>
                     <li><strong>Bottom:</strong> Your cards</li>
+                </ul>
+                
+                <h4>Game End and Auto-Deal</h4>
+                <p>After all 13 tricks are played:</p>
+                <ul>
+                    <li>The result is announced (contract made/down with overtricks)</li>
+                    <li>A 10-second countdown begins for the next deal</li>
+                    <li>The dealer rotates automatically (South → West → North → East)</li>
+                    <li>If all 4 players pass, a new deal starts automatically after 3 seconds</li>
                 </ul>
                 
                 <div class="highlight-box">
@@ -367,8 +393,9 @@
             <h3>Game Header</h3>
             <p>The top bar displays:</p>
             <ul>
-                <li>Deal number and dealer position</li>
-                <li>Current score (tricks won by NS/EW)</li>
+                <li>Deal number (starts at 1, increments with each new deal)</li>
+                <li>Current dealer position (rotates: South → West → North → East)</li>
+                <li>Current score (tricks won by NS/EW out of 13)</li>
             </ul>
             
             <h3>Center Play Area</h3>
@@ -393,6 +420,54 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr class="shortcut-category">
+                        <td colspan="2">Global Commands</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + H</span></td>
+                        <td>Toggle help dialog</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + I</span></td>
+                        <td>Repeat last screen reader announcement</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + B</span></td>
+                        <td>Back/Cancel (context-dependent)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Escape</span></td>
+                        <td>Close help dialog</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Create/Join Table</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + C</span></td>
+                        <td>Create table (on create table view)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + J</span></td>
+                        <td>Join table (on join table view)</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Waiting Room</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + S</span></td>
+                        <td>Start game (when 4 players present)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + L</span></td>
+                        <td>Leave table</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + C</span></td>
+                        <td>Focus on chat input</td>
+                    </tr>
+                    
                     <tr class="shortcut-category">
                         <td colspan="2">Bidding Commands</td>
                     </tr>
@@ -423,14 +498,6 @@
                     <tr>
                         <td><span class="kbd">Alt + P</span></td>
                         <td>Pass</td>
-                    </tr>
-                    <tr>
-                        <td><span class="kbd">Alt + D</span> or <span class="kbd">X</span></td>
-                        <td>Double (when available)</td>
-                    </tr>
-                    <tr>
-                        <td><span class="kbd">Alt + R</span> or <span class="kbd">XX</span></td>
-                        <td>Redouble (when available)</td>
                     </tr>
                     <tr>
                         <td><span class="kbd">Enter</span></td>
@@ -489,8 +556,8 @@
                         <td colspan="2">Game: Information Commands</td>
                     </tr>
                     <tr>
-                        <td><span class="kbd">Alt + Z</span></td>
-                        <td>Announce cards in current trick</td>
+                        <td><span class="kbd">Alt + C</span></td>
+                        <td>Announce current trick (play phase) or bidding history (bidding phase)</td>
                     </tr>
                     <tr>
                         <td><span class="kbd">Alt + X</span></td>
@@ -529,20 +596,32 @@
                         <td colspan="2">Game: Quick Card Play (Lowest)</td>
                     </tr>
                     <tr>
-                        <td><span class="kbd">Ctrl + Shift + 1</span></td>
+                        <td><span class="kbd">Alt + 1</span></td>
                         <td>Play lowest spade</td>
                     </tr>
                     <tr>
-                        <td><span class="kbd">Ctrl + Shift + 2</span></td>
+                        <td><span class="kbd">Alt + 2</span></td>
                         <td>Play lowest heart</td>
                     </tr>
                     <tr>
-                        <td><span class="kbd">Ctrl + Shift + 3</span></td>
+                        <td><span class="kbd">Alt + 3</span></td>
                         <td>Play lowest diamond</td>
                     </tr>
                     <tr>
-                        <td><span class="kbd">Ctrl + Shift + 4</span></td>
+                        <td><span class="kbd">Alt + 4</span></td>
                         <td>Play lowest club</td>
+                    </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Quick Card Play (Led Suit)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + ↓</span></td>
+                        <td>Play lowest card of led suit</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + ↑</span></td>
+                        <td>Play highest card of led suit</td>
                     </tr>
                     
                     <tr class="shortcut-category">
@@ -556,6 +635,14 @@
                         <td><span class="kbd">Tab/Arrow keys</span></td>
                         <td>Navigate between playable cards</td>
                     </tr>
+                    
+                    <tr class="shortcut-category">
+                        <td colspan="2">Game: Other</td>
+                    </tr>
+                    <tr>
+                        <td><span class="kbd">Alt + M</span></td>
+                        <td>Leave game</td>
+                    </tr>
                 </tbody>
             </table>
             
@@ -565,8 +652,9 @@
                     <li>Card viewing commands work only when cards are visible</li>
                     <li>Quick play commands work only during your turn</li>
                     <li>Bidding commands work only during bidding phase</li>
-                    <li>Some commands are context-dependent</li>
+                    <li>Some commands are context-dependent (e.g., Alt+C shows bidding history during bidding, current trick during play)</li>
                     <li>Use <span class="kbd">Alt+H</span> at any time to view help and all available keyboard shortcuts</li>
+                    <li>Led suit shortcuts (<span class="kbd">Alt+↓</span>/<span class="kbd">Alt+↑</span>) only work after the first card has been played to a trick</li>
                 </ul>
             </div>
         </section>
@@ -614,6 +702,11 @@
             <div class="warning-box">
                 <strong>Problem:</strong> Cannot connect to the game server<br>
                 <strong>Solution:</strong> Check your internet connection and refresh the page. The game will attempt to reconnect automatically.
+            </div>
+            
+            <h3>Disconnection During Game</h3>
+            <div class="highlight-box">
+                <strong>Auto-Reconnect Feature:</strong> If you lose connection during a game, the server will wait up to 5 minutes for you to reconnect. Simply refresh the page and enter the same name and table code to rejoin. Your position and cards will be restored automatically. Other players will be notified of your disconnection and reconnection.
             </div>
             
             <h3>Table Full</h3>

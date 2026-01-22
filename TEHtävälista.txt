@@ -1,7 +1,4 @@
 
 opettajan näkymä
 tuplaus sallituksi vain partnerin tarjouksille
-Indexissä trikin kortit eivät näy
 
-tarjoushistoria pois taulukosta
-kun yhteys katkeaa pelaajan pitäisi päästä takaisin pöytään siihen vaiheeseen, jossa peli päättyi.
