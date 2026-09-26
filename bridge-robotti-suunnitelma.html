@@ -188,8 +188,8 @@ footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25r
 
 <h2 id="arkkitehtuuri">Arkkitehtuuripäätökset</h2>
 
-<h3>1. Robotin "aivot": GIB tarjoukseen ja avausiskuun, oma algoritmi kortinpeliin</h3>
-<p>GIB (Ginsberg Intelligent Player) on BridgeBasen ilmainen robotti. <strong>Testien perusteella (2026-09-25) se osaa tarjota täydellisesti ja antaa avausiskun</strong>, mutta julkinen <code>u_bm/robot.php</code>-rajapinta ei vastaa kelvollisesti kysymykseen "mitä kortti pelataan seuraavaksi" heti kun tikissä on jo yksi kortti pelattuna – ks. <a href="#suositus">Suositus</a>-osio. Rooli jakautuu siis kahtia:</p>
+<h3>1. Robotin "aivot": GIB vain tarjoukseen, oma algoritmi (solver) kaikkeen kortinpeliin</h3>
+<p>GIB (Ginsberg Intelligent Player) on BridgeBasen ilmainen robotti. <strong>Testien perusteella (2026-09-25) se osaa tarjota täydellisesti ja antaa myös laillisen avausiskun</strong>, mutta julkinen <code>u_bm/robot.php</code>-rajapinta ei vastaa kelvollisesti kysymykseen "mitä kortti pelataan seuraavaksi" heti kun tikissä on jo yksi kortti pelattuna – ks. <a href="#suositus">Suositus</a>-osio. Koska myöhempi WASM-testi (ks. <a href="#wasmtesti">testitulokset</a>) osoitti double dummy -solverin ratkaisevan avausiskun yhtä luotettavasti kuin minkä tahansa muunkin kortin, GIB:n avausisku-kykyä ei enää oteta käyttöön – yksinkertaisempaa on käyttää samaa solveria koko kortinpelille tikistä 1 alkaen. Rooli jakautuu siis kahtia:</p>
 
 <div class="table-wrap">
 <table>
@@ -198,14 +198,14 @@ footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25r
     <tr><th scope="col">Näkökohta</th><th scope="col">Tarjous</th><th scope="col">Avausisku</th><th scope="col">Kortinpeli (tikit 2–13)</th></tr>
   </thead>
   <tbody>
-    <tr><th scope="row">Ensisijainen moottori</th><td>GIB</td><td>GIB</td><td><strong>Oma algoritmi</strong> (uusi työ)</td></tr>
-    <tr><th scope="row">Varajärjestelmä</th><td><code>advanced_bidding_ai.js</code> (olemassa)</td><td>Oma algoritmi (sama kuin kortinpelin moottori)</td><td>Ei tarvita – oma algoritmi on jo ainoa toimiva vaihtoehto</td></tr>
-    <tr><th scope="row">Testattu tila</th><td>Toimii, koko huutosarja ajettu läpi onnistuneesti</td><td>Toimii, palautti laillisen avauskortin</td><td>Ei toimi GIB:llä (<code>rc="1055"</code> joka yrityksellä) – täytyy rakentaa itse</td></tr>
-    <tr><th scope="row">Nopeus</th><td>~1–5 s per HTTP-kutsu</td><td>~1–5 s</td><td>Välitön (paikallinen)</td></tr>
+    <tr><th scope="row">Ensisijainen moottori</th><td>GIB</td><td><strong>Oma algoritmi</strong> (solver)</td><td><strong>Oma algoritmi</strong> (solver)</td></tr>
+    <tr><th scope="row">Varajärjestelmä</th><td><code>advanced_bidding_ai.js</code> (olemassa)</td><td>Ei tarvita – sama moottori kuin kortinpeli, ks. viereinen sarake</td><td>Ei tarvita – oma algoritmi on jo ainoa toimiva vaihtoehto</td></tr>
+    <tr><th scope="row">Testattu tila</th><td>Toimii, koko huutosarja ajettu läpi onnistuneesti</td><td>Toimii identtisesti kortinpelin kanssa – testattu WASM-solverilla (ks. <a href="#wasmtesti">testitulokset</a>), GIB:tä ei tarvita</td><td>Toimii, testattu WASM-solverilla (ks. <a href="#wasmtesti">testitulokset</a>)</td></tr>
+    <tr><th scope="row">Nopeus</th><td>~1–5 s per HTTP-kutsu</td><td>~10 ms (paikallinen)</td><td>~10 ms (paikallinen)</td></tr>
   </tbody>
 </table>
 </div>
-<p>Käytännössä tämä tarkoittaa, että robotti kysyy GIB:ltä tarjouksen jokaisella tarjousvuorollaan ja pelinviejän/lepääjän avausiskun kerran per jako, mutta <strong>kaikki muu kortinpeli ratkaistaan aina paikallisesti</strong>. Oma algoritmi kannattaa silti suunnitella niin, että se voi myöhemmin ottaa vastaan myös avausiskun GIB:ltä eikä ole siitä riippuvainen (GIB-kutsu voi epäonnistua senkin kohdalla).</p>
+<p>Käytännössä tämä tarkoittaa, että robotti kysyy GIB:ltä <strong>vain</strong> tarjouksen jokaisella tarjousvuorollaan; sekä avausisku että kaikki muu kortinpeli ratkaistaan aina paikallisesti solverilla (ks. <a href="#wasmtesti">testitulokset 2026-09-25</a>).</p>
 
 <h3>1b. Löydös 2026-09-25: avoimen lähdekoodin vaihtoehdot "oman algoritmin" tilalle</h3>
 <p>Etsittiin verkosta, löytyisikö GIB:n kortinpeli-aukkoon (ks. yllä) valmis avoimen lähdekoodin korvaaja hand-rolled-sääntöjen sijaan. Löytyi kolme varteenotettavaa vaihtoehtoa:</p>
@@ -247,7 +247,7 @@ footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25r
 
 <h3>2. Miten robotti istuu pöytään</h3>
 <p>Laajennetaan olemassa olevaa <code>table.players[position].type</code>-kenttää arvolla <code>'robot'</code> nykyisen <code>'human'</code>:n rinnalle. Tämä on pieni muutos, koska suuri osa koodista käsittelee pelaajia jo geneerisesti: esimerkiksi <code>sendToTablePlayers()</code> ohittaa automaattisesti pelaajat joilla ei ole <code>id</code>:tä (robotilla ei ole socket-yhteyttä), joten viestien lähetys ei vaadi muutoksia.</p>
-<p>Paikkaan voi lisätä robotin joko pöydän luonnissa (jos joku paikoista jätetään tarkoituksella tyhjäksi robotille) tai odotushuoneessa tyhjään paikkaan – jälkimmäinen on käytännöllisempi, koska silloin 1–3 ihmispelaajaa voi pelata yhdessä robotin täyttäessä loput paikat.</p>
+<p>Paikkaa ei täytetä robotilla erikseen odotushuoneessa, vaan automaattisesti sitä mukaa kun 1–3 ihmispelaajaa painaa "Start Game" – jäljelle jääneet tyhjät paikat muuttuvat roboteiksi juuri ennen jaon alkua (ks. vaihe 3). Tämä on käytännöllisempi kuin erillinen lisäystoiminto, koska käyttäjän ei tarvitse tehdä mitään ylimääräistä: sama painike sekä täyttää tyhjät paikat että aloittaa pelin.</p>
 
 <h3>3. Vuoronhallinta: palvelin herää automaattisesti robotin vuoroon</h3>
 <p>Ihmispelaajan vuoro odottaa <code>makeBid</code>/<code>playCard</code>-socket-tapahtumaa. Robotilla ei ole sellaista lähdettä, joten palvelimen on itse havaittava "nyt on robotin vuoro" jokaisen vuoronvaihdon jälkeen (tarjouksen jälkeen, sopimuksen ratkettua, kortin pelaamisen jälkeen, tikin ratkettua) ja kutsuttava robottimoduulia itse – pienellä viiveellä (n. 1–2 s), joka sekä tuntuu luonnolliselta että antaa ruudunlukijan käyttäjälle aikaa kuulla edellisen tapahtuman ennen seuraavaa.</p>
@@ -296,27 +296,34 @@ for (const position of positions) {
 </section>
 
 <section class="phase" aria-labelledby="v3">
-<h3 id="v3"><span class="tag">Palvelin</span>Vaihe 3: Robotin lisääminen tyhjään paikkaan</h3>
-<p>Uusi socket-tapahtuma <code>addRobot</code>, joka toimii kuten <code>selectPosition</code> mutta ilman socket-omistajaa:</p>
-<pre><code>socket.on('addRobot', ({ tableCode, position }) => {
-  const table = tables.get(tableCode);
-  if (!table || table.state !== 'waiting') return sendError(socket, '...');
-  if (table.players[position]) return sendError(socket, 'Position is already taken');
+<h3 id="v3"><span class="tag">Palvelin + Asiakas</span>Vaihe 3: Tyhjien paikkojen automaattinen täyttö roboteilla "Start Game" -painikkeesta</h3>
+<p><strong>Käyttöliittymäehdotus:</strong> robottia ei lisätä erillisellä "Add robot" -painikkeella odotushuoneessa, vaan <code>startGame()</code>-funktio (<code>server.js</code>, rivi ~582) täyttää itse kaikki vielä tyhjät paikat robotilla juuri ennen jaon aloittamista. Käyttäjän näkökulmasta: hän odottaa odotushuoneessa niin kauan kuin haluaa oikeita pelaajia, ja painaa sitten "Start Game" – jäljellä olevat tyhjät paikat muuttuvat automaattisesti roboteiksi ja peli alkaa heti samalla painalluksella.</p>
+<p>Tämä on yksinkertaisempi kuin aiemmin suunniteltu erillinen <code>addRobot</code>-tapahtuma ja -painike: ei tarvita uutta nappia eikä näppäinoikotietä, eikä myöskään erillistä päätöstä siitä "kuka saa lisätä robotin" – sama oikeus kuin pelin aloittamiseen ylipäätään (<code>player.table === tableCode</code>, jo olemassa <code>server.js</code>:ssä) riittää, koska robotin lisääminen ja pelin aloitus tapahtuvat samalla toiminnolla.</p>
+<pre><code>// server.js: startGame() – laajennus. Nykyinen tarkistus vaatii tällä hetkellä
+// täsmälleen 4 ihmispelaajaa (table.players[position].type !== 'human' → virhe).
+const positions = ['north', 'east', 'south', 'west'];
+const autoFilledWithRobot = [];
 
-  table.players[position] = { name: 'Robot', id: null, type: 'robot' };
+for (const position of positions) {
+  if (!table.players[position]) {
+    table.players[position] = { name: 'Robot', id: null, type: 'robot' };
+    autoFilledWithRobot.push(position);
+  }
+}
 
-  sendToTablePlayers(table, {
-    type: 'playerJoined',
-    position,
-    playerName: 'Robot',
-    table: filterTable(table)
-  });
-});</code></pre>
+for (const position of positions) {
+  if (!['human', 'robot'].includes(table.players[position].type)) {
+    sendError(socket, 'All 4 positions must be filled before starting'); // ei pitäisi enää voida laueta
+    return;
+  }
+}
+// ... table.state = 'playing'; beginDeal(table, 'gameStarted'); kuten ennenkin</code></pre>
 <ul>
-  <li>Päätettävä: kuka saa lisätä robotin – kuka tahansa pöydässä istuva (yhtenäinen nykyisen <code>startGame</code>-käytännön kanssa, jossa kuka tahansa saa aloittaa) vai vain pöydän luoja (<code>table.creator</code>, joka on jo tallessa)? Suositus: kuka tahansa, koska sama löysyys on jo muualla koodissa.</li>
-  <li>Harkittava myös <code>removeRobot</code>-tapahtuma symmetrian vuoksi (jos robotin haluaa vaihtaa ihmiseen).</li>
+  <li><code>beginDeal()</code>:n <code>gameStarted</code>-paketti sisältää jo <code>payload.players = filterTablePlayers(table.players)</code>, joten asiakas näkee robottien <code>type</code>-kentän heti – lisätään lisäksi <code>payload.autoFilledWithRobot = autoFilledWithRobot</code> (tyhjä taulukko, jos yhtään paikkaa ei täytetty), jotta asiakas voi ilmoittaa selkeästi <em>mitkä nimenomaiset</em> paikat saivat robotin juuri nyt (ks. vaihe 8).</li>
+  <li>Vähintään yksi ihmispelaaja on aina taattu, koska pelin aloittaja on itse pöydässä istuva pelaaja (<code>player.table === tableCode</code> -tarkistus) – täysin robottipöytää (0 ihmistä) ei siis voi syntyä tätä kautta.</li>
+  <li>Ei tarvita erillistä <code>removeRobot</code>-tapahtumaa: koska robotti syntyy vasta juuri ennen jakoa, "tyhjä paikka jolla on robotti mutta peliä ei ole vielä aloitettu" -tilaa ei ole olemassa odotushuoneessa lainkaan, jota pitäisi pystyä perumaan.</li>
 </ul>
-<p class="done-when">Valmis, kun tyhjään paikkaan voi asettaa robotin odotushuoneesta ja muut pelaajat näkevät sen heti.</p>
+<p class="done-when">Valmis, kun "Start Game" -painikkeen painaminen alle neljän ihmispelaajan kanssa täyttää loput paikat roboteilla ja aloittaa pelin suoraan, ja täydellä neljän ihmisen pöydällä käytös pysyy täysin ennallaan.</p>
 </section>
 
 <section class="phase" aria-labelledby="v4">
@@ -329,7 +336,7 @@ const solver = require('./bridge_solver_wasm'); // uusi ohutkääre bridge-solve
 
 async function decideRobotBid(table, position) { /* GIB -> advanced_bidding_ai -> Pass */ }
 
-async function decideRobotOpeningLead(table, position) { /* GIB -> solver.bestCard() -> pickLegalCardFallback() */ }
+async function decideRobotOpeningLead(table, position) { /* solver.bestCard() -> pickLegalCardFallback() (ei GIB-kutsua, ks. WASM-testitulokset) */ }
 
 function decideRobotCard(table, position) {
   // Ensisijainen moottori tikeille 2-13: solver.bestCard(table.gameState, position)
@@ -397,13 +404,15 @@ module.exports = { decideRobotBid, decideRobotOpeningLead, decideRobotCard };</c
 <section class="phase" aria-labelledby="v8">
 <h3 id="v8"><span class="tag">Asiakas</span>Vaihe 8: Käyttöliittymä ja saavutettavuus (<code>public/index.html</code>)</h3>
 <ul>
-  <li>Odotushuoneen tyhjän paikan kohdalle painike "Add robot" (näppäinoikotie samaan tapaan kuin muutkin, esim. <kbd>Alt</kbd>+<kbd>R</kbd> kun fokus on paikassa) joka lähettää <code>addRobot</code>-tapahtuman.</li>
+  <li><strong>"Start Game" -painikkeen aktivoitumisehto muuttuu:</strong> nykyinen <code>startButton.disabled = playerCount !== 4;</code> vaatii tällä hetkellä täsmälleen neljä ihmispelaajaa ennen kuin painike edes toimii. Muutetaan ehdoksi <code>playerCount &lt; 1</code> (painike aktiivinen heti kun pöydässä on edes yksi ihmispelaaja), ja painikkeen teksti kertoo mitä tapahtuu: <code>playerCount === 4 ? 'Start Game' : \`Start Game (fills ${4 - playerCount} seat(s) with robots)\`</code>. Myös näppäinoikotieluettelon kuvausteksti ("Alt + S: Start game (when 4 players present)") päivitetään vastaavasti.</li>
+  <li>Odotushuoneen tyhjän paikan kohdalla lukee nykyisen "Waiting…"-tilan lisäksi selvästi mitä tyhjälle paikalle tapahtuu käynnistettäessä, esim. "Empty – will be filled with a robot when the game starts", jotta kukaan ei yllätty robotista vasta jälkikäteen.</li>
   <li>Pelaajalistoissa ja odotushuoneessa robotti näytetään selvästi: <code>positionType</code>-logiikka (nyt kovakoodattu <code>'Human'</code> funktiossa <code>renderHand()</code>) laajennetaan lukemaan oikea <code>type</code> ja näyttämään "Robot".</li>
+  <li><strong>gameStarted-käsittelijä ilmoittaa ruudunlukijalle heti pelin alkaessa</strong> mitkä paikat täytettiin robotilla, uuden <code>autoFilledWithRobot</code>-kentän perusteella (ks. vaihe 3), esim. "Game started. West and North are played by the robot." Tämä on tärkeä nimenomaan ruudunlukijakäyttäjälle, koska hän ei muuten huomaisi hiljaista tilamuutosta tyhjästä paikasta robotiksi.</li>
   <li><strong>Tärkeä havainto: robotin siirrot eivät vaadi uusia ilmoituskoodeja.</strong> Koska robotti kutsuu samoja <code>processBid</code>/<code>processCardPlay</code>-funktioita kuin ihminen, samat <code>bidMade</code>/<code>cardPlayed</code>/<code>trickComplete</code>-tapahtumat lähtevät asiakkaalle ja olemassa olevat ruudunlukijailmoitukset (<code>announceToScreenReader</code>) toimivat sellaisenaan.</li>
   <li>Lisätään kevyt "Robot is thinking…" -tila (esim. tekstiä ei-häiritsevästi <code>status-area</code>-alueelle) sen ajaksi kun robotin vuoro on kesken, jotta käyttäjä ei ihmettele hiljaisuutta GIB-kutsun aikana.</li>
-  <li>Ohjeosioon (<code>updateHelpContent()</code>) lyhyt maininta robotin lisäämisestä.</li>
+  <li>Ohjeosioon (<code>updateHelpContent()</code>) lyhyt maininta siitä, että tyhjät paikat täytetään roboteilla automaattisesti "Start Game" -painiketta painettaessa – ei erillistä "lisää robotti" -toimintoa.</li>
 </ul>
-<p class="done-when">Valmis, kun näkövammainen käyttäjä voi lisätä robotin tyhjään paikkaan ruudunlukijalla ja seurata pelin kulkua yhtä selkeästi kuin ihmispelaajien kanssa.</p>
+<p class="done-when">Valmis, kun näkövammainen käyttäjä voi käynnistää pelin alle neljän ihmispelaajan kanssa ruudunlukijalla, kuulee selvästi mitkä paikat täyttyivät roboteilla, ja voi seurata pelin kulkua yhtä selkeästi kuin ihmispelaajien kanssa.</p>
 </section>
 
 <section class="phase" aria-labelledby="v9">
@@ -425,15 +434,41 @@ function decideMiniContract(table, position) {
 <section class="phase" aria-labelledby="v10">
 <h3 id="v10"><span class="tag">Testaus</span>Vaihe 10: Testaus</h3>
 <ol>
-  <li>4 robottia pöydässä pelaa itsekseen koko jaon läpi (tarjous + pelaaminen) ilman ihmisen väliintuloa.</li>
-  <li>1–3 ihmistä + loput robotteja: peli etenee sujuvasti, robotin vuoro ei jää ihmisen odottamaan liian kauan.</li>
+  <li>1 ihminen istuu ja painaa heti "Start Game": loput 3 paikkaa täyttyvät roboteilla ja koko jako etenee itsekseen (tarjous + pelaaminen) ilman että käyttäjän tarvitsee tehdä mitään (huom. neljän robotin pöytää ei voi syntyä normaalin käyttöliittymän kautta, koska aloittaja istuu aina itse yhdessä paikoista – ks. vaihe 3).</li>
+  <li>1–3 ihmistä painaa "Start Game" eri pelaajamäärillä: loput paikat täyttyvät roboteilla oikein, painikkeen teksti ja ruudunlukijailmoitus (<code>autoFilledWithRobot</code>) kertovat oikein mitkä paikat saivat robotin, ja robotin vuoro ei jää ihmisen odottamaan liian kauan.</li>
   <li>Robotti pelinviejänä: pelaa sekä omat että lepääjän kortit oikein, kunnioittaa maanseuraamispakkoa.</li>
   <li>GIB simuloidusti pois päältä (väärä URL/aikakatkaisu): tarjous ja kortinpeli jatkuvat paikallisella varajärjestelmällä, peli ei jää jumiin.</li>
   <li>Minibridge-pöytä robotin kanssa: sopimuksenvalinta järkevä, pelivaihe toimii.</li>
   <li>Ruudunlukijalla (NVDA/JAWS) läpikäynti: robotin siirrot kuuluvat samalla tavalla kuin ihmisen, "Robot is thinking" ei ole häiritsevä.</li>
   <li>Pöydän purkaminen kesken robotin miettimisajan (kaikki ihmiset poistuvat) ei aiheuta virhettä tai kaadu palvelinta.</li>
   <li>Monta pöytää robotteineen samanaikaisesti: GIB-kutsut eivät tuki toisiaan, peli pysyy sujuvana.</li>
+  <li>Double dummy -vertailutulos (ks. <a href="#v11">vaihe 11</a>) näkyy oikein pelin päätyttyä ja täsmää solverin <code>dd_table</code>-tulokseen samalle jaolle, myös pöydässä jossa ei ole yhtään robottia.</li>
 </ol>
+</section>
+
+<section class="phase" aria-labelledby="v11">
+<h3 id="v11"><span class="tag">Uusi – todennettu 2026-09-25</span>Vaihe 11: Double dummy -vertailutulos oman tuloksen viereen</h3>
+<p>Robotista riippumaton lisäominaisuus: kun jako päättyy (<code>endGame()</code> tiedostossa <code>server.js</code>), lasketaan samalla <code>bridge-solver</code>-WASM-moduulin <code>solve_contract(dealstr, trump, leader)</code>-funktiolla (ks. <a href="#wasmtesti">testitulokset</a>) kuinka monta tikkiä pelattu sopimus antaisi <em>täydellisellä</em> pelillä kaikilta neljältä kädeltä, ja näytetään tämä luku pelaajien oman, oikeasti pelatun tikkimäärän vieressä. "Mitä olisimme voineet parhaimmillaan saada tästä jaosta?" saa siis heti vastauksen ilman erillistä analyysityökalua.</p>
+<h4>Miksi tämä on mahdollista</h4>
+<p><code>solve_contract()</code> on jo testattu ja todennettu toimivaksi tässä ympäristössä (ks. <a href="#wasmtesti">testitulokset 2026-09-25</a>): esimerkkijaolla 6♠ Etelän pelaamana funktio palautti oikein 12 tikkiä, noin 10 ms:ssa. Palvelin tuntee jo kaikki neljä kättä (ks. arkkitehtuurikohta 5) sekä sopimuksen, valtin ja avaajan – kaikki <code>solve_contract()</code>:n tarvitsemat syötteet ovat siis jo olemassa <code>endGame()</code>-funktiossa, eikä uutta tietoa tarvitse kerätä keneltäkään.</p>
+<p><strong>Ei sama reiluusongelma kuin arkkitehtuurikohdassa 1b:</strong> siellä huomautettiin, että double dummy -ratkaisijan käyttö robotin <em>omana pelimoottorina</em> (vaihe 4) voi tuntua epäreilulta, koska robotti "näkee" kaikki kädet reaaliaikaisesti pelatessaan. Tässä ratkaisijaa käytetään vasta <em>jälkikäteen</em>, tiedoksi kaikille pelaajille tasapuolisesti eikä kenenkään puolesta pelaamiseen – ominaisuus toimii siis myös pöydässä, jossa on neljä ihmispelaajaa eikä yhtään robottia.</p>
+<h4>Toteutus</h4>
+<pre><code>// server.js: endGame() – laajennus
+const dealstr = formatDealString(table.gameState.hands, table.currentDealer); // uusi apufunktio
+const trump = table.gameState.trumpSuit ? SUIT_LETTER[table.gameState.trumpSuit] : 'N';
+const leader = getNextPlayer(table.gameState.declarer); // avaava pelaaja on aina pelinviejän vasemmalla puolella
+const doubleDummyTricks = solver.solve_contract(dealstr, trump, leader); // sama vendoroitu moduuli kuin vaiheessa 4
+
+gameOverPayload.doubleDummyTricks = doubleDummyTricks; // esim. 12
+gameOverPayload.actualTricks = madeTricks; // "tricks"-kentän rinnalle selkeytenä</code></pre>
+<ul>
+  <li>Uusi apufunktio <code>formatDealString()</code> muuntaa palvelimen sisäisen <code>hands</code>-rakenteen testissä todennettuun <code>"N:952.J976.AJ876.9 43.54.Q532.J8542 ..."</code>-muotoon (ks. <a href="#wasmtesti">skeema</a>) – puhdas muunnosfunktio, ei riipu robotista eikä muuta olemassa olevaa tietomallia.</li>
+  <li>Jos <code>table.gameState.contract</code> puuttuu (esim. kaikki passasivat), vertailutulosta ei lasketa – ei ole sopimusta johon verrata.</li>
+  <li>Laskenta on paikallinen ja n. 10 ms:n luokkaa (ks. nopeustesti), joten se mahtuu mukaan samaan <code>endGame()</code>-kutsuun synkronisesti ilman havaittavaa viivettä eikä sitä tarvitse välimuistittaa erikseen.</li>
+  <li>Asiakas (<code>public/index.html</code>): <code>gameOver</code>-käsittelijä näyttää molemmat luvut rinnakkain, esim. "Te teitte 11 tikkiä. Double dummy -optimitulos tällä jaolla: 12 tikkiä." Sama teksti riittää sellaisenaan ruudunlukijalle, erillistä visuaalista taulukkoa ei tarvita.</li>
+  <li>Minibridge: sama logiikka pätee sellaisenaan, koska sopimus ja kädet ovat pelivaiheessa rakenteeltaan samat kuin tavallisessa bridgessä.</li>
+</ul>
+<p class="done-when">Valmis, kun jokaisen päättyneen jaon jälkeen näytetään sekä pelaajien oikeasti saama tikkimäärä että double dummy -optimitulos, myös pöydissä joissa ei ole yhtään robottia.</p>
 </section>
 
 <h2 id="protokolla">Tietomalli- ja protokollamuutokset</h2>
@@ -445,11 +480,12 @@ function decideMiniContract(table, position) {
   </thead>
   <tbody>
     <tr><td><code>table.players[pos].type</code></td><td>Palvelimen sisäinen</td><td>Uusi sallittu arvo <code>'robot'</code> nykyisen <code>'human'</code>:n rinnalle</td></tr>
-    <tr><td><code>addRobot</code></td><td>Asiakas → palvelin</td><td>Uusi: <code>{ tableCode, position }</code></td></tr>
-    <tr><td><code>removeRobot</code></td><td>Asiakas → palvelin</td><td>Uusi (valinnainen): <code>{ tableCode, position }</code></td></tr>
-    <tr><td><code>playerJoined</code></td><td>Palvelin → asiakas</td><td>Ennallaan; <code>playerName: 'Robot'</code> kun paikka täytetään robotilla</td></tr>
+    <tr><td><code>startGame</code></td><td>Asiakas → palvelin</td><td>Viestin muoto ennallaan (<code>{ tableCode }</code>); palvelimen käytös muuttuu (vaihe 3): täyttää tyhjät paikat robotilla ennen 4 paikan tarkistusta, ei enää vaadi täsmälleen 4 ihmistä</td></tr>
+    <tr><td><code>gameStarted</code></td><td>Palvelin → asiakas</td><td>Uusi kenttä (vaihe 3): <code>autoFilledWithRobot</code> (lista paikoista, jotka juuri täytettiin robotilla tätä jakoa aloitettaessa)</td></tr>
+    <tr><td><code>playerJoined</code></td><td>Palvelin → asiakas</td><td>Ennallaan; robotit eivät enää tule tämän tapahtuman kautta (ks. vaihe 3), vain <code>gameStarted</code>:n mukana</td></tr>
     <tr><td><code>filterTablePlayers()</code></td><td>Palvelin → asiakas</td><td>Ennallaan, <code>type</code>-kenttä välitetään jo – asiakas vain tulkitsee sen uudella tavalla</td></tr>
     <tr><td><code>bidMade</code>, <code>cardPlayed</code>, <code>trickComplete</code></td><td>Palvelin → asiakas</td><td>Ei muutoksia – robotin siirrot kulkevat samojen tapahtumien kautta kuin ihmisen</td></tr>
+    <tr><td><code>gameOver</code></td><td>Palvelin → asiakas</td><td>Uudet kentät (vaihe 11): <code>doubleDummyTricks</code> (optimitikkimäärä sopimukselle täydellisellä pelillä) ja <code>actualTricks</code> (olemassa olevan <code>tricks</code>-kentän rinnalle selkeytenä)</td></tr>
   </tbody>
 </table>
 </div>
@@ -457,12 +493,10 @@ function decideMiniContract(table, position) {
 <h2 id="riskit">Riskit ja avoimet kysymykset</h2>
 <ul>
   <li><strong>Vahvistettu rajoite (ei enää riski vaan tunnettu tosiasia):</strong> GIB:tä ei voi käyttää kortinpelin ratkaisemiseen tikin 2. kortista eteenpäin – vain tarjoukseen ja avausiskuun. Tämä riski on kuitenkin pienentynyt 2026-09-25 tehdyn lisätutkimuksen myötä: avoimen lähdekoodin double dummy -ratkaisijat (ks. arkkitehtuurikohta 1b) tarjoavat valmiin, testatun moottorin tikeille 2–13 hand-rolled-sääntöjen kirjoittamisen sijaan – työmäärä on siis pienempi kuin heti testien jälkeen arvioitiin, mutta silti uusi riippuvuus (uusi kirjasto integroitavaksi, ks. seuraava kohta).</li>
-  <li><strong>Uusi riippuvuus vaatii oman validoinnin:</strong> <code>bridge-solver</code>-WASM-moduulia ei ole vielä testattu tässä projektissa eikä tässä Windows/Azure/iisnode-hostingympäristössä. WASM-moduulien lataus Node.js:ssä toimii yleensä ongelmitta, mutta se on syytä varmistaa käytännössä (esim. pieni erillinen kokeilu) ennen kuin vaiheeseen 4 sitoudutaan täysin – jos WASM-lataus osoittautuu hankalaksi, <code>dds-bridge/dds</code> natiivikirjastona tai yksinkertainen sääntöpohja jäävät varavaihtoehdoiksi.</li>
-  <li><strong>GIB on silti dokumentoimaton, kolmannen osapuolen ilmainen rajapinta</strong> niiltä osin kuin sitä käytetään (tarjous + avausisku). Ei virallista SLA:ta, muoto voi muuttua ilman varoitusta, ja osoite (<code>gibrest.bridgebase.com</code>) käyttää tällä hetkellä koodissa <code>http://</code>-yhteyttä salaamattoman <code>https://</code>:n sijaan (<code>purkka.js</code> tosin käyttää jo <code>https://</code> – syytä yhtenäistää).</li>
-  <li><strong>Nopeus:</strong> pienempi riski kuin alun perin arvioitiin, koska kortinpeli ei enää tee GIB-kutsuja per kortti. GIB-kutsuja tehdään enää tarjousvaiheessa (muutama per jako) ja kerran avausiskuun – yksi kutsu kestää 1–5 sekuntia, mutta kokonaismäärä per jako on nyt selvästi pienempi kuin pelkoisiin 52 kutsuun perustunut alkuperäinen arvio.</li>
+  <li><strong>GIB on silti dokumentoimaton, kolmannen osapuolen ilmainen rajapinta</strong> niiltä osin kuin sitä käytetään (pelkkä tarjous, ks. arkkitehtuurikohta 1). Ei virallista SLA:ta, muoto voi muuttua ilman varoitusta, ja osoite (<code>gibrest.bridgebase.com</code>) käyttää tällä hetkellä koodissa <code>http://</code>-yhteyttä salaamattoman <code>https://</code>:n sijaan (<code>purkka.js</code> tosin käyttää jo <code>https://</code> – syytä yhtenäistää).</li>
+  <li><strong>Nopeus:</strong> pienempi riski kuin alun perin arvioitiin, koska kortinpeli (avausisku mukaan lukien) ei enää tee GIB-kutsuja lainkaan. GIB-kutsuja tehdään enää tarjousvaiheessa (muutama per jako) – yksi kutsu kestää 1–5 sekuntia, mutta kokonaismäärä per jako on nyt selvästi pienempi kuin pelkoisiin 52 kutsuun perustunut alkuperäinen arvio.</li>
   <li><strong>Kuormitus:</strong> ei omaa rajoitinta (rate limiting) GIB-kutsuille. Kuormitus on kuitenkin edellistä kohtaa vastaavasti pienempi kuin alun perin arvioitiin. Silti syytä seurata tuotannossa.</li>
   <li><strong>Reiluus:</strong> robotti saa palvelimelta täydet käsitiedot (ks. arkkitehtuuriosio kohta 5) sekä GIB-kutsuihin että omaan kortinpelialgoritmiin. Hyväksytty yksinkertaistus tässä laajuudessa, mutta syytä mainita käyttäjille (esim. ohjetekstissä), ettei robotti ole täysin "sokea" niin kuin ihminen olisi.</li>
-  <li><strong>Avoin päätös:</strong> saako robotin lisätä kuka tahansa pöydässä istuva vai vain pöydän luoja? Suositus vaiheessa 3, mutta päätös kannattaa vahvistaa ennen koodausta.</li>
   <li><strong>Avoin päätös:</strong> halutaanko robotille myös vaikeustasoja (esim. "aloittelija" = taso 1 kortinpeli, "vahva" = taso 2/3)? Ei kuulu ensimmäiseen versioon, mutta arkkitehtuuri (vaihe 4:n <code>lib/robot.js</code>) tukisi sitä helposti myöhemmin.</li>
   <li><strong>Avoin päätös:</strong> kannattaako silti kokeilla muita GIB:n mahdollisia rajapintapolkuja (esim. eri moduuli kuin <code>u_bm</code>) täyden kortinpelin löytämiseksi, vai hyväksytäänkö oma algoritmi lopullisena ratkaisuna? Suositus: hyväksytään oma algoritmi, koska lisätutkimus tuntemattomiin, dokumentoimattomiin rajapintapolkuihin kolmannen osapuolen palvelimella ei ole hyvä käyttö ajasta eikä kohtelias palveluntarjoajaa kohtaan.</li>
 </ul>

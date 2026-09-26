@@ -18,7 +18,8 @@
         <div id="error-area" class="error-message" style="display: none;"></div>
         
         <div id="status-area" role="status">Welcome</div>
-        
+        <div id="robot-thinking-status" aria-hidden="true" style="font-size: 0.9em; opacity: 0.75; min-height: 1.2em;"></div>
+
         <div id="main-action-buttons">
             <button onclick="toggleHelp()" id="toggle-help-button" aria-expanded="false">Help</button>
             <button onclick="navigate('/')" id="back-button">Back</button>
@@ -240,6 +241,7 @@
         let gameMode = 'bridge';
         let miniState = null;
         let miniScore = { ns: 0, ew: 0 };
+        let tablePlayers = null; // { north: {name, type}, ... } -- type is 'human' or 'robot'
         let myPosition = null;
         let myName = null;
         let selectedCreatePosition = 'south';
@@ -475,7 +477,9 @@
                 'position-selection': 'Select your position',
                 'waiting-room': () => {
                     const playerCount = parseInt(document.getElementById('waiting-player-count').textContent);
-                    return playerCount === 4 ? 'Ready to start!' : `Waiting for ${4 - playerCount} more players`;
+                    if (playerCount === 4) return 'Ready to start!';
+                    if (playerCount >= 1) return `Ready to start with ${4 - playerCount} robot${4 - playerCount > 1 ? 's' : ''}, or wait for more players`;
+                    return `Waiting for ${4 - playerCount} more players`;
                 },
                 'game': () => {
                     if (gameState) {
@@ -495,6 +499,34 @@
             
             const statusText = statusTexts[currentView];
             statusArea.textContent = typeof statusText === 'function' ? statusText() : statusText || 'AccessibleBridge';
+        }
+
+        /**
+         * Non-intrusive "Robot is thinking..." note while a robot's move is
+         * pending, so a user doesn't wonder why nothing is happening during
+         * the short delay before the robot acts. Not sent to the screen
+         * reader (aria-hidden) -- the robot's actual move still announces
+         * normally through the existing bidMade/cardPlayed handlers.
+         */
+        function updateRobotThinkingIndicator() {
+            const el = document.getElementById('robot-thinking-status');
+            if (!el) return;
+            if (!gameState || !tablePlayers || currentView !== 'game') {
+                el.textContent = '';
+                return;
+            }
+
+            let controllerPosition = null;
+            if (gameState.gamePhase === 'bidding' && biddingState) {
+                controllerPosition = biddingState.currentBidder;
+            } else if (gameState.gamePhase === 'contract' && miniState) {
+                controllerPosition = miniState.declarer;
+            } else if (gameState.gamePhase === 'play') {
+                controllerPosition = gameState.currentPlayer === gameState.dummy ? gameState.declarer : gameState.currentPlayer;
+            }
+
+            const isRobotTurn = controllerPosition && tablePlayers[controllerPosition]?.type === 'robot';
+            el.textContent = isRobotTurn ? `Robot is thinking (${positionName(controllerPosition)})...` : '';
         }
 
         // CREATE TABLE
@@ -679,17 +711,18 @@
                     }
                 } else {
                     element.classList.remove('occupied', 'you');
-                    nameElement.textContent = 'Waiting...';
+                    nameElement.textContent = 'Empty - will be filled with a robot when the game starts';
                 }
             }
-            
+
             document.getElementById('waiting-player-count').textContent = playerCount;
             updateStatus();
-            
+
             const startButton = document.getElementById('start-game-button');
-            startButton.disabled = playerCount !== 4;
+            startButton.disabled = playerCount < 1;
             const startLabel = gameMode === 'minibridge' ? 'Start minibridge' : 'Start bridge';
-            startButton.textContent = playerCount === 4 ? startLabel : `Start (${playerCount}/4)`;
+            const emptySeats = 4 - playerCount;
+            startButton.textContent = emptySeats === 0 ? startLabel : `${startLabel} (fills ${emptySeats} seat${emptySeats > 1 ? 's' : ''} with robots)`;
 
             if (playerCount === 4) {
                 announceToScreenReader(`All players joined. Ready to ${startLabel.toLowerCase()}.`);
@@ -904,7 +937,8 @@ function attemptToPlayCard(suit, card, fromPosition) {
 function renderHand(position, hand, targetElement) {
     if (!hand || !targetElement) return;
     
-    let positionType = position === myPosition ? 'You' : 'Human';
+    const isRobot = tablePlayers?.[position]?.type === 'robot';
+    let positionType = position === myPosition ? 'You' : (isRobot ? 'Robot' : 'Human');
     if (position === gameState?.dummy && gameState?.declarer === myPosition) {
         positionType = 'Dummy (You control)';
     }
@@ -1125,8 +1159,9 @@ function updateCurrentTrickDisplay() {
             
             // Update current trick
             updateCurrentTrickDisplay();
-            
+
             updateStatus();
+            updateRobotThinkingIndicator();
         }
 
         function updateScoreDisplay() {
@@ -1820,7 +1855,8 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Enter/Space', desc: 'Select position' },
                 
                 { key: '', desc: '--- Waiting Room ---' },
-                { key: 'Alt + S', desc: 'Start game (when 4 players present)' },
+                { key: '', desc: 'Any empty seats are automatically filled with a robot player when the game starts, so you can play with fewer than 4 people.' },
+                { key: 'Alt + S', desc: 'Start game (fills empty seats with robots)' },
                 { key: 'Alt + L', desc: 'Leave table' },
                 { key: 'Alt + C', desc: 'Focus on chat input' },
                 { key: 'Enter', desc: 'Send chat message (when in chat input)' },
@@ -2846,6 +2882,7 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                 gameMode = data.gameMode === 'minibridge' ? 'minibridge' : 'bridge';
                 miniState = data.miniState || null;
                 miniScore = data.miniScore || { ns: 0, ew: 0 };
+                if (data.table && data.table.players) tablePlayers = data.table.players;
 
                 showGameView();
                 updateDealInfo();
@@ -2907,6 +2944,7 @@ updateWaitingRoomPositions(data.table);
                 currentDealer = data.dealer || 'south';
                 if (data.gameMode) gameMode = data.gameMode;
                 miniState = data.miniState || null;
+                if (data.players) tablePlayers = data.players;
                 updateDealInfo();
 
                 if (!gameState.gamePhase) gameState.gamePhase = 'bidding';
@@ -2914,6 +2952,11 @@ updateWaitingRoomPositions(data.table);
                 showGameView();
                 updateGameUI();
                 handleDealStartUI();
+
+                if (data.autoFilledWithRobot && data.autoFilledWithRobot.length > 0) {
+                    const names = data.autoFilledWithRobot.map(positionName).join(' and ');
+                    announceToScreenReader(`Game started. ${names} ${data.autoFilledWithRobot.length > 1 ? 'are' : 'is'} played by the robot.`);
+                }
             });
 
             socket.on('miniRedeal', (data) => {
@@ -2941,9 +2984,10 @@ updateWaitingRoomPositions(data.table);
             socket.on('bidMade', (data) => {
                 biddingState = data.biddingState;
                 renderBiddingUI();
-                
-                const bidText = data.bid === 'P' ? 'passes' : 
-                              data.bid === 'X' ? 'doubles' : 
+                updateRobotThinkingIndicator();
+
+                const bidText = data.bid === 'P' ? 'passes' :
+                              data.bid === 'X' ? 'doubles' :
                               data.bid === 'XX' ? 'redoubles' : `bids ${formatBid(data.bid)}`;
                 announceToScreenReader(`${positionName(data.position)} ${bidText}`);
             });
@@ -3006,6 +3050,7 @@ socket.on('cardPlayed', (data) => {
     
     renderAllHands();
     updateCurrentTrickDisplay();
+    updateRobotThinkingIndicator();
 
     announceToScreenReader(`${positionName(data.position)} ${getSuitName(data.suit)} ${data.card}`);
 });
@@ -3048,8 +3093,13 @@ socket.on('trickComplete', (data) => {
                     updateScoreDisplay();
                 }
 
+                if (data.doubleDummyTricks !== undefined && data.doubleDummyTricks !== null) {
+                    message += ` You made ${data.actualTricks} tricks. Double dummy optimum for this deal: ${data.doubleDummyTricks} tricks.`;
+                }
+
                 announceToScreenReader(message);
                 document.getElementById('game-new-game-button').style.display = 'block';
+                updateRobotThinkingIndicator();
             });
 
             socket.on('newDealStarted', (data) => {

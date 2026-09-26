@@ -9,6 +9,8 @@ const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
 const cors = require('cors');
+const robot = require('./lib/robot');
+const solver = require('./lib/bridge_solver_wasm');
 
 // Initialize Express app and server
 const app = express();
@@ -600,15 +602,22 @@ function startGame(socket, playerId, data) {
     return;
   }
   
-  // Check that all positions are filled with human players
+  // Fill any empty seats with a robot, then start
   const positions = ['north', 'east', 'south', 'west'];
+  const autoFilledWithRobot = [];
   for (const position of positions) {
-    if (!table.players[position] || table.players[position].type !== 'human') {
-      sendError(socket, 'All 4 positions must be filled with human players before starting');
+    if (!table.players[position]) {
+      table.players[position] = { name: 'Robot', id: null, type: 'robot' };
+      autoFilledWithRobot.push(position);
+    }
+  }
+  for (const position of positions) {
+    if (!['human', 'robot'].includes(table.players[position].type)) {
+      sendError(socket, 'All 4 positions must be filled before starting');
       return;
     }
   }
-  
+
   table.state = 'playing';
   table.lastActivity = Date.now();
 
@@ -616,7 +625,7 @@ function startGame(socket, playerId, data) {
     table.dealNumber = 1;
     table.currentDealer = 'south';
 
-    beginDeal(table, 'gameStarted');
+    beginDeal(table, 'gameStarted', { autoFilledWithRobot });
 
     console.log(`Game started in table ${tableCode}`);
 
@@ -631,7 +640,7 @@ function startGame(socket, playerId, data) {
  * Deal cards, resolve minibridge roles (if applicable) and notify players.
  * Shared by startGame() and startNextDeal() so both game modes stay in sync.
  */
-function beginDeal(table, eventType) {
+function beginDeal(table, eventType, extraPayload = {}) {
   table.gameState = createGameState(table);
   table.biddingState = createBiddingState(table);
 
@@ -696,6 +705,8 @@ function beginDeal(table, eventType) {
     payload.miniState = table.miniState;
   }
 
+  Object.assign(payload, extraPayload);
+
   sendToTablePlayers(table, payload);
   sendAudioToTable(table, 'deal');
 
@@ -721,6 +732,8 @@ function beginDeal(table, eventType) {
       dummyCards: table.gameState.hands[dummyPosition]
     });
   }
+
+  maybeTriggerRobot(table);
 }
 
 /**
@@ -789,6 +802,15 @@ function chooseMiniContract(socket, playerId, data) {
     return;
   }
 
+  applyMiniContract(table, type, strain);
+}
+
+/**
+ * Apply a chosen minibridge contract (partscore or game) and move to the
+ * play phase. Shared by the declarer's own choice and the robot's choice.
+ */
+function applyMiniContract(table, type, strain) {
+  const ms = table.miniState;
   const level = type === 'game' ? MINI_GAME_LEVEL[strain] : 1;
   Object.assign(table.biddingState, {
     contract: `${level}${strain}`,
@@ -929,6 +951,8 @@ function processBid(table, position, bid) {
       nextBidder: table.biddingState.currentBidder,
       biddingState: table.biddingState
     });
+
+    maybeTriggerRobot(table);
   }
 }
 
@@ -1107,7 +1131,10 @@ function moveToPlayPhase(table) {
   const declarerIndex = positions.indexOf(table.biddingState.declarer);
   table.gameState.currentPlayer = positions[(declarerIndex + 1) % 4];
   table.gameState.leadingPlayer = table.gameState.currentPlayer;
-  
+  // Kept separate from leadingPlayer (which is overwritten by each trick's
+  // winner): the solver needs the deal's original opening leader throughout.
+  table.gameState.openingLeader = table.gameState.currentPlayer;
+
   sendToTablePlayers(table, {
     type: 'biddingComplete',
     contract: table.gameState.contract,
@@ -1117,6 +1144,8 @@ function moveToPlayPhase(table) {
     currentPlayer: table.gameState.currentPlayer,
     gameState: filterGameState(table.gameState, null)
   });
+
+  maybeTriggerRobot(table);
 }
 
 /**
@@ -1222,11 +1251,13 @@ function processCardPlay(table, position, suit, card) {
   } else {
     // Move to next player
     table.gameState.currentPlayer = getNextPlayer(table.gameState.currentPlayer);
-    
+
     sendToTablePlayers(table, {
       type: 'nextPlayer',
       currentPlayer: table.gameState.currentPlayer
     });
+
+    maybeTriggerRobot(table);
   }
 
   // If this was first card played, reveal dummy cards
@@ -1290,6 +1321,8 @@ function processTrick(table) {
     tricks: table.gameState.tricks,
     nextPlayer: winner
   });
+
+  maybeTriggerRobot(table);
 }
 
 /**
@@ -1337,14 +1370,99 @@ function determineTrickWinner(table) {
 }
 
 /**
+ * Position actually in control of the current decision: the current player,
+ * unless that player is the dummy, in which case the declarer controls the
+ * dummy's hand (same rule for bridge and minibridge).
+ */
+function currentController(table) {
+  if (!table.gameState) return null;
+  const cp = table.gameState.currentPlayer;
+  if (table.gameState.gamePhase === 'play' && cp === table.gameState.dummy) {
+    return table.gameState.declarer;
+  }
+  return cp;
+}
+
+/**
+ * If the position now on turn is controlled by a robot, schedule its move
+ * after a short "thinking" delay. Safe to call after every turn transition;
+ * it is a no-op whenever the position on turn is a human (or reconnecting).
+ */
+function maybeTriggerRobot(table) {
+  if (!table.gameState || table.state !== 'playing') return;
+
+  const phase = table.gameState.gamePhase;
+  let controller = null;
+  if (phase === 'bidding') {
+    controller = table.biddingState && table.biddingState.currentBidder;
+  } else if (phase === 'contract') {
+    controller = table.miniState && table.miniState.declarer;
+  } else if (phase === 'play') {
+    controller = currentController(table);
+  } else {
+    return;
+  }
+
+  if (!controller || !table.players[controller] || table.players[controller].type !== 'robot') {
+    return;
+  }
+
+  setTimeout(() => {
+    if (!tables.has(table.code)) return; // table could vanish while we waited
+    runRobotTurn(table, phase).catch(err => {
+      console.error(`Robot turn failed at table ${table.code}:`, err);
+    });
+  }, 1200 + Math.random() * 800);
+}
+
+/**
+ * Perform the robot's move. Re-checks the table's actual state instead of
+ * trusting the values captured when the timer was scheduled, since the
+ * situation (redeal, disconnect, table teardown) may have changed meanwhile.
+ */
+async function runRobotTurn(table, expectedPhase) {
+  if (!tables.has(table.code) || table.state !== 'playing' || !table.gameState) return;
+  if (table.gameState.gamePhase !== expectedPhase) return;
+
+  if (expectedPhase === 'bidding') {
+    const position = table.biddingState.currentBidder;
+    if (!table.players[position] || table.players[position].type !== 'robot') return;
+    const bid = await robot.decideRobotBid(table, position);
+    processBid(table, position, bid);
+    return;
+  }
+
+  if (expectedPhase === 'contract') {
+    const position = table.miniState.declarer;
+    if (!table.players[position] || table.players[position].type !== 'robot') return;
+    const { type, strain } = robot.decideMiniContract(table, position);
+    applyMiniContract(table, type, strain);
+    return;
+  }
+
+  if (expectedPhase === 'play') {
+    const handToPlay = table.gameState.currentPlayer;
+    const controller = currentController(table);
+    if (!table.players[controller] || table.players[controller].type !== 'robot') return;
+    if (table.gameState.trickLocked) return; // a trick is already being resolved
+
+    const move = await robot.decideRobotCard(table, handToPlay);
+    if (!move) return;
+    processCardPlay(table, handToPlay, move.suit, move.card);
+  }
+}
+
+/**
  * End game and start countdown for next deal
  */
-function endGame(table) {
+async function endGame(table) {
     table.gameState.gamePhase = 'end';
 
     // Calculate result based on contract
     let resultMessage = '';
     let dealScore = null;
+    let doubleDummyTricks = null;
+    let actualTricks = null;
 
     if (table.gameState.contract) {
         const level = parseInt(table.gameState.contract.charAt(0));
@@ -1352,6 +1470,16 @@ function endGame(table) {
 
         const declarerSide = table.gameState.declarer === 'north' || table.gameState.declarer === 'south' ? 'ns' : 'ew';
         const madeTricks = table.gameState.tricks[declarerSide];
+        actualTricks = madeTricks;
+
+        // Double dummy comparison (vaihe 11): how many tricks perfect play on
+        // both sides would have made with this contract's trump. Shown to
+        // everyone at the table, robots or not -- purely informational.
+        try {
+            doubleDummyTricks = await solver.solveContract(table.gameState.originalHands, table.gameState.trumpSuit, table.gameState.declarer);
+        } catch (error) {
+            console.error(`Double dummy comparison failed for table ${table.code}:`, error.message);
+        }
 
         if (table.gameMode === 'minibridge') {
             dealScore = scoreMiniDeal(table.gameState.contract, madeTricks);
@@ -1399,6 +1527,11 @@ function endGame(table) {
     if (table.gameMode === 'minibridge') {
         gameOverPayload.dealScore = dealScore;
         gameOverPayload.totalScore = table.miniScore;
+    }
+
+    if (doubleDummyTricks !== null) {
+        gameOverPayload.doubleDummyTricks = doubleDummyTricks;
+        gameOverPayload.actualTricks = actualTricks;
     }
 
     sendToTablePlayers(table, gameOverPayload);
@@ -1610,12 +1743,17 @@ function createTableCode() {
  */
 function createGameState(table) {
   const cards = dealCards();
-  
+
   return {
     players: table.players,
     currentPlayer: 'south',
     gamePhase: 'bidding',
     hands: cards,
+    // Snapshot of the full deal before any card is removed by play. The
+    // double-dummy solver needs every player's complete original hand to
+    // replay the deal; `hands` above is mutated as cards are played and
+    // cannot be used for that (see lib/robot.js, endGame()).
+    originalHands: JSON.parse(JSON.stringify(cards)),
     playedCards: [],
     currentTrick: [],
     contract: null,
@@ -1817,9 +1955,9 @@ function formatContract(contract) {
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`BridgeCircle Human-Only Server running on port ${PORT}`);
+  console.log(`BridgeCircle Server running on port ${PORT}`);
   console.log('Features:');
-  console.log('- Human players only (no AI/robots)');
+  console.log('- Human players, with robots auto-filling empty seats at start');
   console.log('- Real-time multiplayer bridge');
   console.log('- Automatic dealing and scoring');
   console.log('- Table management and chat');

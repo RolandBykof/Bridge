@@ -1,0 +1,17 @@
+{
+  "name": "bridge-solver-wasm",
+  "type": "module",
+  "description": "WebAssembly bindings for bridge-solver: double-dummy tables and cardplay analysis in the browser",
+  "version": "2.0.0",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "bridge_solver_wasm_bg.wasm",
+    "bridge_solver_wasm.js",
+    "bridge_solver_wasm.d.ts"
+  ],
+  "main": "bridge_solver_wasm.js",
+  "types": "bridge_solver_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
