@@ -96,7 +96,13 @@ io.on('connection', (socket) => {
         miniState: null,
         miniScore: { ns: 0, ew: 0 },
         autoNextDeal: false,
-        pendingNextDealTimeout: null
+        pendingNextDealTimeout: null,
+        // Bumped by beginDeal() every time a deal starts. Lets a deferred
+        // callback (trick resolution, a redeal timer, an in-flight GIB/solver
+        // call) recognize that the deal it was working on has since been
+        // abandoned (via requestNextDeal()) and silently no-op instead of
+        // mutating the new deal's state.
+        dealEpoch: 0
     };
 
     // Add player to table
@@ -662,6 +668,7 @@ function startGame(socket, playerId, data) {
  * Shared by startGame() and startNextDeal() so both game modes stay in sync.
  */
 function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
+  table.dealEpoch = (table.dealEpoch || 0) + 1;
   table.gameState = createGameState(table, fixedHands);
   if (fixedHands) table.gameState.isReplay = true;
   table.biddingState = createBiddingState(table);
@@ -678,8 +685,9 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
         message: '20-20. Redealing.'
       });
 
+      const epochAtSchedule = table.dealEpoch;
       setTimeout(() => {
-        if (table && tables.has(table.code)) {
+        if (table && tables.has(table.code) && table.dealEpoch === epochAtSchedule) {
           try {
             table.currentDealer = getNextDealer(table.currentDealer || 'south');
             beginDeal(table, eventType);
@@ -1030,7 +1038,9 @@ function finalizeBiddingPhase(table) {
     });
     
     // Start new deal automatically
+    const epochAtSchedule = table.dealEpoch;
     setTimeout(() => {
+      if (table.dealEpoch !== epochAtSchedule) return; // this deal was abandoned in the meantime
       startNextDeal(table);
     }, 3000);
     return;
@@ -1270,7 +1280,9 @@ function processCardPlay(table, position, suit, card) {
   // Check if trick is complete (4 cards)
   if (table.gameState.currentTrick.length === 4) {
     table.gameState.trickLocked = true;
+    const epochAtSchedule = table.dealEpoch;
     setTimeout(() => {
+      if (table.dealEpoch !== epochAtSchedule) return; // this deal was abandoned in the meantime
       processTrick(table);
     }, 3000);
   } else {
@@ -1432,9 +1444,11 @@ function maybeTriggerRobot(table) {
     return;
   }
 
+  const epochAtSchedule = table.dealEpoch;
   setTimeout(() => {
     if (!tables.has(table.code)) return; // table could vanish while we waited
-    runRobotTurn(table, phase).catch(err => {
+    if (table.dealEpoch !== epochAtSchedule) return; // deal was abandoned/replayed in the meantime
+    runRobotTurn(table, phase, epochAtSchedule).catch(err => {
       console.error(`Robot turn failed at table ${table.code}:`, err);
     });
   }, 1200 + Math.random() * 800);
@@ -1443,16 +1457,21 @@ function maybeTriggerRobot(table) {
 /**
  * Perform the robot's move. Re-checks the table's actual state instead of
  * trusting the values captured when the timer was scheduled, since the
- * situation (redeal, disconnect, table teardown) may have changed meanwhile.
+ * situation (redeal, disconnect, table teardown, a manually requested next
+ * deal) may have changed meanwhile -- including while an async GIB or solver
+ * call was in flight, which is why `epoch` is re-checked after each await
+ * too, not just once at the top.
  */
-async function runRobotTurn(table, expectedPhase) {
+async function runRobotTurn(table, expectedPhase, epoch) {
   if (!tables.has(table.code) || table.state !== 'playing' || !table.gameState) return;
+  if (table.dealEpoch !== epoch) return;
   if (table.gameState.gamePhase !== expectedPhase) return;
 
   if (expectedPhase === 'bidding') {
     const position = table.biddingState.currentBidder;
     if (!table.players[position] || table.players[position].type !== 'robot') return;
     const bid = await robot.decideRobotBid(table, position);
+    if (table.dealEpoch !== epoch) return; // this deal ended while GIB was thinking
     processBid(table, position, bid);
     return;
   }
@@ -1472,6 +1491,7 @@ async function runRobotTurn(table, expectedPhase) {
     if (table.gameState.trickLocked) return; // a trick is already being resolved
 
     const move = await robot.decideRobotCard(table, handToPlay);
+    if (table.dealEpoch !== epoch) return; // this deal ended while the solver was thinking
     if (!move) return;
     processCardPlay(table, handToPlay, move.suit, move.card);
   }
@@ -1635,9 +1655,12 @@ function setAutoNextDeal(socket, playerId, data) {
 }
 
 /**
- * Manually start the next deal (e.g. auto-next-deal is off, or a player
- * doesn't want to wait for the countdown). Cancels any pending automatic
- * timer so the deal isn't started twice.
+ * Manually start the next deal. Works at any point in the current deal, not
+ * only after it has ended -- the creator can abandon a deal they don't want
+ * to finish playing. beginDeal()'s dealEpoch bump makes sure anything still
+ * in flight for the abandoned deal (a trick-resolution timer, a redeal
+ * timer, an in-flight GIB/solver call) recognizes it's stale and no-ops
+ * instead of mutating the new deal.
  */
 function requestNextDeal(socket, playerId, data) {
     const { tableCode } = data || {};
@@ -1658,8 +1681,8 @@ function requestNextDeal(socket, playerId, data) {
         return;
     }
 
-    if (!table.gameState || table.gameState.gamePhase !== 'end') {
-        sendError(socket, 'The current deal has not ended yet');
+    if (!table.gameState) {
+        sendError(socket, 'No deal in progress');
         return;
     }
 
@@ -1669,12 +1692,14 @@ function requestNextDeal(socket, playerId, data) {
         return;
     }
 
+    const abandoned = table.gameState.gamePhase !== 'end';
+
     if (table.pendingNextDealTimeout) {
         clearTimeout(table.pendingNextDealTimeout);
         table.pendingNextDealTimeout = null;
     }
 
-    startNextDeal(table);
+    startNextDeal(table, abandoned ? { abandoned: true } : {});
 }
 
 /**
@@ -1767,19 +1792,19 @@ function getNextDealer(currentDealer) {
 }
 
 /**
- * Start next deal automatically
+ * Start next deal (automatically, or on request)
  */
-function startNextDeal(table) {
+function startNextDeal(table, extraPayload = {}) {
     try {
         table.currentDealer = getNextDealer(table.currentDealer || 'south');
         table.dealNumber = (table.dealNumber || 1) + 1;
-        
+
         console.log(`Starting deal ${table.dealNumber}, dealer: ${table.currentDealer} for table ${table.code}`);
-        
+
         table.state = 'playing';
         table.lastActivity = Date.now();
 
-        beginDeal(table, 'newDealStarted');
+        beginDeal(table, 'newDealStarted', extraPayload);
 
         console.log(`Deal ${table.dealNumber} started successfully for table ${table.code}`);
         

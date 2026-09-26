@@ -128,7 +128,7 @@
             <button onclick="leaveTableFromWaiting()">Leave</button>
 
             <div>
-                <input type="checkbox" id="aanetKaytossa">
+                <input type="checkbox" id="aanetKaytossa" checked>
                 <label for="aanetKaytossa">Sounds</label>
                 <span id="aaniStatus" role="status" aria-live="polite">Disabled</span>
             </div>
@@ -1743,6 +1743,9 @@ function updateContractDisplay() {
         }
 
         function requestNextDealFromGame() {
+            if (gameState && gameState.gamePhase !== 'end') {
+                if (!confirm('This deal has not finished yet. Start a new deal anyway?')) return;
+            }
             socket.emit('requestNextDeal', { tableCode: tableCode });
         }
 
@@ -1758,8 +1761,10 @@ function updateContractDisplay() {
         /**
          * The Next Deal and Replay buttons are always visible (not popped
          * in/out of the DOM) so their state is predictable for screen reader
-         * users; they are simply enabled only once there is a finished deal
-         * to move on from or replay, and only shown to the table creator.
+         * users, and only shown to the table creator. Next Deal works at any
+         * point in the deal (with a confirmation if it hasn't ended yet, see
+         * requestNextDealFromGame()); Replay only makes sense once there is a
+         * finished deal to replay.
          */
         function updateNextDealButtonState() {
             const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
@@ -1768,7 +1773,7 @@ function updateContractDisplay() {
             const nextButton = document.getElementById('next-deal-button');
             if (nextButton) {
                 nextButton.style.display = isCreator ? '' : 'none';
-                nextButton.disabled = !dealHasEnded;
+                nextButton.disabled = !gameState;
             }
 
             const replayButton = document.getElementById('replay-deal-button');
@@ -3178,12 +3183,11 @@ socket.on('trickComplete', (data) => {
     updateGameUI();
     
     const winner = positionName(data.winner);
-    const next = positionName(data.nextPlayer);
-    
-    const isUserNext = (data.nextPlayer === myPosition) || 
+
+    const isUserNext = (data.nextPlayer === myPosition) ||
                      (data.nextPlayer === gameState.dummy && gameState.declarer === myPosition);
     
-    const message = isUserNext ? `${winner} won. Your turn.` : `${winner} won. ${next} plays.`;
+    const message = isUserNext ? 'Trick to you.' : `Trick to ${winner}.`;
     
     announceToScreenReader(message);
     updateStatus();
@@ -3255,6 +3259,10 @@ socket.on('trickComplete', (data) => {
                 updateGameUI();
                 updateAutoNextDealCheckbox();
                 handleDealStartUI();
+
+                if (data.abandoned) {
+                    announceToScreenReader('The table creator started a new deal before this one finished.');
+                }
             });
 
             socket.on('autoNextDealChanged', (data) => {
@@ -3286,6 +3294,21 @@ socket.on('trickComplete', (data) => {
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('aanetKaytossa').addEventListener('change', muutaAaniAsetukset);
             document.getElementById('useSynthesizer').addEventListener('change', muutaSyntetisaattoriAsetukset);
+
+            // Sounds are on by default, but browsers block audio playback
+            // until the page has seen a genuine user gesture. Unlock it on
+            // the very first click/keypress anywhere, rather than requiring
+            // the user to manually toggle the checkbox off and on again.
+            function unlockAudioOnFirstGesture() {
+                document.removeEventListener('click', unlockAudioOnFirstGesture);
+                document.removeEventListener('keydown', unlockAudioOnFirstGesture);
+                const checkbox = document.getElementById('aanetKaytossa');
+                if (checkbox && checkbox.checked && !aanetAlustettu) {
+                    alustaAanet();
+                }
+            }
+            document.addEventListener('click', unlockAudioOnFirstGesture);
+            document.addEventListener('keydown', unlockAudioOnFirstGesture);
 
             setupKeyboardListeners();
             connectToServer();
