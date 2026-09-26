@@ -89,11 +89,14 @@ io.on('connection', (socket) => {
         created: Date.now(),
         lastActivity: Date.now(),
         creator: socket.id,
+        creatorPosition: position,
         dealNumber: 0,
         currentDealer: 'south',
         gameMode: mode,
         miniState: null,
-        miniScore: { ns: 0, ew: 0 }
+        miniScore: { ns: 0, ew: 0 },
+        autoNextDeal: false,
+        pendingNextDealTimeout: null
     };
 
     // Add player to table
@@ -171,6 +174,18 @@ io.on('connection', (socket) => {
   
   socket.on('startNewGame', (data) => {
     startNewGame(socket, playerId, data);
+  });
+
+  socket.on('setAutoNextDeal', (data) => {
+    setAutoNextDeal(socket, playerId, data);
+  });
+
+  socket.on('requestNextDeal', (data) => {
+    requestNextDeal(socket, playerId, data);
+  });
+
+  socket.on('replayDeal', (data) => {
+    replayDeal(socket, playerId, data);
   });
   
   // Disconnect handling
@@ -496,7 +511,8 @@ function getTableInfo(socket, playerId, data) {
             dealer: table.currentDealer || 'south',
             gameMode: table.gameMode || 'bridge',
             miniState: table.miniState || null,
-            miniScore: table.miniScore || { ns: 0, ew: 0 }
+            miniScore: table.miniScore || { ns: 0, ew: 0 },
+            autoNextDeal: !!table.autoNextDeal
         });
 
         // Lähetä pelaajan kortit
@@ -596,12 +612,17 @@ function startGame(socket, playerId, data) {
   }
   
   const player = players.get(playerId);
-  
+
   if (!player || player.table !== tableCode) {
     sendError(socket, 'You do not have permission to start the game');
     return;
   }
-  
+
+  if (table.creatorPosition && player.position !== table.creatorPosition) {
+    sendError(socket, 'Only the player who created the table can start the game');
+    return;
+  }
+
   // Fill any empty seats with a robot, then start
   const positions = ['north', 'east', 'south', 'west'];
   const autoFilledWithRobot = [];
@@ -640,8 +661,9 @@ function startGame(socket, playerId, data) {
  * Deal cards, resolve minibridge roles (if applicable) and notify players.
  * Shared by startGame() and startNextDeal() so both game modes stay in sync.
  */
-function beginDeal(table, eventType, extraPayload = {}) {
-  table.gameState = createGameState(table);
+function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
+  table.gameState = createGameState(table, fixedHands);
+  if (fixedHands) table.gameState.isReplay = true;
   table.biddingState = createBiddingState(table);
 
   if (table.gameMode === 'minibridge') {
@@ -698,7 +720,10 @@ function beginDeal(table, eventType, extraPayload = {}) {
 
   if (eventType === 'gameStarted') {
     payload.players = filterTablePlayers(table.players);
+    payload.creatorPosition = table.creatorPosition || null;
   }
+
+  payload.autoNextDeal = !!table.autoNextDeal;
 
   if (table.gameMode === 'minibridge') {
     payload.gameMode = table.gameMode;
@@ -1483,12 +1508,17 @@ async function endGame(table) {
 
         if (table.gameMode === 'minibridge') {
             dealScore = scoreMiniDeal(table.gameState.contract, madeTricks);
-            // Undertrick points accrue to the defending side, like in duplicate bridge
-            const defenderSide = declarerSide === 'ns' ? 'ew' : 'ns';
-            if (dealScore >= 0) {
-                table.miniScore[declarerSide] += dealScore;
-            } else {
-                table.miniScore[defenderSide] += -dealScore;
+            // A replayed deal shows its own result but never touches the
+            // cumulative score -- the original playing of the deal already
+            // counted, and replaying it again is for practice/review.
+            if (!table.gameState.isReplay) {
+                // Undertrick points accrue to the defending side, like in duplicate bridge
+                const defenderSide = declarerSide === 'ns' ? 'ew' : 'ns';
+                if (dealScore >= 0) {
+                    table.miniScore[declarerSide] += dealScore;
+                } else {
+                    table.miniScore[defenderSide] += -dealScore;
+                }
             }
         }
 
@@ -1521,7 +1551,8 @@ async function endGame(table) {
         tricks: table.gameState.tricks,
         contract: table.gameState.contract,
         dealNumber: table.dealNumber || 1,
-        dealer: table.currentDealer || 'south'
+        dealer: table.currentDealer || 'south',
+        isReplay: !!table.gameState.isReplay
     };
 
     if (table.gameMode === 'minibridge') {
@@ -1534,30 +1565,178 @@ async function endGame(table) {
         gameOverPayload.actualTricks = actualTricks;
     }
 
+    gameOverPayload.autoNextDeal = !!table.autoNextDeal;
+
     sendToTablePlayers(table, gameOverPayload);
 
     console.log(`Game ${table.code} ended: ${resultMessage}`);
-    
-    // Automatic new deal after 10 seconds
-    setTimeout(() => {
-        if (table && tables.has(table.code)) {
-            const activePlayers = Object.values(table.players).filter(p => p !== null);
-            
-            if (activePlayers.length === 4) { // Only start if all players still present
-                console.log(`Starting next deal for table ${table.code}`);
-                startNextDeal(table);
-            } else {
-                console.log(`Table ${table.code} missing players, not starting next deal`);
+
+    if (table.pendingNextDealTimeout) {
+        clearTimeout(table.pendingNextDealTimeout);
+        table.pendingNextDealTimeout = null;
+    }
+
+    // Automatic new deal after 10 seconds, unless the table has turned this off
+    // (a player can still always start the next deal manually, see requestNextDeal())
+    if (table.autoNextDeal) {
+        table.pendingNextDealTimeout = setTimeout(() => {
+            table.pendingNextDealTimeout = null;
+            if (table && tables.has(table.code)) {
+                const activePlayers = Object.values(table.players).filter(p => p !== null);
+
+                if (activePlayers.length === 4) { // Only start if all players still present
+                    console.log(`Starting next deal for table ${table.code}`);
+                    startNextDeal(table);
+                } else {
+                    console.log(`Table ${table.code} missing players, not starting next deal`);
+                }
             }
-        }
-    }, 10000);
-    
-    sendToTablePlayers(table, {
-        type: 'autoDealCountdownStarted',
-        nextDealNumber: (table.dealNumber || 1) + 1,
-        nextDealer: getNextDealer(table.currentDealer || 'south'),
-        countdown: 10
-    });
+        }, 10000);
+
+        sendToTablePlayers(table, {
+            type: 'autoDealCountdownStarted',
+            nextDealNumber: (table.dealNumber || 1) + 1,
+            nextDealer: getNextDealer(table.currentDealer || 'south'),
+            countdown: 10
+        });
+    }
+}
+
+/**
+ * Toggle whether the table automatically starts the next deal after a deal
+ * ends. Shared table setting -- any seated player may change it, and every
+ * player at the table is notified so their checkbox stays in sync.
+ */
+function setAutoNextDeal(socket, playerId, data) {
+    const { tableCode, enabled } = data || {};
+    const table = tables.get(tableCode);
+    if (!table) {
+        sendError(socket, 'Table not found');
+        return;
+    }
+
+    const player = players.get(playerId);
+    if (!player || player.table !== tableCode) {
+        sendError(socket, 'You are not seated at this table');
+        return;
+    }
+
+    table.autoNextDeal = !!enabled;
+
+    // If a deal has already ended and the automatic next-deal countdown is
+    // running, turning auto off should actually cancel it -- not just take
+    // effect starting with some future deal.
+    if (!table.autoNextDeal && table.pendingNextDealTimeout) {
+        clearTimeout(table.pendingNextDealTimeout);
+        table.pendingNextDealTimeout = null;
+    }
+
+    sendToTablePlayers(table, { type: 'autoNextDealChanged', enabled: table.autoNextDeal });
+}
+
+/**
+ * Manually start the next deal (e.g. auto-next-deal is off, or a player
+ * doesn't want to wait for the countdown). Cancels any pending automatic
+ * timer so the deal isn't started twice.
+ */
+function requestNextDeal(socket, playerId, data) {
+    const { tableCode } = data || {};
+    const table = tables.get(tableCode);
+    if (!table) {
+        sendError(socket, 'Table not found');
+        return;
+    }
+
+    const player = players.get(playerId);
+    if (!player || player.table !== tableCode) {
+        sendError(socket, 'You are not seated at this table');
+        return;
+    }
+
+    if (table.creatorPosition && player.position !== table.creatorPosition) {
+        sendError(socket, 'Only the player who created the table can start the next deal');
+        return;
+    }
+
+    if (!table.gameState || table.gameState.gamePhase !== 'end') {
+        sendError(socket, 'The current deal has not ended yet');
+        return;
+    }
+
+    const activePlayers = Object.values(table.players).filter(p => p !== null);
+    if (activePlayers.length !== 4) {
+        sendError(socket, 'Waiting for all players to be present');
+        return;
+    }
+
+    if (table.pendingNextDealTimeout) {
+        clearTimeout(table.pendingNextDealTimeout);
+        table.pendingNextDealTimeout = null;
+    }
+
+    startNextDeal(table);
+}
+
+/**
+ * Replay the just-finished deal: same cards, same dealer, fresh bidding and
+ * play. Creator-only, like requestNextDeal(). The deal number and dealer are
+ * left untouched (it's the same deal, not the next one), and if the replay
+ * reaches the end again, its minibridge score is not added to the table's
+ * cumulative total (see endGame()) -- it's for practice/review.
+ */
+function replayDeal(socket, playerId, data) {
+    const { tableCode } = data || {};
+    const table = tables.get(tableCode);
+    if (!table) {
+        sendError(socket, 'Table not found');
+        return;
+    }
+
+    const player = players.get(playerId);
+    if (!player || player.table !== tableCode) {
+        sendError(socket, 'You are not seated at this table');
+        return;
+    }
+
+    if (table.creatorPosition && player.position !== table.creatorPosition) {
+        sendError(socket, 'Only the player who created the table can replay a deal');
+        return;
+    }
+
+    if (!table.gameState || table.gameState.gamePhase !== 'end') {
+        sendError(socket, 'The current deal has not ended yet');
+        return;
+    }
+
+    const activePlayers = Object.values(table.players).filter(p => p !== null);
+    if (activePlayers.length !== 4) {
+        sendError(socket, 'Waiting for all players to be present');
+        return;
+    }
+
+    if (table.pendingNextDealTimeout) {
+        clearTimeout(table.pendingNextDealTimeout);
+        table.pendingNextDealTimeout = null;
+    }
+
+    const handsToReplay = table.gameState.originalHands;
+
+    try {
+        table.state = 'playing';
+        table.lastActivity = Date.now();
+        beginDeal(table, 'newDealStarted', { replayed: true }, handsToReplay);
+        console.log(`Replaying deal ${table.dealNumber} for table ${table.code}`);
+    } catch (error) {
+        console.error(`Error replaying deal for table ${table.code}:`, error);
+        sendToTablePlayers(table, {
+            type: 'dealError',
+            message: 'Error replaying the deal. You can start a new game manually.',
+            error: error.message
+        });
+        table.state = 'waiting';
+        table.gameState = null;
+        table.biddingState = null;
+    }
 }
 
 /**
@@ -1741,8 +1920,8 @@ function createTableCode() {
 /**
  * Create new game state
  */
-function createGameState(table) {
-  const cards = dealCards();
+function createGameState(table, fixedHands) {
+  const cards = fixedHands ? JSON.parse(JSON.stringify(fixedHands)) : dealCards();
 
   return {
     players: table.players,
@@ -1842,7 +2021,8 @@ function filterTable(table) {
     players: filterTablePlayers(table.players),
     state: table.state,
     created: table.created,
-    gameMode: table.gameMode || 'bridge'
+    gameMode: table.gameMode || 'bridge',
+    creatorPosition: table.creatorPosition || null
   };
 }
 
@@ -1871,12 +2051,16 @@ function filterTablePlayers(tablePlayers) {
  */
 function filterGameState(gameState, position) {
   if (!gameState) return null;
-  
+
   const filteredState = { ...gameState };
-  
-  // Remove hands info (sent separately)
+
+  // Remove hands info (sent separately, and only to their owner/dummy-viewers)
   delete filteredState.hands;
-  
+  // originalHands is solver-internal (double-dummy comparisons, robot card
+  // play) and holds every player's true starting cards unmasked -- it must
+  // never reach a client, or any player could read everyone else's hand.
+  delete filteredState.originalHands;
+
   return filteredState;
 }
 

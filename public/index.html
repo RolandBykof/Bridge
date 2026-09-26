@@ -149,7 +149,7 @@
 
         <div id="game-view" style="display: none;">
             <div id="game-header">
-                <div id="deal-info-area">
+                <div id="deal-info-area" tabindex="-1">
                     <span>Deal: <span id="deal-number">1</span></span>
                     <span>Dealer: <span id="current-dealer">South</span></span>
                 </div>
@@ -207,6 +207,13 @@
                 </div>
             
             <div id="game-controls">
+                <button onclick="requestNextDealFromGame()" id="next-deal-button" disabled>Next Deal</button>
+                <button onclick="replayDealFromGame()" id="replay-deal-button" disabled>Replay This Deal</button>
+                <span id="next-deal-status" aria-hidden="true"></span>
+                <div>
+                    <input type="checkbox" id="auto-next-deal-checkbox" onchange="setAutoNextDealFromGame(this.checked)">
+                    <label for="auto-next-deal-checkbox">Start next deal automatically</label>
+                </div>
                 <button onclick="startNewGameFromGame()" id="game-new-game-button" style="display: none;">New Game</button>
                 <button onclick="leaveGameFromGame()">Leave Game</button>
             </div>
@@ -242,6 +249,9 @@
         let miniState = null;
         let miniScore = { ns: 0, ew: 0 };
         let tablePlayers = null; // { north: {name, type}, ... } -- type is 'human' or 'robot'
+        let tableCreatorPosition = null;
+        let autoNextDeal = false;
+        let dealIsReplay = false;
         let myPosition = null;
         let myName = null;
         let selectedCreatePosition = 'south';
@@ -267,7 +277,14 @@
                 this.queue.push({
                     message: message,
                     timestamp: Date.now(),
-                    estimatedDuration: Math.max(100, Math.min(500, message.length * 0))
+                    // Rough estimate of how long a screen reader takes to speak
+                    // this out loud, so the next announcement doesn't overwrite
+                    // this one's live region before it has actually been heard.
+                    // (Previously always 100ms regardless of length -- a typo,
+                    // `message.length * 0`, made every announcement the same
+                    // fixed, far-too-short duration, causing announcements to
+                    // pile up and overlap.)
+                    estimatedDuration: Math.max(400, Math.min(6000, message.length * 60))
                 });
 
                 if (!this.processing) {
@@ -477,6 +494,12 @@
                 'position-selection': 'Select your position',
                 'waiting-room': () => {
                     const playerCount = parseInt(document.getElementById('waiting-player-count').textContent);
+                    const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+                    if (!isCreator) {
+                        return playerCount === 4
+                            ? 'Waiting for the table creator to start the game.'
+                            : `Waiting for the table creator to start the game (will fill ${4 - playerCount} seat(s) with robots).`;
+                    }
                     if (playerCount === 4) return 'Ready to start!';
                     if (playerCount >= 1) return `Ready to start with ${4 - playerCount} robot${4 - playerCount > 1 ? 's' : ''}, or wait for more players`;
                     return `Waiting for ${4 - playerCount} more players`;
@@ -689,6 +712,9 @@
                 document.getElementById('waiting-room-heading-label').textContent =
                     gameMode === 'minibridge' ? 'Minibridge table' : 'Table';
             }
+            if (table.creatorPosition) {
+                tableCreatorPosition = table.creatorPosition;
+            }
 
             const positions = ['north', 'east', 'south', 'west'];
             let playerCount = 0;
@@ -718,13 +744,15 @@
             document.getElementById('waiting-player-count').textContent = playerCount;
             updateStatus();
 
+            const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
             const startButton = document.getElementById('start-game-button');
+            startButton.style.display = isCreator ? '' : 'none';
             startButton.disabled = playerCount < 1;
             const startLabel = gameMode === 'minibridge' ? 'Start minibridge' : 'Start bridge';
             const emptySeats = 4 - playerCount;
             startButton.textContent = emptySeats === 0 ? startLabel : `${startLabel} (fills ${emptySeats} seat${emptySeats > 1 ? 's' : ''} with robots)`;
 
-            if (playerCount === 4) {
+            if (playerCount === 4 && isCreator) {
                 announceToScreenReader(`All players joined. Ready to ${startLabel.toLowerCase()}.`);
             }
         }
@@ -1162,6 +1190,7 @@ function updateCurrentTrickDisplay() {
 
             updateStatus();
             updateRobotThinkingIndicator();
+            updateNextDealButtonState();
         }
 
         function updateScoreDisplay() {
@@ -1635,7 +1664,8 @@ function updateContractDisplay() {
             const nsTotal = p.north + p.south;
             const ewTotal = p.east + p.west;
 
-            let message = `Board ${dealNumber}. Points: North ${p.north}, East ${p.east}, South ${p.south}, West ${p.west}. `;
+            let message = dealIsReplay ? `Replaying deal ${dealNumber}. ` : `Board ${dealNumber}. `;
+            message += `Points: North ${p.north}, East ${p.east}, South ${p.south}, West ${p.west}. `;
             message += nsTotal >= ewTotal ? `North-South ${nsTotal}. ` : `East-West ${ewTotal}. `;
             message += `${positionName(miniState.declarer)} declares, ${positionName(miniState.dummy)} is dummy.`;
 
@@ -1654,6 +1684,21 @@ function updateContractDisplay() {
         }
 
         function handleDealStartUI() {
+            // A new deal fires off a burst of state changes and announcements
+            // in quick succession (previous deal's end-of-game chatter still
+            // queued, robots starting to bid almost immediately, etc.), which
+            // NVDA users experience as a garbled pile-up. Drop whatever is
+            // still queued from before, and move focus onto the deal number
+            // so the screen reader interrupts itself and starts fresh here
+            // rather than continuing to churn through a stale backlog.
+            announcementQueue.clear();
+            const dealInfoArea = document.getElementById('deal-info-area');
+            if (dealInfoArea) {
+                const dealLabel = dealIsReplay ? `Replaying deal ${dealNumber}` : `Deal ${dealNumber}`;
+                dealInfoArea.setAttribute('aria-label', `${dealLabel}. Dealer ${positionName(currentDealer)}.`);
+                dealInfoArea.focus({ preventScroll: true });
+            }
+
             const biddingArea = document.getElementById('game-bidding-area');
             const miniArea = document.getElementById('mini-contract-area');
 
@@ -1665,7 +1710,6 @@ function updateContractDisplay() {
                 if (miniArea) miniArea.style.display = 'none';
                 if (biddingArea) biddingArea.style.display = 'block';
                 renderBiddingUI();
-                announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer)}.`);
             }
         }
 
@@ -1696,6 +1740,47 @@ function updateContractDisplay() {
                 showStartMenu();
                 resetState();
             }
+        }
+
+        function requestNextDealFromGame() {
+            socket.emit('requestNextDeal', { tableCode: tableCode });
+        }
+
+        function replayDealFromGame() {
+            socket.emit('replayDeal', { tableCode: tableCode });
+        }
+
+        function setAutoNextDealFromGame(enabled) {
+            autoNextDeal = enabled;
+            socket.emit('setAutoNextDeal', { tableCode: tableCode, enabled: enabled });
+        }
+
+        /**
+         * The Next Deal and Replay buttons are always visible (not popped
+         * in/out of the DOM) so their state is predictable for screen reader
+         * users; they are simply enabled only once there is a finished deal
+         * to move on from or replay, and only shown to the table creator.
+         */
+        function updateNextDealButtonState() {
+            const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+            const dealHasEnded = !!gameState && gameState.gamePhase === 'end';
+
+            const nextButton = document.getElementById('next-deal-button');
+            if (nextButton) {
+                nextButton.style.display = isCreator ? '' : 'none';
+                nextButton.disabled = !dealHasEnded;
+            }
+
+            const replayButton = document.getElementById('replay-deal-button');
+            if (replayButton) {
+                replayButton.style.display = isCreator ? '' : 'none';
+                replayButton.disabled = !dealHasEnded;
+            }
+        }
+
+        function updateAutoNextDealCheckbox() {
+            const checkbox = document.getElementById('auto-next-deal-checkbox');
+            if (checkbox) checkbox.checked = autoNextDeal;
         }
 
         // UTILITY FUNCTIONS
@@ -1867,7 +1952,7 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Tab/Arrow keys', desc: 'Navigate between game elements' },
                 
                 { key: '', desc: '--- Game: Bidding Phase ---' },
-                { key: 'Alt + P', desc: 'Pass bid (when it\'s your turn)' },
+                { key: 'Alt + P', desc: 'Pass bid (when it\'s your turn), or announce cards in the current trick' },
                 { key: '1-7', desc: 'Select bid level (then press suit key)' },
                 { key: 'S', desc: 'Spades suit (after selecting level)' },
                 { key: 'H', desc: 'Hearts suit (after selecting level)' },
@@ -1898,10 +1983,10 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Alt + T', desc: 'Announce dummy entire hand (all suits)' },
                 
                 { key: '', desc: '--- Game: Information Commands ---' },
-                { key: 'Alt + C', desc: 'Announce cards in current trick/bidding history' },
+                { key: 'Alt + C', desc: 'Announce each team\'s trick count' },
+                { key: 'Alt + B', desc: 'Bridge: announce all bids made. Minibridge: announce each player\'s HCP points in turn' },
                 { key: 'Alt + X', desc: 'Announce game state and contract' },
                 { key: 'Alt + V', desc: 'Announce current player' },
-                { key: 'Alt + O', desc: 'Announce current score (tricks won)' },
                 
                 { key: '', desc: '--- Game: Quick Card Play (Highest) ---' },
                 { key: 'Ctrl + 1', desc: 'Play highest spade' },
@@ -2162,6 +2247,22 @@ function announceBiddingHistory() {
     
     const message = parts.join(', ') + '.';
     announceToScreenReader(message);
+}
+
+/**
+ * Minibridge equivalent of announceBiddingHistory(): read each player's HCP
+ * points in turn (North, East, South, West), since there is no auction to
+ * repeat.
+ */
+function announceMiniPoints() {
+    if (!miniState || !miniState.points) {
+        announceToScreenReader('Points are not available yet.');
+        return;
+    }
+
+    const positions = ['north', 'east', 'south', 'west'];
+    const parts = positions.map(pos => `${positionName(pos)} ${miniState.points[pos]} points`);
+    announceToScreenReader(parts.join(', ') + '.');
 }
 
         function announceCurrentTrick() {
@@ -2494,11 +2595,17 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                     // Game state shortcuts
 if (e.altKey && e.key.toLowerCase() === 'c') {
     e.preventDefault();
-    // Tarjousvaiheessa: lue tarjoushistoria, pelivaiheessa: lue nykyinen tikki
-    if (gameState && gameState.gamePhase === 'bidding') {
-        announceBiddingHistory();
+    // Kummankin joukkueen tikkimäärä (pelivaiheessa/pelin päätyttyä; muulloin ilmoitus ettei pisteitä ole vielä)
+    announceScore();
+    return;
+}
+if (e.altKey && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    // Bridge: lue kaikki tehdyt tarjoukset. Minibridge: lue pelaajien HCP-pisteet.
+    if (gameMode === 'minibridge') {
+        announceMiniPoints();
     } else {
-        announceCurrentTrick();
+        announceBiddingHistory();
     }
     return;
 }
@@ -2512,12 +2619,6 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                         announceCurrentPlayer();
                         return;
                     }
-                    if (e.altKey && e.key.toLowerCase() === 'o') {
-                        e.preventDefault();
-                        announceScore();
-                        return;
-                    }
-
                     // Card playing shortcuts - high cards
                     if (e.ctrlKey && e.key === '1' && !e.altKey) {
                         e.preventDefault();
@@ -2595,9 +2696,12 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                     // Bidding shortcuts
                     if (e.altKey && e.key.toLowerCase() === 'p') {
                         e.preventDefault();
-                        if (gameState && gameState.gamePhase === 'bidding' && 
+                        if (gameState && gameState.gamePhase === 'bidding' &&
                             biddingState && biddingState.currentBidder === myPosition) {
                             makeBid('P');
+                        } else {
+                            // Outside your own bidding turn, Alt+P reads the current trick's cards.
+                            announceCurrentTrick();
                         }
                         return;
                     }
@@ -2883,6 +2987,8 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                 miniState = data.miniState || null;
                 miniScore = data.miniScore || { ns: 0, ew: 0 };
                 if (data.table && data.table.players) tablePlayers = data.table.players;
+                if (data.table && data.table.creatorPosition) tableCreatorPosition = data.table.creatorPosition;
+                if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
 
                 showGameView();
                 updateDealInfo();
@@ -2902,12 +3008,14 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                     const currentPlayerName = positionName(gameState.currentPlayer || 'unknown');
                     announceToScreenReader(`Reconnected to game. Playing ${formatContract(gameState.contract)}. ${currentPlayerName}'s turn.`);
                 } else if (gameState.gamePhase === 'end') {
-                    document.getElementById('game-new-game-button').style.display = 'block';
+                    const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+                    document.getElementById('game-new-game-button').style.display = isCreator ? 'block' : 'none';
                     announceToScreenReader('Reconnected to game. Game has ended.');
                 }
 
                 updateGameUI();
-                
+                updateAutoNextDealCheckbox();
+
                 console.log('Game reconnect complete');
             });
 
@@ -2945,12 +3053,19 @@ updateWaitingRoomPositions(data.table);
                 if (data.gameMode) gameMode = data.gameMode;
                 miniState = data.miniState || null;
                 if (data.players) tablePlayers = data.players;
+                if (data.creatorPosition) tableCreatorPosition = data.creatorPosition;
+                if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
+                dealIsReplay = false;
                 updateDealInfo();
 
                 if (!gameState.gamePhase) gameState.gamePhase = 'bidding';
 
+                document.getElementById('game-new-game-button').style.display = 'none';
+                document.getElementById('next-deal-status').textContent = '';
+
                 showGameView();
                 updateGameUI();
+                updateAutoNextDealCheckbox();
                 handleDealStartUI();
 
                 if (data.autoFilledWithRobot && data.autoFilledWithRobot.length > 0) {
@@ -3084,21 +3199,40 @@ socket.on('trickComplete', (data) => {
                 gameState.gamePhase = 'end';
                 gameState.tricks = data.tricks;
 
-                let message = data.message;
+                let message = (data.isReplay ? '(Replay) ' : '') + data.message;
 
                 if (gameMode === 'minibridge' && data.dealScore !== undefined && data.dealScore !== null) {
-                    miniScore = data.totalScore || miniScore;
                     message += ` Deal score: ${Math.abs(data.dealScore)} points ${data.dealScore >= 0 ? 'for the declaring side' : 'for the defenders'}.`;
-                    message += ` Total score: North-South ${miniScore.ns}, East-West ${miniScore.ew}.`;
-                    updateScoreDisplay();
+                    if (data.isReplay) {
+                        message += ' This replay does not count toward the total score.';
+                    } else {
+                        miniScore = data.totalScore || miniScore;
+                        message += ` Total score: North-South ${miniScore.ns}, East-West ${miniScore.ew}.`;
+                        updateScoreDisplay();
+                    }
                 }
 
                 if (data.doubleDummyTricks !== undefined && data.doubleDummyTricks !== null) {
                     message += ` You made ${data.actualTricks} tricks. Double dummy optimum for this deal: ${data.doubleDummyTricks} tricks.`;
                 }
 
+                if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
+                const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+
+                if (autoNextDeal) {
+                    message += ' Next deal starts automatically in 10 seconds.';
+                } else if (isCreator) {
+                    message += ' Use the Next Deal button when you are ready.';
+                } else {
+                    message += ' Waiting for the table creator to start the next deal.';
+                }
+
                 announceToScreenReader(message);
-                document.getElementById('game-new-game-button').style.display = 'block';
+                document.getElementById('game-new-game-button').style.display = isCreator ? 'block' : 'none';
+                document.getElementById('next-deal-status').textContent = autoNextDeal
+                    ? 'Next deal starts automatically in 10 seconds.'
+                    : (isCreator ? 'Auto next deal is off - click Next Deal when ready.' : 'Waiting for the table creator to start the next deal.');
+                updateGameUI();
                 updateRobotThinkingIndicator();
             });
 
@@ -3107,14 +3241,25 @@ socket.on('trickComplete', (data) => {
                 currentDealer = data.dealer;
                 if (data.gameMode) gameMode = data.gameMode;
                 miniState = data.miniState || null;
+                if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
+                dealIsReplay = !!data.replayed;
                 updateDealInfo();
 
                 gameState = data.gameState || {};
                 biddingState = data.biddingState || {};
                 if (!gameState.gamePhase) gameState.gamePhase = 'bidding';
 
+                document.getElementById('game-new-game-button').style.display = 'none';
+                document.getElementById('next-deal-status').textContent = '';
+
                 updateGameUI();
+                updateAutoNextDealCheckbox();
                 handleDealStartUI();
+            });
+
+            socket.on('autoNextDealChanged', (data) => {
+                autoNextDeal = data.enabled;
+                updateAutoNextDealCheckbox();
             });
 
             socket.on('dealError', (data) => {
