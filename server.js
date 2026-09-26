@@ -764,6 +764,7 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
       dummyPosition: dummyPosition,
       dummyCards: table.gameState.hands[dummyPosition]
     });
+    revealRobotDeclarerHandIfNeeded(table);
   }
 
   maybeTriggerRobot(table);
@@ -825,7 +826,8 @@ function chooseMiniContract(socket, playerId, data) {
     return;
   }
 
-  if (!table.players[ms.declarer] || table.players[ms.declarer].id !== playerId) {
+  const effectiveDeclarer = getEffectiveController(table) || ms.declarer;
+  if (!table.players[effectiveDeclarer] || table.players[effectiveDeclarer].id !== playerId) {
     sendError(socket, 'Only the declarer chooses the contract');
     return;
   }
@@ -1180,6 +1182,7 @@ function moveToPlayPhase(table) {
     gameState: filterGameState(table.gameState, null)
   });
 
+  revealRobotDeclarerHandIfNeeded(table);
   maybeTriggerRobot(table);
 }
 
@@ -1222,11 +1225,20 @@ function playCard(socket, playerId, data) {
   }
   
   // Check if this player controls this position or player is dummy controller
+  // (or, if the declarer is a robot and dummy is human, that human controls both)
   const isDummy = position === table.gameState.dummy;
-  const isController = isDummy ? 
-                    (table.players[table.gameState.declarer].id === playerId) : 
-                    (table.players[position].id === playerId);
-  
+  const isDeclarerSeat = position === table.gameState.declarer;
+  const override = getEffectiveController(table);
+
+  let isController;
+  if (override) {
+    isController = (isDummy || isDeclarerSeat) && table.players[override].id === playerId;
+  } else if (isDummy) {
+    isController = table.players[table.gameState.declarer].id === playerId;
+  } else {
+    isController = table.players[position].id === playerId;
+  }
+
   if (!isController) {
     sendError(socket, 'You cannot play from this position');
     return;
@@ -1407,15 +1419,61 @@ function determineTrickWinner(table) {
 }
 
 /**
+ * If the declarer is a robot and dummy is a human, that human takes over
+ * declarer's decisions for the whole deal (contract choice and card play) --
+ * the common practice when playing bridge with robots, since otherwise the
+ * human would just be watching the robot play both hands. Returns the
+ * human's position, or null if no such override applies.
+ */
+function getEffectiveController(table) {
+  const gs = table.gameState;
+  if (!gs || !gs.declarer || !gs.dummy) return null;
+  const declarerPlayer = table.players[gs.declarer];
+  const dummyPlayer = table.players[gs.dummy];
+  if (declarerPlayer && declarerPlayer.type === 'robot' && dummyPlayer && dummyPlayer.type === 'human') {
+    return gs.dummy;
+  }
+  return null;
+}
+
+/**
+ * Privately sends the robot declarer's hand to the human who is taking over
+ * for it (see getEffectiveController()). Never broadcast -- the defenders
+ * must not see it.
+ */
+function revealRobotDeclarerHandIfNeeded(table) {
+  const override = getEffectiveController(table);
+  if (!override) return;
+
+  const overridePlayerData = table.players[override];
+  if (!overridePlayerData || !overridePlayerData.id) return;
+  const player = players.get(overridePlayerData.id);
+  if (!player || !player.socket) return;
+
+  player.socket.emit('declarerHandRevealed', {
+    declarerPosition: table.gameState.declarer,
+    declarerCards: table.gameState.hands[table.gameState.declarer]
+  });
+}
+
+/**
  * Position actually in control of the current decision: the current player,
  * unless that player is the dummy, in which case the declarer controls the
- * dummy's hand (same rule for bridge and minibridge).
+ * dummy's hand (same rule for bridge and minibridge) -- or, if the declarer
+ * is a robot and dummy is human, the human at the dummy seat controls both.
  */
 function currentController(table) {
   if (!table.gameState) return null;
-  const cp = table.gameState.currentPlayer;
-  if (table.gameState.gamePhase === 'play' && cp === table.gameState.dummy) {
-    return table.gameState.declarer;
+  const gs = table.gameState;
+  const cp = gs.currentPlayer;
+  if (gs.gamePhase !== 'play') return cp;
+
+  const override = getEffectiveController(table);
+  if (override && (cp === gs.declarer || cp === gs.dummy)) {
+    return override;
+  }
+  if (cp === gs.dummy) {
+    return gs.declarer;
   }
   return cp;
 }
@@ -1433,7 +1491,7 @@ function maybeTriggerRobot(table) {
   if (phase === 'bidding') {
     controller = table.biddingState && table.biddingState.currentBidder;
   } else if (phase === 'contract') {
-    controller = table.miniState && table.miniState.declarer;
+    controller = getEffectiveController(table) || (table.miniState && table.miniState.declarer);
   } else if (phase === 'play') {
     controller = currentController(table);
   } else {

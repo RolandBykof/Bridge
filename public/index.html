@@ -508,11 +508,11 @@
                     if (gameState) {
                         if (gameState.gamePhase === 'bidding') return 'Bidding phase';
                         if (gameState.gamePhase === 'contract') {
-                            return miniState && miniState.declarer === myPosition ? 'Choose the contract' : 'Waiting for contract';
+                            return isEffectiveDeclarer() ? 'Choose the contract' : 'Waiting for contract';
                         }
                         if (gameState.gamePhase === 'play') {
                             let status = `Playing: ${formatContract(gameState.contract)}`;
-                            if (gameState.declarer === myPosition) status += ' (You are declarer)';
+                            if (isEffectiveDeclarer()) status += ' (You are declarer)';
                             return status;
                         }
                     }
@@ -850,6 +850,40 @@
         }
 
         // GAME FUNCTIONALITY
+
+        /**
+         * True when our robot partner is declarer and we're sitting at
+         * dummy: common practice when playing bridge with robots is that we
+         * take over declarer's decisions entirely (contract choice and card
+         * play) rather than watch the robot play the whole hand out.
+         */
+        function isOverrideDeclarerController() {
+            if (!gameState || !gameState.declarer || !gameState.dummy) return false;
+            if (myPosition !== gameState.dummy) return false;
+            return !!(tablePlayers && tablePlayers[gameState.declarer] && tablePlayers[gameState.declarer].type === 'robot');
+        }
+
+        /**
+         * The "other" hand we can see and may need to play from, alongside
+         * our own: normally the dummy, but if we're the one taking over for
+         * a robot declarer (see isOverrideDeclarerController()), our own
+         * seat IS the dummy already, so the auxiliary hand is the declarer's.
+         */
+        function getAuxiliaryHandPosition() {
+            if (!gameState) return null;
+            if (isOverrideDeclarerController()) return gameState.declarer;
+            return gameState.dummy;
+        }
+
+        /**
+         * True if we are the one who should be making declarer's decisions
+         * right now -- either because we actually are the declarer, or
+         * because we're taking over for a robot declarer as its dummy.
+         */
+        function isEffectiveDeclarer() {
+            return (!!gameState && gameState.declarer === myPosition) || isOverrideDeclarerController();
+        }
+
         function canViewHandCards(position) {
             if (position === myPosition) return true;
 
@@ -859,18 +893,29 @@
                 return true;
             }
 
+            if (gameState &&
+                (gameState.gamePhase === 'play' || gameState.gamePhase === 'contract') &&
+                position === gameState.declarer &&
+                isOverrideDeclarerController()) {
+                return true;
+            }
+
             return false;
         }
 
         function canPlayFromPosition(position) {
             if (!gameState || gameState.gamePhase !== 'play') return false;
-            
+
             if (position === myPosition) return true;
-            
+
             if (position === gameState.dummy && gameState.declarer === myPosition) {
                 return true;
             }
-            
+
+            if (position === gameState.declarer && isOverrideDeclarerController()) {
+                return true;
+            }
+
             return false;
         }
 
@@ -891,8 +936,12 @@ function attemptToPlayCard(suit, card, fromPosition) {
         if (gameState.declarer === myPosition) {
             isValidTurn = true;
         }
+    } else if (currentPlayer === gameState.declarer && actualPosition === gameState.declarer) {
+        if (isOverrideDeclarerController()) {
+            isValidTurn = true;
+        }
     }
-    
+
     if (!isValidTurn) {
         showErrorWithAnnouncement(`It's ${positionName(currentPlayer)}'s turn`);
         return;
@@ -969,6 +1018,8 @@ function renderHand(position, hand, targetElement) {
     let positionType = position === myPosition ? 'You' : (isRobot ? 'Robot' : 'Human');
     if (position === gameState?.dummy && gameState?.declarer === myPosition) {
         positionType = 'Dummy (You control)';
+    } else if (position === gameState?.declarer && isOverrideDeclarerController()) {
+        positionType = 'Declarer, Robot (You control)';
     }
     
     const canPlayFromThisPosition = canPlayFromPosition(position);
@@ -1596,7 +1647,7 @@ function updateContractDisplay() {
                 return;
             }
 
-            if (miniState.declarer === myPosition) {
+            if (isEffectiveDeclarer()) {
                 if (statusEl) statusEl.textContent = '';
                 renderMiniContractControls();
             } else {
@@ -1669,13 +1720,13 @@ function updateContractDisplay() {
             message += nsTotal >= ewTotal ? `North-South ${nsTotal}. ` : `East-West ${ewTotal}. `;
             message += `${positionName(miniState.declarer)} declares, ${positionName(miniState.dummy)} is dummy.`;
 
-            if (miniState.declarer === myPosition) {
+            if (isEffectiveDeclarer()) {
                 message += ' Choose the contract.';
             }
 
             announceToScreenReader(message);
 
-            if (miniState.declarer === myPosition) {
+            if (isEffectiveDeclarer()) {
                 setTimeout(() => {
                     const firstButton = document.querySelector('#mini-contract-controls button');
                     if (firstButton) firstButton.focus();
@@ -2304,7 +2355,7 @@ function announceMiniPoints() {
                 message += `North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}. `;
                 message += `Current player: ${positionName(gameState.currentPlayer)}.`;
                 
-                if (gameState.declarer === myPosition) {
+                if (isEffectiveDeclarer()) {
                     message += ` You are the declarer and can control both your hand and dummy.`;
                 }
             } else if (gameState.gamePhase === 'bidding') {
@@ -2328,8 +2379,10 @@ function announceMiniPoints() {
             if (gameState.gamePhase === 'play') {
                 let message = `Current player: ${positionName(gameState.currentPlayer)}.`;
                 
-                if (gameState.currentPlayer === gameState.dummy && gameState.declarer === myPosition) {
+                if (gameState.currentPlayer === gameState.dummy && isEffectiveDeclarer()) {
                     message += ` You control the dummy as the declarer.`;
+                } else if (gameState.currentPlayer === gameState.declarer && isOverrideDeclarerController()) {
+                    message += ` Your robot partner is declaring; you control their hand.`;
                 }
                 
                 announceToScreenReader(message);
@@ -2499,16 +2552,21 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
          */
         function isOurTurnToPlay(position) {
             if (!gameState || gameState.gamePhase !== 'play') return false;
-            
+
             const currentPlayer = gameState.currentPlayer;
-            
+
             if (position === myPosition && currentPlayer === myPosition) return true;
-            
-            if (position === gameState.dummy && currentPlayer === gameState.dummy && 
+
+            if (position === gameState.dummy && currentPlayer === gameState.dummy &&
                 gameState.declarer === myPosition) {
                 return true;
             }
-            
+
+            if (position === gameState.declarer && currentPlayer === gameState.declarer &&
+                isOverrideDeclarerController()) {
+                return true;
+            }
+
             return false;
         }
 
@@ -2550,11 +2608,13 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                         return;
                     }
 
-                    // Card viewing shortcuts (Dummy's cards)
+                    // Card viewing shortcuts (dummy's cards, or the robot declarer's
+                    // cards if we've taken over for it -- see getAuxiliaryHandPosition())
                     if (e.altKey && e.key.toLowerCase() === 'q') {
                         e.preventDefault();
-                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-                            announceHandSuitWithFocus(gameState.dummy, 'spades');
+                        const aux = getAuxiliaryHandPosition();
+                        if (aux && canViewHandCards(aux)) {
+                            announceHandSuitWithFocus(aux, 'spades');
                         } else {
                             announceToScreenReader('Cannot view dummy spades at this time.');
                         }
@@ -2562,8 +2622,9 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                     }
                     if (e.altKey && e.key.toLowerCase() === 'w') {
                         e.preventDefault();
-                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-                            announceHandSuitWithFocus(gameState.dummy, 'hearts');
+                        const aux = getAuxiliaryHandPosition();
+                        if (aux && canViewHandCards(aux)) {
+                            announceHandSuitWithFocus(aux, 'hearts');
                         } else {
                             announceToScreenReader('Cannot view dummy hearts at this time.');
                         }
@@ -2571,8 +2632,9 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                     }
                     if (e.altKey && e.key.toLowerCase() === 'e') {
                         e.preventDefault();
-                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-                            announceHandSuitWithFocus(gameState.dummy, 'diamonds');
+                        const aux = getAuxiliaryHandPosition();
+                        if (aux && canViewHandCards(aux)) {
+                            announceHandSuitWithFocus(aux, 'diamonds');
                         } else {
                             announceToScreenReader('Cannot view dummy diamonds at this time.');
                         }
@@ -2580,8 +2642,9 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                     }
                     if (e.altKey && e.key.toLowerCase() === 'r') {
                         e.preventDefault();
-                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-                            announceHandSuitWithFocus(gameState.dummy, 'clubs');
+                        const aux = getAuxiliaryHandPosition();
+                        if (aux && canViewHandCards(aux)) {
+                            announceHandSuitWithFocus(aux, 'clubs');
                         } else {
                             announceToScreenReader('Cannot view dummy clubs at this time.');
                         }
@@ -2589,8 +2652,9 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                     }
                     if (e.altKey && e.key.toLowerCase() === 't') {
                         e.preventDefault();
-                        if (gameState?.dummy && canViewHandCards(gameState.dummy)) {
-                            announceEntireHand(gameState.dummy);
+                        const aux = getAuxiliaryHandPosition();
+                        if (aux && canViewHandCards(aux)) {
+                            announceEntireHand(aux);
                         } else {
                             announceToScreenReader('Cannot view all dummy cards at this time.');
                         }
@@ -2724,8 +2788,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                             e.preventDefault();
                             uiState.bidLevel = e.key;
                             announceToScreenReader(`Level ${e.key} selected. Press S, H, D, C, or N for suit.`);
-                        } else if (gameState && gameState.gamePhase === 'contract' &&
-                                   miniState && miniState.declarer === myPosition) {
+                        } else if (gameState && gameState.gamePhase === 'contract' && isEffectiveDeclarer()) {
                             e.preventDefault();
                             uiState.bidLevel = e.key;
                             announceToScreenReader(`Level ${e.key} selected. Press S, H, D, C, or N for suit.`);
@@ -2743,7 +2806,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                             makeBid(bid);
                             uiState.bidLevel = null;
                         } else if (gameState && gameState.gamePhase === 'contract' &&
-                                   miniState && miniState.declarer === myPosition && uiState.bidLevel) {
+                                   isEffectiveDeclarer() && uiState.bidLevel) {
                             e.preventDefault();
                             submitMiniContractShortcut(uiState.bidLevel, suitKeys[e.key.toLowerCase()]);
                             uiState.bidLevel = null;
@@ -3101,6 +3164,17 @@ updateWaitingRoomPositions(data.table);
                 }
             });
 
+            // Sent privately only to us, when our robot partner is declarer
+            // and we're taking over their decisions (see isOverrideDeclarerController()).
+            socket.on('declarerHandRevealed', (data) => {
+                if (gameState && data.declarerCards && data.declarerPosition) {
+                    if (!gameState.hands) gameState.hands = {};
+                    gameState.hands[data.declarerPosition] = data.declarerCards;
+                    renderAllHands();
+                    announceToScreenReader(`Your robot partner is declaring this hand. You control both hands. ${positionName(data.declarerPosition)}'s cards are now visible to you.`);
+                }
+            });
+
             socket.on('bidMade', (data) => {
                 biddingState = data.biddingState;
                 renderBiddingUI();
@@ -3185,8 +3259,9 @@ socket.on('trickComplete', (data) => {
     const winner = positionName(data.winner);
 
     const isUserNext = (data.nextPlayer === myPosition) ||
-                     (data.nextPlayer === gameState.dummy && gameState.declarer === myPosition);
-    
+                     (data.nextPlayer === gameState.dummy && gameState.declarer === myPosition) ||
+                     (data.nextPlayer === gameState.declarer && isOverrideDeclarerController());
+
     const message = isUserNext ? 'Trick to you.' : `Trick to ${winner}.`;
     
     announceToScreenReader(message);
