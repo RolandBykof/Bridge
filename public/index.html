@@ -58,7 +58,13 @@
                 
                 <label for="table-name-input">Table Name (optional):</label>
                 <input type="text" id="table-name-input" placeholder="Table name" maxlength="100">
-                
+
+                <fieldset>
+                    <legend>Game type:</legend>
+                    <label><input type="radio" name="game-mode" value="bridge" checked> Bridge</label>
+                    <label><input type="radio" name="game-mode" value="minibridge"> Minibridge (no bidding, for beginners)</label>
+                </fieldset>
+
                 <button type="submit" onclick="createTable()" id="create-table-button">Create</button>
                 <button type="button" onclick="showStartMenu()">Back</button>
                 
@@ -84,14 +90,15 @@
         <div id="position-selection-view" style="display: none;">
             <h2>Select Position</h2>
             <p>Table: <strong id="join-table-code-display"></strong></p>
+            <p id="join-table-gamemode"></p>
             <p id="join-table-status">Loading...</p>
-            
+
             <div id="join-available-positions-container" role="radiogroup" aria-label="Available positions"></div>
             <button onclick="cancelJoin()">Cancel</button>
         </div>
 
         <div id="waiting-room-view" style="display: none;">
-            <h2>Table <span id="waiting-table-code-title"></span></h2>
+            <h2><span id="waiting-room-heading-label">Table</span> <span id="waiting-table-code-title"></span></h2>
             
             <p>Share code: <strong id="share-table-code"></strong> <button onclick="copyTableCode()" id="copy-code-button">Copy</button></p>
             
@@ -171,7 +178,14 @@
             <p>Waiting...</p>
         </div>
     </section>
-    
+
+    <section id="mini-contract-area" style="display: none;">
+        <h2>Points and contract</h2>
+        <ul id="mini-points-list"></ul>
+        <p id="mini-contract-status"></p>
+        <div id="mini-contract-controls"></div>
+    </section>
+
     <div id="contract-info" style="display: none;">
         <span id="contract-display"></span>
         <span id="declarer-info"></span>
@@ -223,6 +237,9 @@
         let tableCode = null;
         let gameState = null;
         let biddingState = null;
+        let gameMode = 'bridge';
+        let miniState = null;
+        let miniScore = { ns: 0, ew: 0 };
         let myPosition = null;
         let myName = null;
         let selectedCreatePosition = 'south';
@@ -372,7 +389,7 @@
                 'create-table': 'Create Table',
                 'join-table': 'Join Table',
                 'position-selection': 'Select Position',
-                'waiting-room': `Table ${tableCode}`,
+                'waiting-room': `${gameMode === 'minibridge' ? 'Minibridge table' : 'Table'} ${tableCode}`,
                 'game': `Game ${tableCode}`
             };
             mainTitle.textContent = titles[currentView] || 'AccessibleBridge';
@@ -440,6 +457,8 @@
             showView('waiting-room-view');
             document.getElementById('waiting-table-code-title').textContent = tableCode;
             document.getElementById('share-table-code').textContent = tableCode;
+            document.getElementById('waiting-room-heading-label').textContent =
+                gameMode === 'minibridge' ? 'Minibridge table' : 'Table';
         }
 
         function showGameView() {
@@ -461,6 +480,9 @@
                 'game': () => {
                     if (gameState) {
                         if (gameState.gamePhase === 'bidding') return 'Bidding phase';
+                        if (gameState.gamePhase === 'contract') {
+                            return miniState && miniState.declarer === myPosition ? 'Choose the contract' : 'Waiting for contract';
+                        }
                         if (gameState.gamePhase === 'play') {
                             let status = `Playing: ${formatContract(gameState.contract)}`;
                             if (gameState.declarer === myPosition) status += ' (You are declarer)';
@@ -499,28 +521,31 @@
         function createTable() {
             const name = document.getElementById('create-name-input').value.trim();
             const tableName = document.getElementById('table-name-input').value.trim();
-            
+            const gameModeInput = document.querySelector('input[name="game-mode"]:checked');
+            const selectedGameMode = gameModeInput && gameModeInput.value === 'minibridge' ? 'minibridge' : 'bridge';
+
             if (!name || name.length < 2) {
                 showErrorWithAnnouncement('Name required (2+ characters)');
                 return;
             }
-            
+
             localStorage.setItem('playerName', name);
             myName = name;
             myPosition = selectedCreatePosition;
-            
+
             document.getElementById('create-table-button').disabled = true;
             document.getElementById('create-table-button').textContent = 'Creating...';
             document.getElementById('creation-status').style.display = 'block';
             document.getElementById('creation-status').textContent = 'Creating...';
-            
+
             if (!socket || !socket.connected) connectToServer();
-            
+
             if (socket) {
                 socket.emit('createTable', {
                     playerName: name,
                     position: selectedCreatePosition,
-                    tableName: tableName || null
+                    tableName: tableName || null,
+                    gameMode: selectedGameMode
                 });
             } else {
                 showErrorWithAnnouncement('Connection failed');
@@ -577,9 +602,13 @@
             showView('position-selection-view');
             
             document.getElementById('join-table-code-display').textContent = code;
-            
+
+            gameMode = tableInfo.gameMode === 'minibridge' ? 'minibridge' : 'bridge';
+            document.getElementById('join-table-gamemode').textContent =
+                `Game type: ${gameMode === 'minibridge' ? 'Minibridge' : 'Bridge'}`;
+
             const playerCount = Object.values(tableInfo.players || {}).filter(p => p !== null).length;
-            document.getElementById('join-table-status').textContent = 
+            document.getElementById('join-table-status').textContent =
                 `${playerCount}/4 players. Choose position:`;
             
             const container = document.getElementById('join-available-positions-container');
@@ -623,6 +652,12 @@
 
         // WAITING ROOM
         function updateWaitingRoomPositions(table) {
+            if (table.gameMode) {
+                gameMode = table.gameMode === 'minibridge' ? 'minibridge' : 'bridge';
+                document.getElementById('waiting-room-heading-label').textContent =
+                    gameMode === 'minibridge' ? 'Minibridge table' : 'Table';
+            }
+
             const positions = ['north', 'east', 'south', 'west'];
             let playerCount = 0;
             
@@ -653,10 +688,11 @@
             
             const startButton = document.getElementById('start-game-button');
             startButton.disabled = playerCount !== 4;
-            startButton.textContent = playerCount === 4 ? 'Start Game' : `Start (${playerCount}/4)`;
-            
+            const startLabel = gameMode === 'minibridge' ? 'Start minibridge' : 'Start bridge';
+            startButton.textContent = playerCount === 4 ? startLabel : `Start (${playerCount}/4)`;
+
             if (playerCount === 4) {
-                announceToScreenReader('All players joined. Ready to start.');
+                announceToScreenReader(`All players joined. Ready to ${startLabel.toLowerCase()}.`);
             }
         }
 
@@ -755,13 +791,13 @@
         // GAME FUNCTIONALITY
         function canViewHandCards(position) {
             if (position === myPosition) return true;
-            
-            if (gameState && 
-                gameState.gamePhase === 'play' && 
+
+            if (gameState &&
+                (gameState.gamePhase === 'play' || gameState.gamePhase === 'contract') &&
                 gameState.dummy === position) {
                 return true;
             }
-            
+
             return false;
         }
 
@@ -1100,6 +1136,11 @@ function updateCurrentTrickDisplay() {
             } else {
                 document.getElementById('ns-score').textContent = 'NS 0/13';
                 document.getElementById('ew-score').textContent = 'EW 0/13';
+            }
+
+            if (gameMode === 'minibridge') {
+                document.getElementById('ns-score').textContent += ` (Total ${miniScore.ns})`;
+                document.getElementById('ew-score').textContent += ` (Total ${miniScore.ew})`;
             }
         }
 
@@ -1458,6 +1499,141 @@ function updateContractDisplay() {
             return possibleBids;
         }
 
+        // MINIBRIDGE CONTRACT UI
+        function renderMiniContractUI() {
+            const area = document.getElementById('mini-contract-area');
+            if (area) area.style.display = 'block';
+
+            const pointsList = document.getElementById('mini-points-list');
+            if (pointsList) {
+                if (miniState && miniState.points) {
+                    const p = miniState.points;
+                    const nsTotal = p.north + p.south;
+                    const ewTotal = p.east + p.west;
+                    pointsList.innerHTML = `
+                        <li>North: ${p.north}</li>
+                        <li>East: ${p.east}</li>
+                        <li>South: ${p.south}</li>
+                        <li>West: ${p.west}</li>
+                        <li>North-South: ${nsTotal}</li>
+                        <li>East-West: ${ewTotal}</li>
+                    `;
+                } else {
+                    pointsList.innerHTML = '';
+                }
+            }
+
+            const statusEl = document.getElementById('mini-contract-status');
+            const controlsEl = document.getElementById('mini-contract-controls');
+
+            if (!miniState || miniState.phase !== 'contract') {
+                if (statusEl) statusEl.textContent = '';
+                if (controlsEl) controlsEl.innerHTML = '';
+                return;
+            }
+
+            if (miniState.declarer === myPosition) {
+                if (statusEl) statusEl.textContent = '';
+                renderMiniContractControls();
+            } else {
+                if (controlsEl) controlsEl.innerHTML = '';
+                if (statusEl) {
+                    statusEl.textContent = `Waiting for ${positionName(miniState.declarer)} to choose the contract.`;
+                }
+            }
+        }
+
+        function renderMiniContractControls() {
+            const controlsEl = document.getElementById('mini-contract-controls');
+            if (!controlsEl) return;
+
+            const suitButton = (type, strain, label) =>
+                `<button onclick="chooseMiniContract('${type}', '${strain}')">${label}</button>`;
+
+            let html = '<div class="bidding-buttons">';
+
+            html += '<h3>Partscore</h3><div class="bid-level-group">';
+            html += suitButton('partscore', 'S', '1 spades');
+            html += suitButton('partscore', 'H', '1 hearts');
+            html += suitButton('partscore', 'D', '1 diamonds');
+            html += suitButton('partscore', 'C', '1 clubs');
+            html += suitButton('partscore', 'N', '1 no trump');
+            html += '</div>';
+
+            html += '<h3>Game</h3><div class="bid-level-group">';
+            html += suitButton('game', 'S', '4 spades');
+            html += suitButton('game', 'H', '4 hearts');
+            html += suitButton('game', 'D', '5 diamonds');
+            html += suitButton('game', 'C', '5 clubs');
+            html += suitButton('game', 'N', '3 no trump');
+            html += '</div>';
+
+            html += '</div>';
+
+            controlsEl.innerHTML = html;
+        }
+
+        function chooseMiniContract(type, strain) {
+            if (!tableCode) return;
+            socket.emit('chooseMiniContract', { tableCode, type, strain });
+        }
+
+        function submitMiniContractShortcut(level, strain) {
+            if (level === '1') {
+                chooseMiniContract('partscore', strain);
+                return;
+            }
+            const gameLevels = { S: '4', H: '4', D: '5', C: '5', N: '3' };
+            if (gameLevels[strain] === level) {
+                chooseMiniContract('game', strain);
+                return;
+            }
+            announceToScreenReader('Not a valid minibridge contract.');
+        }
+
+        function announceMiniDealStart() {
+            if (!miniState || !miniState.points) {
+                announceToScreenReader(`Board ${dealNumber}.`);
+                return;
+            }
+            const p = miniState.points;
+            const nsTotal = p.north + p.south;
+            const ewTotal = p.east + p.west;
+
+            let message = `Board ${dealNumber}. Points: North ${p.north}, East ${p.east}, South ${p.south}, West ${p.west}. `;
+            message += nsTotal >= ewTotal ? `North-South ${nsTotal}. ` : `East-West ${ewTotal}. `;
+            message += `${positionName(miniState.declarer)} declares, ${positionName(miniState.dummy)} is dummy.`;
+
+            if (miniState.declarer === myPosition) {
+                message += ' Choose the contract.';
+            }
+
+            announceToScreenReader(message);
+
+            if (miniState.declarer === myPosition) {
+                setTimeout(() => {
+                    const firstButton = document.querySelector('#mini-contract-controls button');
+                    if (firstButton) firstButton.focus();
+                }, 300);
+            }
+        }
+
+        function handleDealStartUI() {
+            const biddingArea = document.getElementById('game-bidding-area');
+            const miniArea = document.getElementById('mini-contract-area');
+
+            if (gameMode === 'minibridge') {
+                if (biddingArea) biddingArea.style.display = 'none';
+                renderMiniContractUI();
+                announceMiniDealStart();
+            } else {
+                if (miniArea) miniArea.style.display = 'none';
+                if (biddingArea) biddingArea.style.display = 'block';
+                renderBiddingUI();
+                announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer)}.`);
+            }
+        }
+
         function sendGameChatMessage() {
             const input = document.getElementById('game-chat-input');
             const message = input.value.trim();
@@ -1569,6 +1745,9 @@ function formatContract(contract, asHtml = false) {
             tableCode = null;
             gameState = null;
             biddingState = null;
+            gameMode = 'bridge';
+            miniState = null;
+            miniScore = { ns: 0, ew: 0 };
             myPosition = null;
             myName = null;
             selectedCreatePosition = 'south';
@@ -1659,7 +1838,15 @@ function formatContract(contract, asHtml = false) {
                 { key: 'D', desc: 'Diamonds suit (after selecting level)' },
                 { key: 'C', desc: 'Clubs suit (after selecting level)' },
                 { key: 'N', desc: 'No Trump (after selecting level)' },
-                
+
+                { key: '', desc: '--- Game: Minibridge ---' },
+                { key: '', desc: 'No bidding. Points decide who plays the contract.' },
+                { key: '1 + S/H/D/C/N', desc: 'Declarer chooses a partscore in that suit' },
+                { key: '3 + N', desc: 'Declarer chooses the game 3 No Trump' },
+                { key: '4 + S/H', desc: 'Declarer chooses the game 4 Spades/Hearts' },
+                { key: '5 + D/C', desc: 'Declarer chooses the game 5 Diamonds/Clubs' },
+                { key: '', desc: 'Only the declarer can choose the contract; other combinations are announced as invalid.' },
+
                 { key: '', desc: '--- Game: Card Viewing (Your Hand) ---' },
                 { key: 'Alt + A', desc: 'Announce your spades and focus lowest card' },
                 { key: 'Alt + S', desc: 'Announce your hearts and focus lowest card' },
@@ -2385,25 +2572,35 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                         return;
                     }
                     
-                    // Handle bidding level selection (1-7)
+                    // Handle bidding level selection (1-7) / minibridge contract level
                     if (['1', '2', '3', '4', '5', '6', '7'].includes(e.key) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
-                        if (gameState && gameState.gamePhase === 'bidding' && 
+                        if (gameState && gameState.gamePhase === 'bidding' &&
                             biddingState && biddingState.currentBidder === myPosition) {
+                            e.preventDefault();
+                            uiState.bidLevel = e.key;
+                            announceToScreenReader(`Level ${e.key} selected. Press S, H, D, C, or N for suit.`);
+                        } else if (gameState && gameState.gamePhase === 'contract' &&
+                                   miniState && miniState.declarer === myPosition) {
                             e.preventDefault();
                             uiState.bidLevel = e.key;
                             announceToScreenReader(`Level ${e.key} selected. Press S, H, D, C, or N for suit.`);
                         }
                         return;
                     }
-                    
-                    // Handle suit selection for bidding
+
+                    // Handle suit selection for bidding / minibridge contract
                     const suitKeys = { 's': 'S', 'h': 'H', 'd': 'D', 'c': 'C', 'n': 'N' };
                     if (suitKeys[e.key.toLowerCase()] && !e.altKey && !e.ctrlKey && !e.shiftKey) {
-                        if (gameState && gameState.gamePhase === 'bidding' && 
+                        if (gameState && gameState.gamePhase === 'bidding' &&
                             biddingState && biddingState.currentBidder === myPosition && uiState.bidLevel) {
                             e.preventDefault();
                             const bid = `${uiState.bidLevel}${suitKeys[e.key.toLowerCase()]}`;
                             makeBid(bid);
+                            uiState.bidLevel = null;
+                        } else if (gameState && gameState.gamePhase === 'contract' &&
+                                   miniState && miniState.declarer === myPosition && uiState.bidLevel) {
+                            e.preventDefault();
+                            submitMiniContractShortcut(uiState.bidLevel, suitKeys[e.key.toLowerCase()]);
                             uiState.bidLevel = null;
                         }
                         return;
@@ -2463,6 +2660,7 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
 
             socket.on('tableCreated', (data) => {
                 tableCode = data.tableCode;
+                gameMode = (data.table && data.table.gameMode === 'minibridge') ? 'minibridge' : 'bridge';
                 resetCreateTableUI();
                 announceToScreenReader(`Table ${tableCode} created!`);
                 showWaitingRoom();
@@ -2645,25 +2843,32 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
                 biddingState = data.biddingState || {};
                 dealNumber = data.dealNumber || 1;
                 currentDealer = data.dealer || 'south';
-                
+                gameMode = data.gameMode === 'minibridge' ? 'minibridge' : 'bridge';
+                miniState = data.miniState || null;
+                miniScore = data.miniScore || { ns: 0, ew: 0 };
+
                 showGameView();
                 updateDealInfo();
-                
+
+                document.getElementById('game-bidding-area').style.display = 'none';
+                document.getElementById('mini-contract-area').style.display = 'none';
+
                 if (gameState.gamePhase === 'bidding') {
                     document.getElementById('game-bidding-area').style.display = 'block';
                     renderBiddingUI();
                     announceToScreenReader(`Reconnected to game. Bidding phase. ${positionName(biddingState.currentBidder || 'unknown')}'s turn.`);
+                } else if (gameState.gamePhase === 'contract') {
+                    renderMiniContractUI();
+                    announceToScreenReader('Reconnected to game. Choosing the contract.');
                 } else if (gameState.gamePhase === 'play') {
-                    document.getElementById('game-bidding-area').style.display = 'none';
                     updateContractDisplay();
                     const currentPlayerName = positionName(gameState.currentPlayer || 'unknown');
                     announceToScreenReader(`Reconnected to game. Playing ${formatContract(gameState.contract)}. ${currentPlayerName}'s turn.`);
                 } else if (gameState.gamePhase === 'end') {
-                    document.getElementById('game-bidding-area').style.display = 'none';
                     document.getElementById('game-new-game-button').style.display = 'block';
                     announceToScreenReader('Reconnected to game. Game has ended.');
                 }
-                
+
                 updateGameUI();
                 
                 console.log('Game reconnect complete');
@@ -2700,15 +2905,19 @@ updateWaitingRoomPositions(data.table);
                 biddingState = data.biddingState || {};
                 dealNumber = data.dealNumber || 1;
                 currentDealer = data.dealer || 'south';
+                if (data.gameMode) gameMode = data.gameMode;
+                miniState = data.miniState || null;
                 updateDealInfo();
 
-                gameState.gamePhase = 'bidding';
-                
+                if (!gameState.gamePhase) gameState.gamePhase = 'bidding';
+
                 showGameView();
                 updateGameUI();
-                renderBiddingUI();
-                
-announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer)}.`);
+                handleDealStartUI();
+            });
+
+            socket.on('miniRedeal', (data) => {
+                announceToScreenReader(data.message || '20-20. Redealing.');
             });
 
             socket.on('yourCards', (data) => {
@@ -2750,8 +2959,9 @@ announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer
                 if (biddingState) {
                     biddingState.biddingComplete = true;
                 }
-                
+
                 document.getElementById('game-bidding-area').style.display = 'none';
+                document.getElementById('mini-contract-area').style.display = 'none';
                 updateGameUI();
                 renderAllHands();
                 
@@ -2828,26 +3038,33 @@ socket.on('trickComplete', (data) => {
             socket.on('gameOver', (data) => {
                 gameState.gamePhase = 'end';
                 gameState.tricks = data.tricks;
-                
-                announceToScreenReader(data.message);
+
+                let message = data.message;
+
+                if (gameMode === 'minibridge' && data.dealScore !== undefined && data.dealScore !== null) {
+                    miniScore = data.totalScore || miniScore;
+                    message += ` Deal score: ${Math.abs(data.dealScore)} points ${data.dealScore >= 0 ? 'for the declaring side' : 'for the defenders'}.`;
+                    message += ` Total score: North-South ${miniScore.ns}, East-West ${miniScore.ew}.`;
+                    updateScoreDisplay();
+                }
+
+                announceToScreenReader(message);
                 document.getElementById('game-new-game-button').style.display = 'block';
             });
 
             socket.on('newDealStarted', (data) => {
                 dealNumber = data.dealNumber;
                 currentDealer = data.dealer;
+                if (data.gameMode) gameMode = data.gameMode;
+                miniState = data.miniState || null;
                 updateDealInfo();
-                
+
                 gameState = data.gameState || {};
                 biddingState = data.biddingState || {};
-                gameState.gamePhase = 'bidding';
-                
+                if (!gameState.gamePhase) gameState.gamePhase = 'bidding';
+
                 updateGameUI();
-                renderBiddingUI();
-                
-                document.getElementById('game-bidding-area').style.display = 'block';
-                
-announceToScreenReader(`Board ${dealNumber}. Dealer ${positionName(currentDealer)}.`);
+                handleDealStartUI();
             });
 
             socket.on('dealError', (data) => {

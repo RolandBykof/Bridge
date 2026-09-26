@@ -25,6 +25,11 @@ const CARD_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"
 const MAX_IDLE_TIME = 3600000; // 1 hour in milliseconds
 const RECONNECT_TIMEOUT = 300000; // 5 minuuttia
 
+// Minibridge
+const HCP = { A: 4, K: 3, Q: 2, J: 1 };
+const MINI_GAME_LEVEL = { N: 3, S: 4, H: 4, D: 5, C: 5 };
+const MINI_TRUMP = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs', N: null };
+
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
@@ -61,10 +66,11 @@ io.on('connection', (socket) => {
     sendActiveTables(socket);
   });
   
-  socket.on('createTable', ({ playerName, position, tableName }) => {
+  socket.on('createTable', ({ playerName, position, tableName, gameMode }) => {
     console.log(`Creating table for ${playerName} at position ${position}`);
-    
-    const tableCode = createTableCode(); 
+
+    const tableCode = createTableCode();
+    const mode = gameMode === 'minibridge' ? 'minibridge' : 'bridge';
 
     const table = {
         code: tableCode,
@@ -82,7 +88,10 @@ io.on('connection', (socket) => {
         lastActivity: Date.now(),
         creator: socket.id,
         dealNumber: 0,
-        currentDealer: 'south'
+        currentDealer: 'south',
+        gameMode: mode,
+        miniState: null,
+        miniScore: { ns: 0, ew: 0 }
     };
 
     // Add player to table
@@ -149,7 +158,11 @@ io.on('connection', (socket) => {
   socket.on('makeBid', (data) => {
     makeBid(socket, playerId, data);
   });
-  
+
+  socket.on('chooseMiniContract', (data) => {
+    chooseMiniContract(socket, playerId, data);
+  });
+
   socket.on('playCard', (data) => {
     playCard(socket, playerId, data);
   });
@@ -478,9 +491,12 @@ function getTableInfo(socket, playerId, data) {
             gameState: filterGameState(table.gameState, existingPosition),
             biddingState: table.biddingState,
             dealNumber: table.dealNumber || 1,
-            dealer: table.currentDealer || 'south'
+            dealer: table.currentDealer || 'south',
+            gameMode: table.gameMode || 'bridge',
+            miniState: table.miniState || null,
+            miniScore: table.miniScore || { ns: 0, ew: 0 }
         });
-        
+
         // Lähetä pelaajan kortit
         if (table.gameState && table.gameState.hands && table.gameState.hands[existingPosition]) {
             socket.emit('yourCards', {
@@ -488,10 +504,10 @@ function getTableInfo(socket, playerId, data) {
                 cards: table.gameState.hands[existingPosition]
             });
         }
-        
-        // Jos dummy on näkyvissä, lähetä sekin
-        if (table.gameState && table.gameState.dummy && 
-            table.gameState.gamePhase === 'play' &&
+
+        // Jos dummy on näkyvissä, lähetä sekin (minibridgessä myös contract-vaiheessa)
+        if (table.gameState && table.gameState.dummy &&
+            (table.gameState.gamePhase === 'play' || table.gameState.gamePhase === 'contract') &&
             table.gameState.hands[table.gameState.dummy]) {
             socket.emit('dummyRevealed', {
                 dummyPosition: table.gameState.dummy,
@@ -595,47 +611,196 @@ function startGame(socket, playerId, data) {
   
   table.state = 'playing';
   table.lastActivity = Date.now();
-  
+
   try {
     table.dealNumber = 1;
     table.currentDealer = 'south';
-    
-    // Deal cards and create game state
-    table.gameState = createGameState(table);
-    table.biddingState = createBiddingState(table);
-    
-    // Send game state to all players
-    sendToTablePlayers(table, {
-      type: 'gameStarted',
-      gameState: filterGameState(table.gameState, null),
-      biddingState: table.biddingState,
-      players: filterTablePlayers(table.players),        
-      dealNumber: table.dealNumber,                      
-      dealer: table.currentDealer                        
-    });
-    
-    sendAudioToTable(table, 'deal');
 
-    // Send each player their own cards privately
-    for (const [position, playerData] of Object.entries(table.players)) {
-      if (playerData.type === 'human' && playerData.id) {
-        const player = players.get(playerData.id);
-        if (player && player.socket) {
-          player.socket.emit('yourCards', {
-            position,
-            cards: table.gameState.hands[position]
-          });
-        }
-      }
-    }
-    
+    beginDeal(table, 'gameStarted');
+
     console.log(`Game started in table ${tableCode}`);
-    
+
   } catch (error) {
     console.error('Error starting game:', error);
     sendError(socket, 'Error starting game');
     table.state = 'waiting';
   }
+}
+
+/**
+ * Deal cards, resolve minibridge roles (if applicable) and notify players.
+ * Shared by startGame() and startNextDeal() so both game modes stay in sync.
+ */
+function beginDeal(table, eventType) {
+  table.gameState = createGameState(table);
+  table.biddingState = createBiddingState(table);
+
+  if (table.gameMode === 'minibridge') {
+    const roles = determineMiniRoles(table);
+
+    if (roles.redeal) {
+      table.miniState = { phase: 'redeal', points: roles.points };
+
+      sendToTablePlayers(table, {
+        type: 'miniRedeal',
+        points: roles.points,
+        message: '20-20. Redealing.'
+      });
+
+      setTimeout(() => {
+        if (table && tables.has(table.code)) {
+          try {
+            table.currentDealer = getNextDealer(table.currentDealer || 'south');
+            beginDeal(table, eventType);
+          } catch (error) {
+            console.error(`Error redealing minibridge table ${table.code}:`, error);
+            sendToTablePlayers(table, {
+              type: 'dealError',
+              message: 'Error starting new deal. You can start a new game manually.',
+              error: error.message
+            });
+            table.state = 'waiting';
+            table.gameState = null;
+            table.biddingState = null;
+          }
+        }
+      }, 3000);
+      return;
+    }
+
+    table.miniState = {
+      phase: 'contract',
+      points: roles.points,
+      declarer: roles.declarer,
+      dummy: roles.dummy
+    };
+    table.gameState.gamePhase = 'contract';
+    table.gameState.declarer = roles.declarer;
+    table.gameState.dummy = roles.dummy;
+  }
+
+  const payload = {
+    type: eventType,
+    dealNumber: table.dealNumber,
+    dealer: table.currentDealer,
+    gameState: filterGameState(table.gameState, null),
+    biddingState: table.biddingState
+  };
+
+  if (eventType === 'gameStarted') {
+    payload.players = filterTablePlayers(table.players);
+  }
+
+  if (table.gameMode === 'minibridge') {
+    payload.gameMode = table.gameMode;
+    payload.miniState = table.miniState;
+  }
+
+  sendToTablePlayers(table, payload);
+  sendAudioToTable(table, 'deal');
+
+  // Send each player their own cards privately
+  for (const [position, playerData] of Object.entries(table.players)) {
+    if (playerData.type === 'human' && playerData.id) {
+      const player = players.get(playerData.id);
+      if (player && player.socket) {
+        player.socket.emit('yourCards', {
+          position,
+          cards: table.gameState.hands[position]
+        });
+      }
+    }
+  }
+
+  // Minibridge: reveal dummy right after points, before the contract is chosen
+  if (table.gameMode === 'minibridge' && table.miniState && table.miniState.phase === 'contract') {
+    const dummyPosition = table.miniState.dummy;
+    sendToTablePlayers(table, {
+      type: 'dummyRevealed',
+      dummyPosition: dummyPosition,
+      dummyCards: table.gameState.hands[dummyPosition]
+    });
+  }
+}
+
+/**
+ * Count high card points (honor points) in a hand
+ */
+function countHcp(hand) {
+  return Object.values(hand).flat()
+    .reduce((sum, v) => sum + (HCP[v] || 0), 0);
+}
+
+/**
+ * Seating order starting from the dealer, going clockwise
+ */
+function orderFromDealer(dealer) {
+  const seats = ['north', 'east', 'south', 'west'];
+  const i = seats.indexOf(dealer);
+  return [...seats.slice(i), ...seats.slice(0, i)];
+}
+
+/**
+ * Determine points, playing side, declarer and dummy for a minibridge deal
+ */
+function determineMiniRoles(table) {
+  const h = table.gameState.hands;
+  const points = {
+    north: countHcp(h.north), east: countHcp(h.east),
+    south: countHcp(h.south), west: countHcp(h.west)
+  };
+  const ns = points.north + points.south;
+  const ew = points.east + points.west;
+  if (ns === ew) return { points, redeal: true };
+
+  let [a, b] = ns > ew ? ['north', 'south'] : ['east', 'west'];
+  if (points[b] > points[a]) [a, b] = [b, a];
+  else if (points[a] === points[b]) {
+    const order = orderFromDealer(table.currentDealer);
+    if (order.indexOf(b) < order.indexOf(a)) [a, b] = [b, a];
+  }
+  return { points, declarer: a, dummy: b, redeal: false };
+}
+
+/**
+ * Declarer chooses the minibridge contract (partscore or game)
+ */
+function chooseMiniContract(socket, playerId, data) {
+  const { tableCode, type, strain } = data || {};
+  const table = tables.get(tableCode);
+  if (!table || table.gameMode !== 'minibridge') {
+    sendError(socket, 'Not a minibridge table');
+    return;
+  }
+
+  const ms = table.miniState;
+  if (!ms || ms.phase !== 'contract') {
+    sendError(socket, 'Contract cannot be chosen now');
+    return;
+  }
+
+  if (!table.players[ms.declarer] || table.players[ms.declarer].id !== playerId) {
+    sendError(socket, 'Only the declarer chooses the contract');
+    return;
+  }
+
+  if (!['S', 'H', 'D', 'C', 'N'].includes(strain) || !['partscore', 'game'].includes(type)) {
+    sendError(socket, 'Invalid contract');
+    return;
+  }
+
+  const level = type === 'game' ? MINI_GAME_LEVEL[strain] : 1;
+  Object.assign(table.biddingState, {
+    contract: `${level}${strain}`,
+    declarer: ms.declarer,
+    dummy: ms.dummy,
+    trumpSuit: MINI_TRUMP[strain],
+    biddingComplete: true
+  });
+
+  ms.phase = 'play';
+  table.lastActivity = Date.now();
+  moveToPlayPhase(table);
 }
 
 /**
@@ -683,12 +848,17 @@ function makeBid(socket, playerId, data) {
     sendError(socket, 'Table not found');
     return;
   }
-  
+
+  if (table.gameMode === 'minibridge') {
+    sendError(socket, 'Bidding is not used in minibridge');
+    return;
+  }
+
   if (table.state !== 'playing') {
     sendError(socket, 'Game is not in progress');
     return;
   }
-  
+
   if (!table.biddingState || table.biddingState.biddingComplete) {
     sendError(socket, 'Bidding phase is already complete');
     return;
@@ -1060,7 +1230,8 @@ function processCardPlay(table, position, suit, card) {
   }
 
   // If this was first card played, reveal dummy cards
-  if (table.gameState.playedCards.length === 1) {
+  // (minibridge already reveals dummy right after points are announced)
+  if (table.gameState.playedCards.length === 1 && table.gameMode !== 'minibridge') {
     const dummyPosition = table.gameState.dummy;
     if (dummyPosition && table.gameState.hands[dummyPosition]) {
       sendToTablePlayers(table, {
@@ -1170,17 +1341,29 @@ function determineTrickWinner(table) {
  */
 function endGame(table) {
     table.gameState.gamePhase = 'end';
-    
+
     // Calculate result based on contract
     let resultMessage = '';
-    
+    let dealScore = null;
+
     if (table.gameState.contract) {
         const level = parseInt(table.gameState.contract.charAt(0));
         const requiredTricks = level + 6;
-        
+
         const declarerSide = table.gameState.declarer === 'north' || table.gameState.declarer === 'south' ? 'ns' : 'ew';
         const madeTricks = table.gameState.tricks[declarerSide];
-        
+
+        if (table.gameMode === 'minibridge') {
+            dealScore = scoreMiniDeal(table.gameState.contract, madeTricks);
+            // Undertrick points accrue to the defending side, like in duplicate bridge
+            const defenderSide = declarerSide === 'ns' ? 'ew' : 'ns';
+            if (dealScore >= 0) {
+                table.miniScore[declarerSide] += dealScore;
+            } else {
+                table.miniScore[defenderSide] += -dealScore;
+            }
+        }
+
         if (madeTricks >= requiredTricks) {
             const overtricks = madeTricks - requiredTricks;
             if (overtricks > 0) {
@@ -1203,16 +1386,23 @@ function endGame(table) {
     }
     
     table.lastActivity = Date.now();
-    
-    sendToTablePlayers(table, {
+
+    const gameOverPayload = {
         type: 'gameOver',
         message: resultMessage,
         tricks: table.gameState.tricks,
         contract: table.gameState.contract,
         dealNumber: table.dealNumber || 1,
         dealer: table.currentDealer || 'south'
-    });
-    
+    };
+
+    if (table.gameMode === 'minibridge') {
+        gameOverPayload.dealScore = dealScore;
+        gameOverPayload.totalScore = table.miniScore;
+    }
+
+    sendToTablePlayers(table, gameOverPayload);
+
     console.log(`Game ${table.code} ended: ${resultMessage}`);
     
     // Automatic new deal after 10 seconds
@@ -1238,6 +1428,24 @@ function endGame(table) {
 }
 
 /**
+ * Score a minibridge deal from the declarer side's point of view
+ * (negative return value = contract went down)
+ */
+function scoreMiniDeal(contract, tricksMade) {
+  const level = parseInt(contract[0], 10);
+  const strain = contract[1];
+  const need = level + 6;
+  if (tricksMade < need) return -50 * (need - tricksMade);
+
+  const per = strain === 'C' || strain === 'D' ? 20 : 30;
+  const trickPoints = (n) => strain === 'N' ? 40 + 30 * (n - 1) : per * n;
+  const contractPoints = trickPoints(level);
+  const overtricks = (tricksMade - need) * (strain === 'N' ? 30 : per);
+  const bonus = contractPoints >= 100 ? 300 : 50;
+  return contractPoints + overtricks + bonus;
+}
+
+/**
  * Get next dealer in rotation
  */
 function getNextDealer(currentDealer) {
@@ -1258,30 +1466,9 @@ function startNextDeal(table) {
         
         table.state = 'playing';
         table.lastActivity = Date.now();
-        
-        table.gameState = createGameState(table);
-        table.biddingState = createBiddingState(table);
-        
-        sendToTablePlayers(table, {
-            type: 'newDealStarted',
-            dealNumber: table.dealNumber,
-            dealer: table.currentDealer,
-            gameState: filterGameState(table.gameState, null),
-            biddingState: table.biddingState
-        });
-        
-        for (const [position, playerData] of Object.entries(table.players)) {
-            if (playerData.type === 'human' && playerData.id) {
-                const player = players.get(playerData.id);
-                if (player && player.socket) {
-                    player.socket.emit('yourCards', {
-                        position,
-                        cards: table.gameState.hands[position]
-                    });
-                }
-            }
-        }
-        
+
+        beginDeal(table, 'newDealStarted');
+
         console.log(`Deal ${table.dealNumber} started successfully for table ${table.code}`);
         
     } catch (error) {
@@ -1338,7 +1525,8 @@ function sendActiveTables(socket) {
       return {
         code,
         players: playerCount,
-        created: table.created
+        created: table.created,
+        gameMode: table.gameMode || 'bridge'
       };
     });
   
@@ -1515,7 +1703,8 @@ function filterTable(table) {
     code: table.code,
     players: filterTablePlayers(table.players),
     state: table.state,
-    created: table.created
+    created: table.created,
+    gameMode: table.gameMode || 'bridge'
   };
 }
 

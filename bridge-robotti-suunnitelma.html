@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bridge-robotti BridgeCircleen – toteutussuunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1.25rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 46rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 38rem; }
+main { padding: 1.5rem 1.25rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 .25rem; }
+p, li { max-width: 40rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--suit-red); outline-offset: 3px;
+}
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--felt);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict.warn { border-left-color: var(--suit-red); }
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 32rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+.tag {
+  display: inline-block; background: var(--felt-soft); color: var(--felt);
+  border-radius: 1rem; padding: .1rem .7rem; font-size: .85rem; font-weight: 700;
+  margin-right: .4rem;
+}
+footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Bridge-robotti BridgeCircleen – toteutussuunnitelma</h1>
+    <p>Tutkimus ja vaiheistettu suunnitelma tekoälypelaajan (robotin) lisäämiseksi pöytiin niin, että se osaa sekä tarjota että pelata kortteja. Ei sisällä koodimuutoksia – tämä on suunnitteludokumentti.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#suositus">Suositus: onnistuuko tämä?</a></li>
+    <li><a href="#loydokset">Löydökset projektista</a></li>
+    <li><a href="#arkkitehtuuri">Arkkitehtuuripäätökset</a></li>
+    <li><a href="#vaiheet">Toteutuksen vaiheet</a></li>
+    <li><a href="#protokolla">Tietomalli- ja protokollamuutokset</a></li>
+    <li><a href="#riskit">Riskit ja avoimet kysymykset</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+    <li><a href="#havainnot">Sivuhavainnot nykyisestä koodista</a></li>
+    <li><a href="#wasmtesti">Testitulokset: bridge-solver WASM (2026-09-25)</a></li>
+  </ol>
+</nav>
+
+<h2 id="suositus">Suositus: onnistuuko tämä?</h2>
+
+<div class="verdict">
+  <p><strong>Osittain kyllä – suunnitelmaa on päivitettävä todennetun tiedon perusteella.</strong> Tein 2026-09-25 laajan sarjan oikeita HTTP-kutsuja BridgeBasen ilmaiseen GIB-rajapintaan (<code>gibrest.bridgebase.com/u_bm/robot.php</code>) ennen koodimuutoksia, juuri niin kuin vaihe 1 edellytti. Tulos jakautuu selvästi kahtia:</p>
+  <ul>
+    <li><strong>Tarjous toimii täysin.</strong> Simuloin GIB:llä koko huutosarjan tyhjästä valmiiksi sopimukseksi kaikille neljälle paikalle (esim. <code>P-P-2C-P-2D-P-2S-...-6S-P-P-P</code>) – jokainen tarjous oli laillinen, ja GIB palautti myös ihmisluettavan selityksen jokaiselle tarjoukselle (esim. <em>"Strong two club — 19+ HCP"</em>, <em>"Blackwood (S)"</em>).</li>
+    <li><strong>Pelaaminen toimii vain avausiskuun asti.</strong> Sopimuksen ratkettua GIB antoi oikein avausiskun (<code>&lt;r type="play" card="SJ"/&gt;</code>) ilman lisäparametreja. Mutta <strong>jokainen yritys pyytää seuraavaa korttia</strong> (tikin 2. kortista eteenpäin) epäonnistui virhekoodilla <code>rc="1055"</code> – kokeilin n. 12 järkevää parametrimuotoa (<code>p</code>, <code>o</code>, <code>pl</code>, <code>pc</code>, pelatun kortin liittämistä <code>h</code>-parametriin eri erottimin ja kirjainkoolla) eikä yksikään tuottanut kelvollista vastausta. Sama <code>rc="1055"</code>-virhe tulee myös, jos kysyy tarjousta uudelleen huudon jo päätyttyä – eli rajapinta yksinkertaisesti <strong>ei tunnista</strong> "kesken olevan tikin toinen kortti" -tyyppistä kysymystä lainkaan.</li>
+  </ul>
+  <p>Tämä selittää myös miksi projektin oma vanha kokeilusivu <code>gib.html</code> merkitsee "GIB Playing" -välilehden tekstillä <em>"Coming soon: Simulate how GIB would play a hand"</em> – kukaan ei ole aiemminkaan saanut tätä toimimaan, vaikka jäsennyskoodia (<code>parseRobotPlay</code>) on kirjoitettu valmiiksi. Julkinen <code>u_bm</code>-rajapinta vaikuttaa olevan tarkoitettu nimenomaan tarjous- ja avausisku-<em>harjoitustehtäville</em>, ei täydelle pelin toiston tukemiselle.</p>
+  <p><strong>Johtopäätös robotin toteutettavuudesta:</strong> Kyllä, robotti on edelleen toteutettavissa ja kannattava – mutta GIB voi hoitaa vain tarjoamisen ja avausiskun. Kortin valinta tikeissä 2–13 on rakennettava <strong>omalla algoritmilla</strong> alusta asti; se ei ole enää pelkkä varajärjestelmä GIB:n varalle, vaan pelaamisen pääasiallinen moottori. Tämä on iso muutos alkuperäiseen oletukseen nähden, ja se on huomioitu alla päivitetyissä vaiheissa.</p>
+</div>
+
+<h2 id="loydokset">Löydökset projektista</h2>
+<p>Projektissa on ilmeisesti aiemmin yritetty rakentaa juuri tällaista robottia, mutta työ on jäänyt kesken tai hylätty – tiedostot ovat olemassa, mutta mikään niistä ei ole kytketty <code>server.js</code>:ään.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Löydetyt AI/robotti-tiedostot ja niiden tila</caption>
+  <thead>
+    <tr><th scope="col">Tiedosto</th><th scope="col">Mitä se tekee</th><th scope="col">Tila</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>lib/gib_client_module.js</code></td><td>Valmis <code>GIBClient</code>-luokka: hakee tarjouksen <em>ja</em> kortin GIB:ltä, muotoilee kädet/tarjoushistorian/pelatut kortit sille sopivaan formaattiin, jäsentää XML-vastauksen takaisin.</td><td>Ei käytössä missään. Tarjouslogiikka toimii testien mukaan (ks. Suositus); kortinpelin <code>p</code>-parametrin muoto (<code>formatPlayedCards()</code>) <strong>testattiin 2026-09-25 eikä toimi</strong> – rajapinta ei tue sitä ollenkaan tikin 2. kortista eteenpäin, joten tämä osa koodista on korvattava omalla algoritmilla.</td></tr>
+    <tr><td><code>gib.js</code> (juuressa)</td><td>Aikaisempi/rinnakkainen versio pelkästä tarjouslogiikasta suoralla <code>axios</code>-kutsulla GIB:hen, varajärjestelmänä paikallinen AI.</td><td>Ei käytössä. Päällekkäinen <code>gib_client_module.js</code>:n kanssa.</td></tr>
+    <tr><td><code>advanced_bidding_ai.js</code></td><td>Itsenäinen, ei-GIB-riippuvainen paikallinen tarjous-AI: Monte Carlo -simulointi käsijaoista ja tarjoussekvensseistä, konservatiivinen pistevalinta.</td><td>Ei käytössä. Toimisi hyvänä varajärjestelmänä, jos GIB ei vastaa.</td></tr>
+    <tr><td><code>bidding.js</code> + <code>gib.html</code></td><td>Erillinen kokeilu-Express-sovellus (portti 3000) ja raahaa-ja-pudota-käyttöliittymä GIB:n testaamiseen selaimessa.</td><td>Itsenäinen demo, ei osa multiplayer-sovellusta. <code>gib.html</code> viittaa puuttuviin <code>js/bidding.js</code> ja <code>js/modal.js</code> -tiedostoihin juuressa (rikki).</td></tr>
+    <tr><td><code>purkka.js</code></td><td>Selainpuolen logiikka, joka kutsuu GIB:tä suoraan selaimesta (ei palvelimen kautta) tarjousten testaamiseksi.</td><td>Käytössä vain <code>gib.html</code>:n kontekstissa, ei nykyisessä pelissä.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Johtopäätös: <strong>kortin pelaamisen puolelta on jo olemassa jäsennyslogiikka</strong> (<code>parseRobotPlay</code> tiedostossa <code>gib_client_module.js</code>), mutta sitä ei ole koskaan testattu tuotannossa eikä kytketty pelin vuoronhallintaan. Paikallista varajärjestelmää kortin pelaamiselle (siltä varalta että GIB ei vastaa) <strong>ei ole olemassa lainkaan</strong> – vain tarjoamiselle on varajärjestelmä (<code>advanced_bidding_ai.js</code>).</p>
+
+<h2 id="arkkitehtuuri">Arkkitehtuuripäätökset</h2>
+
+<h3>1. Robotin "aivot": GIB tarjoukseen ja avausiskuun, oma algoritmi kortinpeliin</h3>
+<p>GIB (Ginsberg Intelligent Player) on BridgeBasen ilmainen robotti. <strong>Testien perusteella (2026-09-25) se osaa tarjota täydellisesti ja antaa avausiskun</strong>, mutta julkinen <code>u_bm/robot.php</code>-rajapinta ei vastaa kelvollisesti kysymykseen "mitä kortti pelataan seuraavaksi" heti kun tikissä on jo yksi kortti pelattuna – ks. <a href="#suositus">Suositus</a>-osio. Rooli jakautuu siis kahtia:</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Robotin "aivot" pelivaiheittain (todennettu testeillä)</caption>
+  <thead>
+    <tr><th scope="col">Näkökohta</th><th scope="col">Tarjous</th><th scope="col">Avausisku</th><th scope="col">Kortinpeli (tikit 2–13)</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">Ensisijainen moottori</th><td>GIB</td><td>GIB</td><td><strong>Oma algoritmi</strong> (uusi työ)</td></tr>
+    <tr><th scope="row">Varajärjestelmä</th><td><code>advanced_bidding_ai.js</code> (olemassa)</td><td>Oma algoritmi (sama kuin kortinpelin moottori)</td><td>Ei tarvita – oma algoritmi on jo ainoa toimiva vaihtoehto</td></tr>
+    <tr><th scope="row">Testattu tila</th><td>Toimii, koko huutosarja ajettu läpi onnistuneesti</td><td>Toimii, palautti laillisen avauskortin</td><td>Ei toimi GIB:llä (<code>rc="1055"</code> joka yrityksellä) – täytyy rakentaa itse</td></tr>
+    <tr><th scope="row">Nopeus</th><td>~1–5 s per HTTP-kutsu</td><td>~1–5 s</td><td>Välitön (paikallinen)</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Käytännössä tämä tarkoittaa, että robotti kysyy GIB:ltä tarjouksen jokaisella tarjousvuorollaan ja pelinviejän/lepääjän avausiskun kerran per jako, mutta <strong>kaikki muu kortinpeli ratkaistaan aina paikallisesti</strong>. Oma algoritmi kannattaa silti suunnitella niin, että se voi myöhemmin ottaa vastaan myös avausiskun GIB:ltä eikä ole siitä riippuvainen (GIB-kutsu voi epäonnistua senkin kohdalla).</p>
+
+<h3>1b. Löydös 2026-09-25: avoimen lähdekoodin vaihtoehdot "oman algoritmin" tilalle</h3>
+<p>Etsittiin verkosta, löytyisikö GIB:n kortinpeli-aukkoon (ks. yllä) valmis avoimen lähdekoodin korvaaja hand-rolled-sääntöjen sijaan. Löytyi kolme varteenotettavaa vaihtoehtoa:</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Löydetyt avoimen lähdekoodin bridge-moottorit</caption>
+  <thead>
+    <tr><th scope="col">Projekti</th><th scope="col">Mitä tekee</th><th scope="col">Lisenssi</th><th scope="col">Integrointi tähän projektiin</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row"><a href="https://github.com/bridge-craftwork/bridge-solver">bridge-craftwork/bridge-solver</a></th>
+      <td>Double dummy -ratkaisija (Rust). Laskee täydellisellä käsitiedolla objektiivisesti parhaan kortin/tuloksen.</td>
+      <td>Apache-2.0 / MIT (valinnainen)</td>
+      <td><strong>Suositus.</strong> Toimiva WebAssembly-käännös olemassa (live-demo selaimessa) – ajettavissa suoraan Node-prosessin sisällä ilman natiivikäännöstä, mikä välttää Windows/Azure/iisnode-ympäristön käännösriskit kokonaan.</td>
+    </tr>
+    <tr>
+      <th scope="row"><a href="https://github.com/dds-bridge/dds">dds-bridge/dds</a></th>
+      <td>DDS – bridge-alan vakiintunein, vuosikymmeniä käytössä ollut double dummy -ratkaisija (C++).</td>
+      <td>Apache-2.0</td>
+      <td>Varavaihtoehto jos WASM-integrointi osoittautuu hankalaksi. Sisältää myös WASM-kansion, mutta tekijä mainitsee testanneensa lähinnä macOS:lla – Windows-käyttö vaatisi oman validoinnin.</td>
+    </tr>
+    <tr>
+      <th scope="row"><a href="https://github.com/lorserker/ben">lorserker/ben (BEN)</a></th>
+      <td>Täysi GIB-tyyppinen korvaaja: hermoverkko + double dummy, osaa <strong>sekä</strong> tarjota <strong>että</strong> pelata. REST API, WebSocket, Docker-kontti, ~630 committia, aktiivinen Discord-yhteisö.</td>
+      <td>GPL-3.0</td>
+      <td>Vaatisi erillisen Python 3.12 + TensorFlow-palvelun ylläpidon (ei suoraan upotettavissa Node-palvelimeen). Kutsuttaisiin HTTP:llä samaan tapaan kuin GIB:tä nyt – mutta itse ylläpidettynä, ei kolmannen osapuolen riippuvuutena.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong>Suositus:</strong> korvataan aiemmin suunniteltu "taso 1/2/3" -hand-rolled-heuristiikka (ks. vaihe 4) double dummy -ratkaisijalla, koska palvelin tuntee jo kaikki neljä kättä (ks. arkkitehtuurikohta 5) – ratkaisija antaa suoraan matemaattisesti oikean vastauksen sen sijaan että sitä approksimoitaisiin nyrkkisäännöillä, ja työmäärä on todennäköisesti pienempi kuin sääntöpohjaisen tekoälyn hienosäätö. <code>bridge-craftwork/bridge-solver</code> on ensisijainen valinta WASM-integroinnin helppouden vuoksi; <code>dds-bridge/dds</code> varavaihtoehtona. BEN jää harkittavaksi myöhempään vaiheeseen, jos halutaan täysin oma, kolmannesta osapuolesta riippumaton korvaaja myös tarjoukselle – se on kuitenkin selvästi suurempi infrastruktuuri-investointi (erillinen palvelu, GPL-3-lisenssi huomioitava jos koodia joskus yhdistettäisiin suoraan omaan, ei vain kutsuttaisi verkon yli).</p>
+
+<div class="verdict warn">
+  <p><strong>Huomio reiluudesta:</strong> double dummy -ratkaisija pelaa <em>täydellisellä</em> tiedolla kaikista neljästä kädestä eikä vain siitä, mitä kyseinen pelaaja oikeasti näkisi – se on matemaattisesti optimaalinen, mutta voi tuntua epäinhimillisen vahvalta tai "huijaavalta" vastustajalta erityisesti aloittelijoille. Tämä on sama huomio kuin arkkitehtuurikohdassa 5 GIB:stä, mutta korostuu enemmän, koska double dummy -ratkaisu on <em>määritelmällisesti</em> täydellisen tiedon peliä. Myöhempi parannus (ei kuulu v1:een) olisi ajaa ratkaisija useita kertoja satunnaisilla, tarjoushistorian kanssa yhteensopivilla piilokäsijaoilla (samaan tapaan kuin <code>advanced_bidding_ai.js</code> tekee jo tarjoukselle) ja valita tulosten enemmistön mukainen kortti – tämä approksimoi realistisempaa, "yhden käden" -vahvuista pelaamista.</p>
+</div>
+
+<h3>2. Miten robotti istuu pöytään</h3>
+<p>Laajennetaan olemassa olevaa <code>table.players[position].type</code>-kenttää arvolla <code>'robot'</code> nykyisen <code>'human'</code>:n rinnalle. Tämä on pieni muutos, koska suuri osa koodista käsittelee pelaajia jo geneerisesti: esimerkiksi <code>sendToTablePlayers()</code> ohittaa automaattisesti pelaajat joilla ei ole <code>id</code>:tä (robotilla ei ole socket-yhteyttä), joten viestien lähetys ei vaadi muutoksia.</p>
+<p>Paikkaan voi lisätä robotin joko pöydän luonnissa (jos joku paikoista jätetään tarkoituksella tyhjäksi robotille) tai odotushuoneessa tyhjään paikkaan – jälkimmäinen on käytännöllisempi, koska silloin 1–3 ihmispelaajaa voi pelata yhdessä robotin täyttäessä loput paikat.</p>
+
+<h3>3. Vuoronhallinta: palvelin herää automaattisesti robotin vuoroon</h3>
+<p>Ihmispelaajan vuoro odottaa <code>makeBid</code>/<code>playCard</code>-socket-tapahtumaa. Robotilla ei ole sellaista lähdettä, joten palvelimen on itse havaittava "nyt on robotin vuoro" jokaisen vuoronvaihdon jälkeen (tarjouksen jälkeen, sopimuksen ratkettua, kortin pelaamisen jälkeen, tikin ratkettua) ja kutsuttava robottimoduulia itse – pienellä viiveellä (n. 1–2 s), joka sekä tuntuu luonnolliselta että antaa ruudunlukijan käyttäjälle aikaa kuulla edellisen tapahtuman ennen seuraavaa.</p>
+
+<h3>4. Lepääjän hallinta kun pelinviejä on robotti</h3>
+<p>Nykyisin lepääjän korttien pelaajaa ohjaa pelinviejä (<code>table.players[declarer].id === playerId</code>). Kun pelinviejä on robotti, robotin on pelattava <strong>sekä omat korttinsa että lepääjän kortit</strong> – puolustavan robotin ei koskaan tarvitse pelata lepääjän kortteja. Ohjaava sääntö: robotti reagoi aina kun senhetkisen pelaajan <em>ohjaaja</em> (itse pelaaja, tai pelinviejä jos vuorossa on lepääjä) on tyypiltään <code>'robot'</code>.</p>
+
+<h3>5. GIB saa täyden tiedon kaikista käsistä</h3>
+<p>Palvelin tuntee jo kaikki neljä kättä, ja olemassa oleva <code>gib_client_module.js</code> lähettää ne kaikki GIB:lle riippumatta siitä, kuka kysyy. Tämä on tietoinen yksinkertaistus: robotti "näkee" siis teknisesti enemmän kuin ihmispelaaja normaalisti näkisi, mutta koska tieto ei koskaan päädy asiakkaille eikä muille pelaajille, ihmispelaajien välinen reiluus ei kärsi. Tarkempi (vain näkyvän tiedon välittävä) toteutus olisi huomattavasti työläämpi eikä ole tarpeen ensimmäisessä versiossa.</p>
+
+<h2 id="vaiheet">Toteutuksen vaiheet</h2>
+<p>Vaiheet etenevät niin, että jokaisen jälkeen olemassa oleva ihmispeli (myös minibridge) toimii edelleen muuttumattomana, ja robotti otetaan käyttöön asteittain ensin tarjoamisessa, sitten pelaamisessa.</p>
+
+<section class="phase" aria-labelledby="v1">
+<h3 id="v1"><span class="tag">Tutkimus – TEHTY 2026-09-25</span>Vaihe 1: GIB:n rajapinnan validointi</h3>
+<p><strong>Tulos: tarjous ja avausisku toimivat, jatkuva kortinpeli ei toimi tämän rajapinnan kautta.</strong> Testattu suoraan <code>gibrest.bridgebase.com/u_bm/robot.php</code>:aa vasten, ei simulaatiota.</p>
+<h4>Mitä testattiin ja miten</h4>
+<ol>
+  <li><strong>Huutosarja tyhjästä valmiiksi:</strong> kutsuttiin GIB:tä peräkkäin kaikille neljälle paikalle, <code>h</code>-parametriin kerättiin edelliset tarjoukset (<code>p-p-2c-p-2d-...</code>). Kaikki 26 kutsua onnistuivat, sopimukseksi tuli 6♠ (South declarer). GIB palautti myös selityksen jokaiselle tarjoukselle.</li>
+  <li><strong>Avausisku:</strong> <code>pov=&lt;avaava pelaaja&gt;</code>, <code>h=&lt;koko huutosarja&gt;</code>, ei muita parametreja → <code>&lt;r type="play" card="SJ"/&gt;</code>. Toimi suoraan.</li>
+  <li><strong>Toisen kortin pyytäminen:</strong> kokeiltiin n. 12 tapaa kertoa GIB:lle että avausisku on jo pelattu: parametrit <code>p</code>, <code>o</code>, <code>pl</code>, <code>pc</code> eri arvoilla (<code>SJ</code>, <code>sj</code>, <code>S-J</code>, <code>S.J</code>, tyhjä), sekä pelatun kortin liittäminen suoraan <code>h</code>-parametrin jatkoksi eri erottimin. <strong>Jokainen yritys palautti <code>rc="1055"</code> ilman <code>&lt;r&gt;</code>-elementtiä</strong> – sama virhe kuin täysin virheellisellä pyynnöllä (esim. tarjouspyyntö huudon jo päätyttyä).</li>
+</ol>
+<h4>Johtopäätös</h4>
+<p><code>u_bm/robot.php</code> tunnistaa rakenteellisesti vain kaksi tilannetta <code>h</code>-parametrista: "huuto on kesken" → antaa tarjouksen, ja "huuto on juuri päättynyt, ei yhtään korttia pelattu" → antaa avausiskun. Se ei tunnista tilaa "yksi tai useampi kortti on jo pelattu". Tämä täsmää projektin oman, aiemmin tekemättömäksi jääneen <code>gib.html</code>-kokeilusivun kanssa, jossa "GIB Playing" -välilehti on merkitty tekstillä <em>"Coming soon"</em> – kukaan ei siis ole aiemminkaan saanut tätä toimimaan.</p>
+<p><strong>Päätös:</strong> GIB otetaan käyttöön vain tarjoukseen ja avausiskuun (vaihe 2, muuttumaton). Kortinpeli tikeissä 2–13 toteutetaan kokonaan omalla algoritmilla (ks. päivitetty vaihe 4) – tätä ei enää käsitellä "varajärjestelmänä" vaan pelaamisen ainoana moottorina.</p>
+<p class="done-when"><strong>Valmis.</strong> Tiedetään luotettavasti mitä GIB:ltä voi pyytää ja mitä ei; seuraaviin vaiheisiin ei tarvita enempää GIB-rajapinnan kokeilua ennen koodausta.</p>
+</section>
+
+<section class="phase" aria-labelledby="v2">
+<h3 id="v2"><span class="tag">Palvelin</span>Vaihe 2: <code>type: 'robot'</code> tietomalliin</h3>
+<p>Laajenna paikkaa kuvaava olio hyväksymään <code>'robot'</code> ihmisen (<code>'human'</code>) rinnalle, ja päivitä kohdat jotka tällä hetkellä vaativat nimenomaan ihmistä:</p>
+<pre><code>// server.js: startGame() – nykyinen tarkistus rajaa robotit pois
+for (const position of positions) {
+  if (!table.players[position] ||
+      !['human', 'robot'].includes(table.players[position].type)) {
+    sendError(socket, 'All 4 positions must be filled before starting');
+    return;
+  }
+}</code></pre>
+<ul>
+  <li><code>filterTablePlayers()</code> palauttaa jo <code>type</code>-kentän asiakkaalle – ei muutostarvetta, mutta asiakkaan on osattava näyttää <code>'robot'</code> omalla tekstillään (vaihe 8).</li>
+  <li><code>removePlayerFromTable</code>, <code>cleanupProcess</code> ym. jotka iteroivat pelaajia <code>playerData.id</code>-ehdolla, toimivat robottien kanssa jo sellaisenaan, koska robotilla ei ole <code>id</code>:tä – niitä ei tarvitse muuttaa.</li>
+  <li><code>handleDisconnect</code>-logiikkaa ei koskaan kutsuta robotin puolesta, koska robotilla ei ole socket-yhteyttä – ei muutostarvetta.</li>
+</ul>
+<p class="done-when">Valmis, kun pöytään voi asettaa <code>type: 'robot'</code> -pelaajan eikä mikään olemassa oleva ihmispelaajien kulku riko.</p>
+</section>
+
+<section class="phase" aria-labelledby="v3">
+<h3 id="v3"><span class="tag">Palvelin</span>Vaihe 3: Robotin lisääminen tyhjään paikkaan</h3>
+<p>Uusi socket-tapahtuma <code>addRobot</code>, joka toimii kuten <code>selectPosition</code> mutta ilman socket-omistajaa:</p>
+<pre><code>socket.on('addRobot', ({ tableCode, position }) => {
+  const table = tables.get(tableCode);
+  if (!table || table.state !== 'waiting') return sendError(socket, '...');
+  if (table.players[position]) return sendError(socket, 'Position is already taken');
+
+  table.players[position] = { name: 'Robot', id: null, type: 'robot' };
+
+  sendToTablePlayers(table, {
+    type: 'playerJoined',
+    position,
+    playerName: 'Robot',
+    table: filterTable(table)
+  });
+});</code></pre>
+<ul>
+  <li>Päätettävä: kuka saa lisätä robotin – kuka tahansa pöydässä istuva (yhtenäinen nykyisen <code>startGame</code>-käytännön kanssa, jossa kuka tahansa saa aloittaa) vai vain pöydän luoja (<code>table.creator</code>, joka on jo tallessa)? Suositus: kuka tahansa, koska sama löysyys on jo muualla koodissa.</li>
+  <li>Harkittava myös <code>removeRobot</code>-tapahtuma symmetrian vuoksi (jos robotin haluaa vaihtaa ihmiseen).</li>
+</ul>
+<p class="done-when">Valmis, kun tyhjään paikkaan voi asettaa robotin odotushuoneesta ja muut pelaajat näkevät sen heti.</p>
+</section>
+
+<section class="phase" aria-labelledby="v4">
+<h3 id="v4"><span class="tag">Palvelin</span>Vaihe 4: Robottimoduuli (<code>lib/robot.js</code>)</h3>
+<p><strong>Päivitetty vaiheen 1b löydösten perusteella (ks. yllä):</strong> kortinpelin moottoriksi tikeille 2–13 otetaan double dummy -ratkaisija (<code>bridge-solver</code>-WASM ensisijaisesti) hand-rolled-sääntöjen sijaan – yksinkertainen sääntöpohja jää vain kevyeksi varmistukseksi siltä varalta ettei ratkaisijaa saada ladattua.</p>
+<pre><code>// lib/robot.js (uusi, kokoaa yhteen)
+const gibClient = require('./gib_client_module');
+const { calculateAdvancedBid } = require('../advanced_bidding_ai'); // siirretään/vaaditaan
+const solver = require('./bridge_solver_wasm'); // uusi ohutkääre bridge-solverin WASM-moduulille
+
+async function decideRobotBid(table, position) { /* GIB -> advanced_bidding_ai -> Pass */ }
+
+async function decideRobotOpeningLead(table, position) { /* GIB -> solver.bestCard() -> pickLegalCardFallback() */ }
+
+function decideRobotCard(table, position) {
+  // Ensisijainen moottori tikeille 2-13: solver.bestCard(table.gameState, position)
+  // Varmistus: jos ratkaisija ei jostain syystä palauta vastausta, pickLegalCardFallback()
+  // (maanseuraus + matalin kortti) takaa ettei peli jää jumiin.
+}
+
+module.exports = { decideRobotBid, decideRobotOpeningLead, decideRobotCard };</code></pre>
+<ul>
+  <li><strong>Tarjous:</strong> <code>gibClient.getRobotMove()</code> ensin (aikakatkaisu esim. 8 s), epäonnistuessa <code>advanced_bidding_ai.js</code>:n <code>calculateAdvancedBid()</code>, viimeisenä varmuutena <code>'P'</code>.</li>
+  <li><strong>Avausisku ja kortti (tikit 1–13):</strong> <code>solver.bestCard()</code> ensisijaisena – syötteenä kaikki neljä kättä (palvelin tuntee ne jo), valttimaa, senhetkinen tikki ja jo pelatut kortit; palauttaa objektiivisesti parhaan kortin. Ei GIB-kutsua kortinpelissä lainkaan (nopeampi kuin GIB:n ~1–5 s HTTP-viive, eikä riipu kolmannesta osapuolesta).</li>
+  <li><strong>Varmistus (<code>pickLegalCardFallback</code>):</strong> yksinkertainen sääntö (seuraa maata jos voi, muuten matalin kortti; johtaessa matalin pisimmästä maasta) käytetään vain jos ratkaisijan WASM-moduulin lataus/kutsu epäonnistuu – ei enää pääasiallinen moottori, vain viimeinen turva.</li>
+  <li>Kaikki paluuarvot (myös GIB:ltä tuleva tarjous/avausisku) validoidaan aina laillisuuden varalta ennen välittämistä eteenpäin – ulkoisen/kolmannen osapuolen vastausta ei koskaan luoteta sokeasti.</li>
+  <li><strong>Avoin päätös (ks. arkkitehtuurikohta 1b):</strong> annetaanko ratkaisijalle suoraan oikeat piilokädet (yksinkertaisempi, mutta pelaa "liian hyvin") vai simuloidaanko piilotietoa Monte Carlo -otannalla (realistisempi, monimutkaisempi)? Suositus v1:ksi: oikeat kädet suoraan, koska yksinkertaisuus painaa enemmän kuin täydellinen reiluus tässä vaiheessa – kirjataan kuitenkin ohjetekstiin että robotti "näkee" enemmän kuin ihminen.</li>
+</ul>
+<p class="done-when">Valmis, kun moduulia voi kutsua yksikkötestistä käsin valmiilla <code>table</code>-oliolla ja se palauttaa aina laillisen tarjouksen/kortin sekä ratkaisijan kanssa että ilman sitä (varmistus-polku testattuna erikseen).</p>
+</section>
+
+<section class="phase" aria-labelledby="v5">
+<h3 id="v5"><span class="tag">Palvelin</span>Vaihe 5: Vuoronvaihdon koukutus</h3>
+<p>Lisätään kutsu <code>maybeTriggerRobot(table)</code> jokaisen kohdan jälkeen, joka muuttaa vuorossa olevaa pelaajaa:</p>
+<ul>
+  <li><code>createBiddingState()</code> jälkeen (<code>beginDeal</code>), jos jakaja on robotti.</li>
+  <li><code>moveToNextBidder()</code> jälkeen (<code>processBid</code>), jos uusi tarjoaja on robotti.</li>
+  <li><code>moveToPlayPhase()</code> jälkeen, jos avaava pelaaja on robotti (tai lepääjä jonka ohjaaja on robotti).</li>
+  <li><code>processCardPlay()</code>:n "next player" -haarassa ja <code>processTrick()</code>:n voittajan asettamisen jälkeen.</li>
+  <li>Minibridgessä: <code>beginDeal()</code>:n jälkeen jos <code>miniState.declarer</code> on robotti (ks. vaihe 9).</li>
+</ul>
+<pre><code>function maybeTriggerRobot(table) {
+  const controller = currentController(table); // ottaa huomioon lepääjän
+  if (!controller || table.players[controller]?.type !== 'robot') return;
+
+  setTimeout(() => {
+    if (!tables.has(table.code)) return; // pöytä voi hävitä odotuksen aikana
+    runRobotTurn(table).catch(err => console.error('Robot turn failed', err));
+  }, 1200 + Math.random() * 800);
+}</code></pre>
+<p>Viive on tärkeä kahdesta syystä: se antaa ruudunlukijalle aikaa lukea edellinen ilmoitus loppuun, ja se estää saman pöydän useiden peräkkäisten robottivuorojen (esim. kaikki 4 pelaajaa robotteja) aiheuttaman "salamavuoron", joka olisi vaikea seurata.</p>
+<p class="done-when">Valmis, kun robotti reagoi automaattisesti omaan vuoroonsa jokaisessa pelin vaiheessa, myös peräkkäin (esim. kaksi robottia vierekkäin).</p>
+</section>
+
+<section class="phase" aria-labelledby="v6">
+<h3 id="v6"><span class="tag">Palvelin</span>Vaihe 6: Lepääjän pelaaminen robotti-pelinviejällä</h3>
+<p><code>currentController(table)</code> palauttaa pelaajan, jonka <code>type</code> ratkaisee reagoiko robotti: jos <code>gameState.currentPlayer === gameState.dummy</code>, ohjaaja on <code>gameState.declarer</code> eikä <code>gameState.dummy</code> itse. Tämä koskee sekä tavallista bridgeä että minibridgeä.</p>
+<pre><code>function currentController(table) {
+  const cp = table.gameState.currentPlayer;
+  if (cp === table.gameState.dummy) return table.gameState.declarer;
+  return cp;
+}</code></pre>
+<p>Robotin kortinvalintalogiikka pelatessaan lepääjän käsivalintaa käyttää lepääjän korttitietoja (<code>table.gameState.hands[dummyPosition]</code>) mutta lähettää siirron paikalla <code>position: dummyPosition</code>, aivan kuten ihminen tekisi ohjatessaan lepääjää.</p>
+<p class="done-when">Valmis, kun robotti-pelinviejä pelaa koko jaon loppuun asti (myös lepääjän kortit) ilman ihmisen puuttumista.</p>
+</section>
+
+<section class="phase" aria-labelledby="v7">
+<h3 id="v7"><span class="tag">Palvelin</span>Vaihe 7: Virhesietoisuus ja turvaverkot</h3>
+<ul>
+  <li>GIB-kutsuun aikakatkaisu (esim. 8–10 s) ja yritys vain kerran per vuoro ennen paikalliseen varajärjestelmään siirtymistä – peli ei koskaan saa jäädä odottamaan robottia loputtomiin.</li>
+  <li>Jos <em>myös</em> paikallinen varajärjestelmä epäonnistuisi (ei pitäisi olla mahdollista, koska se ei riipu verkosta), viimeinen turva on <code>'P'</code> tarjoukselle ja ensimmäinen laillinen kortti pelille – kirjataan virhe lokiin, peli jatkuu.</li>
+  <li>Vartioidaan tuplasuoritusta: jos vuoro ehtii vaihtua (esim. pöytä poistuu tyhjänä) ennen kuin viivästetty robottikutsu laukeaa, tarkistetaan tilanne uudelleen juuri ennen siirron tekemistä eikä luoteta pelkkään aikaleimaan.</li>
+  <li>Lokitetaan jokainen GIB-kutsun epäonnistuminen (aikakatkaisu / virheellinen vastaus) helpottamaan rajapinnan luotettavuuden seurantaa tuotannossa.</li>
+</ul>
+<p class="done-when">Valmis, kun GIB voidaan simuloida pois päältä (esim. väärä URL) eikä yksikään peli jää jumiin.</p>
+</section>
+
+<section class="phase" aria-labelledby="v8">
+<h3 id="v8"><span class="tag">Asiakas</span>Vaihe 8: Käyttöliittymä ja saavutettavuus (<code>public/index.html</code>)</h3>
+<ul>
+  <li>Odotushuoneen tyhjän paikan kohdalle painike "Add robot" (näppäinoikotie samaan tapaan kuin muutkin, esim. <kbd>Alt</kbd>+<kbd>R</kbd> kun fokus on paikassa) joka lähettää <code>addRobot</code>-tapahtuman.</li>
+  <li>Pelaajalistoissa ja odotushuoneessa robotti näytetään selvästi: <code>positionType</code>-logiikka (nyt kovakoodattu <code>'Human'</code> funktiossa <code>renderHand()</code>) laajennetaan lukemaan oikea <code>type</code> ja näyttämään "Robot".</li>
+  <li><strong>Tärkeä havainto: robotin siirrot eivät vaadi uusia ilmoituskoodeja.</strong> Koska robotti kutsuu samoja <code>processBid</code>/<code>processCardPlay</code>-funktioita kuin ihminen, samat <code>bidMade</code>/<code>cardPlayed</code>/<code>trickComplete</code>-tapahtumat lähtevät asiakkaalle ja olemassa olevat ruudunlukijailmoitukset (<code>announceToScreenReader</code>) toimivat sellaisenaan.</li>
+  <li>Lisätään kevyt "Robot is thinking…" -tila (esim. tekstiä ei-häiritsevästi <code>status-area</code>-alueelle) sen ajaksi kun robotin vuoro on kesken, jotta käyttäjä ei ihmettele hiljaisuutta GIB-kutsun aikana.</li>
+  <li>Ohjeosioon (<code>updateHelpContent()</code>) lyhyt maininta robotin lisäämisestä.</li>
+</ul>
+<p class="done-when">Valmis, kun näkövammainen käyttäjä voi lisätä robotin tyhjään paikkaan ruudunlukijalla ja seurata pelin kulkua yhtä selkeästi kuin ihmispelaajien kanssa.</p>
+</section>
+
+<section class="phase" aria-labelledby="v9">
+<h3 id="v9"><span class="tag">Palvelin + Asiakas</span>Vaihe 9: Yhteensopivuus minibridgen kanssa</h3>
+<p>Minibridgessä (ks. <code>minibridge-suunnitelma.html</code>, joka on jo toteutettu) ei tarjota lainkaan – pelinviejä valitsee sopimuksen suoraan pistelaskun perusteella. Robotin ei siis tarvitse käyttää GIB:tä minibridgen sopimuksenvalintaan; riittää yksinkertainen paikallinen sääntö:</p>
+<pre><code>// lib/robot.js: minibridgen sopimuksenvalinta ei tarvitse GIB:tä
+function decideMiniContract(table, position) {
+  const hand = table.gameState.hands[position];
+  const dummyHand = table.gameState.hands[table.miniState.dummy];
+  const totalPoints = table.miniState.points[table.miniState.declarer]
+                     + table.miniState.points[table.miniState.dummy];
+  // Valitse pisin yhteinen maa (8+ korttia) valtiksi, muuten sangeksi.
+  // Valitse peli jos totalPoints riittää (esim. 25+ sangelle, 26+ maalle), muuten osapeli.
+}</code></pre>
+<p>Kortinpeli minibridgen pelivaiheessa käyttää samaa <code>decideRobotCard()</code>-logiikkaa kuin tavallinen bridge (vaihe 4), koska pelivaihe on identtinen.</p>
+<p class="done-when">Valmis, kun robotti voi olla pelinviejänä tai lepääjänä minibridge-pöydässä ilman GIB-riippuvuutta sopimuksenvalinnassa.</p>
+</section>
+
+<section class="phase" aria-labelledby="v10">
+<h3 id="v10"><span class="tag">Testaus</span>Vaihe 10: Testaus</h3>
+<ol>
+  <li>4 robottia pöydässä pelaa itsekseen koko jaon läpi (tarjous + pelaaminen) ilman ihmisen väliintuloa.</li>
+  <li>1–3 ihmistä + loput robotteja: peli etenee sujuvasti, robotin vuoro ei jää ihmisen odottamaan liian kauan.</li>
+  <li>Robotti pelinviejänä: pelaa sekä omat että lepääjän kortit oikein, kunnioittaa maanseuraamispakkoa.</li>
+  <li>GIB simuloidusti pois päältä (väärä URL/aikakatkaisu): tarjous ja kortinpeli jatkuvat paikallisella varajärjestelmällä, peli ei jää jumiin.</li>
+  <li>Minibridge-pöytä robotin kanssa: sopimuksenvalinta järkevä, pelivaihe toimii.</li>
+  <li>Ruudunlukijalla (NVDA/JAWS) läpikäynti: robotin siirrot kuuluvat samalla tavalla kuin ihmisen, "Robot is thinking" ei ole häiritsevä.</li>
+  <li>Pöydän purkaminen kesken robotin miettimisajan (kaikki ihmiset poistuvat) ei aiheuta virhettä tai kaadu palvelinta.</li>
+  <li>Monta pöytää robotteineen samanaikaisesti: GIB-kutsut eivät tuki toisiaan, peli pysyy sujuvana.</li>
+</ol>
+</section>
+
+<h2 id="protokolla">Tietomalli- ja protokollamuutokset</h2>
+<div class="table-wrap">
+<table>
+  <caption>Uudet ja muuttuvat kentät/tapahtumat</caption>
+  <thead>
+    <tr><th scope="col">Kohde</th><th scope="col">Suunta</th><th scope="col">Muutos</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>table.players[pos].type</code></td><td>Palvelimen sisäinen</td><td>Uusi sallittu arvo <code>'robot'</code> nykyisen <code>'human'</code>:n rinnalle</td></tr>
+    <tr><td><code>addRobot</code></td><td>Asiakas → palvelin</td><td>Uusi: <code>{ tableCode, position }</code></td></tr>
+    <tr><td><code>removeRobot</code></td><td>Asiakas → palvelin</td><td>Uusi (valinnainen): <code>{ tableCode, position }</code></td></tr>
+    <tr><td><code>playerJoined</code></td><td>Palvelin → asiakas</td><td>Ennallaan; <code>playerName: 'Robot'</code> kun paikka täytetään robotilla</td></tr>
+    <tr><td><code>filterTablePlayers()</code></td><td>Palvelin → asiakas</td><td>Ennallaan, <code>type</code>-kenttä välitetään jo – asiakas vain tulkitsee sen uudella tavalla</td></tr>
+    <tr><td><code>bidMade</code>, <code>cardPlayed</code>, <code>trickComplete</code></td><td>Palvelin → asiakas</td><td>Ei muutoksia – robotin siirrot kulkevat samojen tapahtumien kautta kuin ihmisen</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="riskit">Riskit ja avoimet kysymykset</h2>
+<ul>
+  <li><strong>Vahvistettu rajoite (ei enää riski vaan tunnettu tosiasia):</strong> GIB:tä ei voi käyttää kortinpelin ratkaisemiseen tikin 2. kortista eteenpäin – vain tarjoukseen ja avausiskuun. Tämä riski on kuitenkin pienentynyt 2026-09-25 tehdyn lisätutkimuksen myötä: avoimen lähdekoodin double dummy -ratkaisijat (ks. arkkitehtuurikohta 1b) tarjoavat valmiin, testatun moottorin tikeille 2–13 hand-rolled-sääntöjen kirjoittamisen sijaan – työmäärä on siis pienempi kuin heti testien jälkeen arvioitiin, mutta silti uusi riippuvuus (uusi kirjasto integroitavaksi, ks. seuraava kohta).</li>
+  <li><strong>Uusi riippuvuus vaatii oman validoinnin:</strong> <code>bridge-solver</code>-WASM-moduulia ei ole vielä testattu tässä projektissa eikä tässä Windows/Azure/iisnode-hostingympäristössä. WASM-moduulien lataus Node.js:ssä toimii yleensä ongelmitta, mutta se on syytä varmistaa käytännössä (esim. pieni erillinen kokeilu) ennen kuin vaiheeseen 4 sitoudutaan täysin – jos WASM-lataus osoittautuu hankalaksi, <code>dds-bridge/dds</code> natiivikirjastona tai yksinkertainen sääntöpohja jäävät varavaihtoehdoiksi.</li>
+  <li><strong>GIB on silti dokumentoimaton, kolmannen osapuolen ilmainen rajapinta</strong> niiltä osin kuin sitä käytetään (tarjous + avausisku). Ei virallista SLA:ta, muoto voi muuttua ilman varoitusta, ja osoite (<code>gibrest.bridgebase.com</code>) käyttää tällä hetkellä koodissa <code>http://</code>-yhteyttä salaamattoman <code>https://</code>:n sijaan (<code>purkka.js</code> tosin käyttää jo <code>https://</code> – syytä yhtenäistää).</li>
+  <li><strong>Nopeus:</strong> pienempi riski kuin alun perin arvioitiin, koska kortinpeli ei enää tee GIB-kutsuja per kortti. GIB-kutsuja tehdään enää tarjousvaiheessa (muutama per jako) ja kerran avausiskuun – yksi kutsu kestää 1–5 sekuntia, mutta kokonaismäärä per jako on nyt selvästi pienempi kuin pelkoisiin 52 kutsuun perustunut alkuperäinen arvio.</li>
+  <li><strong>Kuormitus:</strong> ei omaa rajoitinta (rate limiting) GIB-kutsuille. Kuormitus on kuitenkin edellistä kohtaa vastaavasti pienempi kuin alun perin arvioitiin. Silti syytä seurata tuotannossa.</li>
+  <li><strong>Reiluus:</strong> robotti saa palvelimelta täydet käsitiedot (ks. arkkitehtuuriosio kohta 5) sekä GIB-kutsuihin että omaan kortinpelialgoritmiin. Hyväksytty yksinkertaistus tässä laajuudessa, mutta syytä mainita käyttäjille (esim. ohjetekstissä), ettei robotti ole täysin "sokea" niin kuin ihminen olisi.</li>
+  <li><strong>Avoin päätös:</strong> saako robotin lisätä kuka tahansa pöydässä istuva vai vain pöydän luoja? Suositus vaiheessa 3, mutta päätös kannattaa vahvistaa ennen koodausta.</li>
+  <li><strong>Avoin päätös:</strong> halutaanko robotille myös vaikeustasoja (esim. "aloittelija" = taso 1 kortinpeli, "vahva" = taso 2/3)? Ei kuulu ensimmäiseen versioon, mutta arkkitehtuuri (vaihe 4:n <code>lib/robot.js</code>) tukisi sitä helposti myöhemmin.</li>
+  <li><strong>Avoin päätös:</strong> kannattaako silti kokeilla muita GIB:n mahdollisia rajapintapolkuja (esim. eri moduuli kuin <code>u_bm</code>) täyden kortinpelin löytämiseksi, vai hyväksytäänkö oma algoritmi lopullisena ratkaisuna? Suositus: hyväksytään oma algoritmi, koska lisätutkimus tuntemattomiin, dokumentoimattomiin rajapintapolkuihin kolmannen osapuolen palvelimella ei ole hyvä käyttö ajasta eikä kohtelias palveluntarjoajaa kohtaan.</li>
+</ul>
+
+<h2 id="testaus">Testaus</h2>
+<p>Ks. <a href="#v10">Vaihe 10</a> yllä – testauskohdat on koottu osaksi vaiheistusta, koska ne kytkeytyvät suoraan kunkin vaiheen "valmis kun" -kriteeriin.</p>
+
+<h2 id="havainnot">Sivuhavainnot nykyisestä koodista</h2>
+<ul>
+  <li><code>gib.js</code>:n ja <code>lib/gib_client_module.js</code>:n tarjouslogiikka on pitkälti päällekkäinen (sama GIB-kutsu, sama XML-jäsennys eri tavalla kirjoitettuna). Kun robotti toteutetaan vaiheen 4 mukaisesti keskitettynä moduulina, <code>gib.js</code> voidaan poistaa tai jättää vain historialliseksi viitteeksi.</li>
+  <li><code>gib.html</code> viittaa tiedostoihin <code>js/bidding.js</code> ja <code>js/modal.js</code>, joita ei ole projektin juuressa (vain <code>public/js/bridge.js</code> on olemassa) – sivu on siis tällä hetkellä rikki eikä lataudu oikein, jos sitä yrittää avata sellaisenaan.</li>
+  <li><code>bidding.js</code> on itsenäinen Express-sovellus omalla <code>app.listen(3000)</code>-kutsullaan – se ei ole osa <code>server.js</code>:ää eikä käynnisty sen mukana. Jos sen proxy-reitit (<code>/api/robot</code> ym.) halutaan hyötykäyttöön, ne kannattaa siirtää osaksi <code>server.js</code>:ää eikä pitää erillisenä sovelluksena.</li>
+  <li><code>public/playsolo.html</code> ja <code>public/js/bridge.js</code> vaikuttavat vanhemman, erillisen (ei-minibridge-tietoisen) prototyypin jäänteiltä eivätkö liity nykyiseen <code>index.html</code>-sovellukseen millään tavalla – syytä selvittää ovatko ne vielä tarpeen.</li>
+  <li><code>advanced_bidding_ai.js</code>:n sisältämät apufunktiot (<code>getNextPlayer</code>, <code>getPartnerPosition</code> ym.) risteävät nimiltään <code>server.js</code>:n omien funktioiden kanssa – kun tiedosto otetaan käyttöön <code>require</code>-lauseella, nimiristiriidat pitää tarkistaa eikä vain kopioida sisältöä suoraan globaaliin nimiavaruuteen.</li>
+</ul>
+
+<h2 id="wasmtesti">Testitulokset: bridge-solver WASM Node.js:ssä (2026-09-25)</h2>
+
+<div class="verdict">
+  <p><strong>Toimii – ladattu, ajettu ja todennettu tässä ympäristössä ilman koodimuutoksia server.js:ään.</strong> Ladattiin projektin ulkopuolelle (skriptaus-hakemistoon) GitHub-julkaisu <code>bridge-craftwork/bridge-solver v2.0.0</code>:n WASM-paketti (<code>bridge-solver-wasm.tar.gz</code>, julkaistu 23.9.2026) ja ajettiin se paljaassa Node.js 20:ssä (ESM-skripti, ei selainta, ei build-vaihetta). Paketti <strong>ei ole npm-rekisterissä</strong> – se on ladattava suoraan GitHub-julkaisusivulta ja tuotava projektiin (esim. <code>lib/vendor/bridge-solver-wasm/</code>).</p>
+</div>
+
+<h3>Miten ladattiin ja ajettiin</h3>
+<pre><code>// Lataus: pkg/bridge_solver_wasm_bg.wasm luetaan tiedostosta, EI fetch():lla
+import fs from 'node:fs';
+import init, { Analyzer, solve_contract, start } from './bridge_solver_wasm.js';
+
+const wasmBytes = fs.readFileSync('./bridge_solver_wasm_bg.wasm');
+await init({ module_or_path: wasmBytes });   // toimi suoraan, ei virheitä
+start();                                     // Rust-paniikit luettaviksi virheiksi</code></pre>
+<p>Tämä on tärkeä yksityiskohta: paketti on käännetty selainkohteeksi (<code>web</code>-target, käyttää oletuksena <code>fetch()</code>-kutsua), mutta koska <code>.wasm</code>-tavut voi antaa suoraan tavutaulukkona <code>init()</code>-funktiolle, se toimii Node.js:ssä ilman <code>fetch</code>-riippuvuutta tai muunnosta.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Testatut toiminnot ja tulokset</caption>
+  <thead>
+    <tr><th scope="col">Funktio</th><th scope="col">Testattu</th><th scope="col">Tulos</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>solve_contract(dealstr, trump, leader)</code></td><td>6♠ Etelän pelaamana, Länsi avaa</td><td><strong>12 tikkiä</strong> – täsmää täydellisesti GIB:n huutamaan pikkuslemmiin (6♠ = tarvitaan 12). 3NT samalla jaolla: 10 tikkiä.</td></tr>
+    <tr><td><code>Analyzer.dd_table(dealstr)</code></td><td>Koko 20-solun taulukko samalle jaolle</td><td>Palautti oikean JSON-taulukon (rivit N/E/S/W, sarakkeet ♣/♦/♥/♠/ST) sekunnin murto-osassa.</td></tr>
+    <tr><td><code>Analyzer.dd_play(request_json)</code></td><td>Pelijälki 0–2 kortilla (avausisku + lepääjän kortti)</td><td>Palautti jokaiselle pelatulle kortille <strong>double dummy -kustannuksen</strong> (0 = optimaalinen) – käyttökelpoinen myös virheiden korostamiseen opetustarkoituksessa.</td></tr>
+    <tr><td><code>Analyzer.dd_play_node(request_json, node)</code></td><td>Vaihtoehdot tikin 1. ja 3. kortille (avausisku ja puolustajan kortti)</td><td><strong>Ratkaisee juuri sen aukon, jota GIB ei tukenut.</strong> Palauttaa jokaisen laillisen kortin tulostikkimäärän ja kustannuksen – robotti valitsee minkä tahansa kustannus-0-kortin. Toimi identtisesti jokaisessa testatussa pelin vaiheessa, ei vain avausiskussa.</td></tr>
+    <tr><td>Laittoman siirron esto</td><td>Maanvaihto ilman pakkoa (revoke), kortti jota kädessä ei ole</td><td>Hylkäsi molemmat selkeillä virhetyypeillä (<code>Revoke</code>, <code>NotHeld</code>) – robotin ei tarvitse toteuttaa laillisuustarkistusta itse kortin valinnassa.</td></tr>
+    <tr><td>Nopeus</td><td>8 kutsua tuoreella <code>Analyzer</code>-oliolla (pahin tapaus) vs. 20 kutsua lämmitetyllä välimuistilla</td><td><strong>~11 ms</strong>/kutsu ilman välimuistia, <strong>~9 ms</strong>/kutsu lämmitettynä. Verrattuna GIB:n ~1–5 sekunnin HTTP-viiveeseen tämä on 100–500&times; nopeampi eikä riipu verkosta lainkaan.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Reverse-engineeratut JSON-skeemat</h3>
+<p><code>dd_play</code>/<code>dd_play_node</code>-funktioiden pyyntömuotoa ei ollut dokumentoitu README:ssä eikä TypeScript-tyypeissä (ne ottavat vain vastaan raakaa JSON-merkkijonoa). Se selvitettiin tässä testissä sarjalla puuttuvia kenttiä valittavia virheilmoituksia (<code>serde</code>-jäsennysvirheet paljastavat aina seuraavan puuttuvan kentän nimen). Löydetty ja todennettu skeema:</p>
+<pre><code>// Pyyntö (molemmille funktioille sama pohja):
+{
+  "dealstr": "N:952.J976.AJ876.9 43.54.Q532.J8542 AKQ86.AK3.4.AK63 JT7.QT82.KT9.QT7",
+  "trump": "S",        // C/D/H/S/N (viimeinen = sangeksi)
+  "declarer": "S",     // pelinviejän ilmansuunta
+  "leader": "W",        // avaavan pelaajan ilmansuunta (aina pelinviejän vasen)
+  "plays": ["SJ", "S2"] // jo pelatut kortit pelijärjestyksessä, maa+arvo (T=kymppi)
+}
+
+// dd_play_node: "node" on plays-taulukon indeksi, jonka VAIHTOEHDOT halutaan.
+// Kortin ei tarvitse olla oikea arvaus – mikä tahansa laillinen kortti kelpaa
+// paikanpitäjäksi, koska palautettava "alternatives"-lista on silti täydellinen:
+analyzer.dd_play_node(JSON.stringify({ ...request, plays: [...pelatut, "S4"] }), pelatut.length)
+// =>
+{
+  "index": 2, "seat": "E", "card": "S4", "cost": 0,
+  "alternatives": [
+    { "card": "S4", "tricks": 12, "cost": 0 },
+    { "card": "S3", "tricks": 12, "cost": 0 }
+  ]
+}</code></pre>
+<p>Robotin kortinvalinta tiivistyy siis yhteen kutsuun per vuoro: rakenna <code>plays</code>-taulukko pelihistoriasta, lisää mikä tahansa oma laillinen kortti paikanpitäjäksi, kutsu <code>dd_play_node</code>, ja valitse <code>alternatives</code>-listalta kortti jonka <code>cost</code> on pienin (yleensä 0).</p>
+
+<h3>Vaikutus suunnitelmaan</h3>
+<ul>
+  <li><strong>Vaihe 4 -suositus vahvistuu todennetuksi:</strong> <code>bridge-solver</code>-WASM otetaan kortinpelin (tikit 1–13, myös avausisku) ainoaksi moottoriksi. Riski "uusi riippuvuus vaatii oman validoinnin" (riskilistan kohta) on nyt poistettu – integraatio on todennettu toimivaksi paljaassa Node.js:ssä.</li>
+  <li><strong>GIB tarvitaan enää vain tarjoukseen.</strong> Avausiskukin voidaan hoitaa paikallisesti solverilla GIB:n sijaan, mikä yksinkertaistaa robottimoduulia (yksi vähemmän GIB-erikoistapaus).</li>
+  <li><strong>Nopeusriski (riskilistan kohta "Nopeus") pienenee edelleen:</strong> koko kortinpeli on nyt käytännössä välitön (~10 ms/kortti), joten robottivetoisen jaon kesto määräytyy jatkossa lähes yksinomaan tarjousvaiheen GIB-kutsuista ja tarkoituksella lisätystä "miettimisviiveestä" (vaihe 5), ei enää rajapinnan nopeudesta.</li>
+  <li><strong>Uusi käytännön tehtävä lisättävä vaiheeseen 4:</strong> paketin vendoraus projektiin (ei npm-asennus, koska pakettia ei ole npm-rekisterissä) – esim. <code>lib/vendor/bridge-solver-wasm/</code>, mukaan lukien <code>LICENSE-APACHE</code>/<code>LICENSE-MIT</code>-tiedostot lisenssiehtojen mukaisesti.</li>
+</ul>
+
+</main>
+<footer>
+  <p>Suunnitelma perustuu tiedostoihin server.js, public/index.html, lib/gib_client_module.js, gib.js, advanced_bidding_ai.js, bidding.js, gib.html, purkka.js, web.config ja .github/workflows/main_accessiblebridge.yml. GIB-rajapinta testattu 2026-09-25 suorilla HTTP-kutsuilla <code>gibrest.bridgebase.com/u_bm/robot.php</code>:aan ja <code>u_dealer.php</code>:hen: koko huutosarja simuloitu onnistuneesti tyhjästä sopimukseen, avausisku saatu onnistuneesti, mutta jatkuva kortinpeli (tikin 2. kortista eteenpäin) ei toimi millään testatulla parametrimuodolla (n. 12 kokeiltua vaihtoehtoa, kaikki palauttavat virhekoodin <code>rc="1055"</code>). Tämä on huomioitu vaiheissa 1 ja 4.</p>
+  <p>Avoimen lähdekoodin vaihtoehdot (kohta 1b) löydetty verkkohausta 2026-09-25: <a href="https://github.com/bridge-craftwork/bridge-solver">bridge-craftwork/bridge-solver</a>, <a href="https://github.com/dds-bridge/dds">dds-bridge/dds</a>, <a href="https://github.com/lorserker/ben">lorserker/ben</a>. Näiden ominaisuudet, lisenssit ja integrointitapa on tarkistettu projektien GitHub-sivuilta; niitä ei ole vielä asennettu tai testattu tässä projektissa.</p>
+</footer>
+</body>
+</html>

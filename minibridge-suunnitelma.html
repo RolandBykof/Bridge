@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Minibridge BridgeCircleen – toteutussuunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1.25rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 46rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 38rem; }
+main { padding: 1.5rem 1.25rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 .25rem; }
+p, li { max-width: 40rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--suit-red); outline-offset: 3px;
+}
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 32rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Minibridge BridgeCircleen – toteutussuunnitelma</h1>
+    <p>Suunnitelma minibridge-pelimuodon lisäämiseksi nykyiseen Node/Socket.IO-palvelimeen (server.js) ja selainasiakkaaseen (index.html).</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#suositus">Suositus: missä pelimuoto valitaan</a></li>
+    <li><a href="#saannot">Minibridgen säännöt tässä toteutuksessa</a></li>
+    <li><a href="#jako">Minibridge-jaon kulku palvelimella</a></li>
+    <li><a href="#vaiheet">Toteutuksen vaiheet</a></li>
+    <li><a href="#protokolla">Protokollamuutokset</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+    <li><a href="#havainnot">Sivuhavainnot nykyisestä koodista</a></li>
+  </ol>
+</nav>
+
+<h2 id="suositus">Suositus: missä pelimuoto valitaan</h2>
+
+<div class="verdict">
+  <p><strong>Pelimuoto kannattaa valita pöydän luonnissa.</strong> Pöydällä on yksi pysyvä ominaisuus, <code>gameMode</code> (<code>bridge</code> tai <code>minibridge</code>), ja odotushuoneessa on edelleen vain yksi aloituspainike, jonka teksti kertoo pelimuodon: ”Start bridge” tai ”Start minibridge”.</p>
+  <p>Valinta tehdään luontilomakkeen ”Game type” -valintaryhmällä, ei kahdella erillisellä luontipainikkeella. Lomake pysyy yhtenä, ja valinta toimii samoin kuin nykyinen paikanvalinta.</p>
+</div>
+
+<h3>Perustelut</h3>
+<ol>
+  <li><strong>Liittyjä tietää, mihin pöytään hän on menossa.</strong> Minibridge on tyypillisesti aloittelijoiden peli. Kun pelimuoto on pöydän ominaisuus, se voidaan näyttää pöytälistassa, paikanvalinnassa ja odotushuoneen otsikossa. Ruudunlukijan käyttäjä kuulee sen heti eikä vasta pelin alkaessa.</li>
+  <li><strong>Kuka tahansa voi nykyisin aloittaa pelin.</strong> <code>startGame</code> sallii aloituksen kaikille pöytään istuneille, ei vain luojalle. Kahden aloituspainikkeen mallissa se pelaaja, joka ehtii ensin painaa, päättäisi koko pöydän pelimuodon.</li>
+  <li><strong>Automaattiset jatkojaot tarvitsevat pysyvän tiedon.</strong> <code>startNextDeal</code> käynnistyy ajastimella <code>endGame</code>n jälkeen. Sen täytyy tietää pelimuoto ilman kenenkään painallusta, joten tieto kuuluu pöydälle joka tapauksessa.</li>
+  <li><strong>Pisteet kertyvät pöytäkohtaisesti.</strong> Minibridgen kumulatiivinen pistetilanne on mielekäs vain, jos pelimuoto ei vaihdu kesken istunnon.</li>
+  <li><strong>Flutter-asiakas yksinkertaistuu.</strong> Yksi kenttä pöydässä on helpompi toteuttaa kahdessa asiakkaassa kuin kaksi rinnakkaista aloitustapahtumaa.</li>
+</ol>
+
+<div class="table-wrap">
+<table>
+  <caption>Vaihtoehtojen vertailu</caption>
+  <thead>
+    <tr><th scope="col">Näkökohta</th><th scope="col">Valinta luonnissa (suositus)</th><th scope="col">Kaksi aloituspainiketta</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">Liittyjä tietää pelimuodon</th><td>Kyllä, jo ennen paikanvalintaa</td><td>Ei, selviää vasta alussa</td></tr>
+    <tr><th scope="row">Kuka päättää pelimuodon</th><td>Pöydän luoja</td><td>Nopein painaja</td></tr>
+    <tr><th scope="row">Automaattinen seuraava jako</th><td>Lukee <code>table.gameMode</code></td><td>Vaatii silti tallennetun tiedon</td></tr>
+    <tr><th scope="row">Odotushuoneen painikkeet</th><td>Yksi</td><td>Kaksi, riski väärästä valinnasta</td></tr>
+    <tr><th scope="row">Joustavuus</th><td>Uusi pöytä, jos haluaa vaihtaa</td><td>Voi vaihtaa jakojen välillä</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Joustavuuden voi lisätä myöhemmin ilman arkkitehtuurimuutosta: luoja voisi vaihtaa pelimuotoa odotushuoneessa ennen aloitusta uudella <code>setGameMode</code>-tapahtumalla, joka lähettää muutoksen kaikille pöydän pelaajille. Se ei kuulu ensimmäiseen versioon.</p>
+
+<h2 id="saannot">Minibridgen säännöt tässä toteutuksessa</h2>
+<p>Minibridgessä ei ole tarjousvaihetta. Alla on ehdotetut oletukset. Nämä kannattaa lukita ennen koodausta, koska ne vaikuttavat sekä palvelimeen että ohjeteksteihin.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Sääntöpäätökset ja ehdotetut oletukset</caption>
+  <thead>
+    <tr><th scope="col">Asia</th><th scope="col">Ehdotus</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">Pistelasku</th><td>Honööripisteet: ässä 4, kuningas 3, rouva 2, sotilas 1. Palvelin laskee ja ilmoittaa kaikkien pisteet automaattisesti.</td></tr>
+    <tr><th scope="row">Pelaava puoli</th><td>Parivaljakko, jolla on enemmän pisteitä (vähintään 21).</td></tr>
+    <tr><th scope="row">Pelinviejä</th><td>Parivaljakosta se, jolla on enemmän pisteitä. Tasapisteissä jakajasta myötäpäivään ensimmäinen.</td></tr>
+    <tr><th scope="row">20–20</th><td>Jako jaetaan uudelleen, jakaja vaihtuu normaalisti.</td></tr>
+    <tr><th scope="row">Lepääjä</th><td>Lepääjän kortit paljastetaan heti pisteiden jälkeen, ennen sopimuksen valintaa.</td></tr>
+    <tr><th scope="row">Sopimuksen valinta</th><td>Pelinviejä valitsee osapelin (1-taso) tai pelin (3NT, 4♥, 4♠, 5♣, 5♦) sekä valttimaan tai sangen.</td></tr>
+    <tr><th scope="row">Avaus</th><td>Pelinviejän vasemmanpuoleinen, kuten bridgessä.</td></tr>
+    <tr><th scope="row">Pisteytys</th><td>Kuten bridgessä ilman vaaranalaisuutta ja kahdennuksia. Tikit: ♣♦ 20, ♥♠ 30, NT 40 ensimmäinen ja 30 muut. Osapelibonus 50, pelibonus 300. Pietit 50 kappaleelta.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="jako">Minibridge-jaon kulku palvelimella</h2>
+<ol>
+  <li>Kortit jaetaan nykyisellä <code>dealCards()</code>-funktiolla.</li>
+  <li>Palvelin laskee jokaisen käden pisteet ja määrittää pelaavan puolen, pelinviejän ja lepääjän.</li>
+  <li>Jos tulos on 20–20, kaikille lähetetään <code>miniRedeal</code> ja uusi jako alkaa kolmen sekunnin kuluttua.</li>
+  <li>Muuten kaikille lähetetään <code>gameStarted</code>, jossa on pisteet ja roolit, sitten jokaiselle omat kortit (<code>yourCards</code>) ja lopuksi lepääjän kortit (<code>dummyRevealed</code>).</li>
+  <li>Pelinviejä lähettää <code>chooseMiniContract</code>. Palvelin tarkistaa lähettäjän ja sopimuksen.</li>
+  <li>Palvelin täyttää <code>biddingState</code>-kentät ja kutsuu olemassa olevaa <code>moveToPlayPhase()</code>-funktiota. Siitä eteenpäin pelaaminen, tikit ja jakojen vuorottelu toimivat nykyisellä koodilla.</li>
+  <li><code>endGame</code> laskee minibridge-pisteet ja lisää ne pöydän kumulatiiviseen tilanteeseen.</li>
+</ol>
+
+<h2 id="vaiheet">Toteutuksen vaiheet</h2>
+<p>Vaiheet on järjestetty niin, että palvelin valmistuu ensin ja jokaisen vaiheen jälkeen tavallinen bridge toimii edelleen.</p>
+
+<section class="phase" aria-labelledby="v1">
+<h3 id="v1">Vaihe 1: pöydän tietomalli ja pelimuoto</h3>
+<p>Lisää pöytään <code>gameMode</code>, <code>miniState</code> ja <code>miniScore</code>. Tuntematon tai puuttuva arvo tulkitaan bridgeksi, jolloin vanhat asiakkaat toimivat kuten ennenkin.</p>
+<pre><code>socket.on('createTable', ({ playerName, position, tableName, gameMode }) =&gt; {
+  const mode = gameMode === 'minibridge' ? 'minibridge' : 'bridge';
+  const table = {
+    // ...nykyiset kentät
+    gameMode: mode,
+    miniState: null,
+    miniScore: { ns: 0, ew: 0 }
+  };</code></pre>
+<p>Lisää <code>gameMode</code> myös palautettaviin tietoihin:</p>
+<ul>
+  <li><code>filterTable()</code>: <code>gameMode: table.gameMode</code></li>
+  <li><code>sendActiveTables()</code>: <code>gameMode</code> jokaiselle pöydälle</li>
+</ul>
+<p class="done-when">Valmis, kun uusi pöytä voidaan luoda kummassakin tilassa ja <code>tableInfo</code> kertoo tilan.</p>
+</section>
+
+<section class="phase" aria-labelledby="v2">
+<h3 id="v2">Vaihe 2: jaon aloituksen yhdistäminen</h3>
+<p>Nyt <code>startGame</code> ja <code>startNextDeal</code> luovat pelitilan ja lähettävät kortit kumpikin omalla koodillaan. Siirrä yhteinen osa yhteen funktioon, esimerkiksi <code>beginDeal(table, eventType)</code>, joka:</p>
+<ol>
+  <li>luo <code>gameState</code>- ja <code>biddingState</code>-oliot (minibridgessäkin, jotta <code>playCard</code>in tarkistukset toimivat sellaisenaan)</li>
+  <li>minibridgessä kutsuu vaiheen 3 funktiota ja käsittelee 20–20-tilanteen</li>
+  <li>lähettää <code>gameStarted</code>- tai <code>newDealStarted</code>-viestin, johon lisätään <code>gameMode</code> ja <code>miniState</code></li>
+  <li>lähettää omat kortit ja minibridgessä sen jälkeen <code>dummyRevealed</code>-viestin</li>
+</ol>
+<p>Järjestys on tärkeä: <code>dummyRevealed</code> lähetetään vasta <code>yourCards</code>-viestien jälkeen, koska asiakas luo <code>gameState.hands</code>-olion niiden käsittelyssä.</p>
+<p class="done-when">Valmis, kun tavallinen bridge toimii refaktoroinnin jälkeen täsmälleen kuten ennen.</p>
+</section>
+
+<section class="phase" aria-labelledby="v3">
+<h3 id="v3">Vaihe 3: pisteet ja pelinviejä</h3>
+<pre><code>const HCP = { A: 4, K: 3, Q: 2, J: 1 };
+
+function countHcp(hand) {
+  return Object.values(hand).flat()
+    .reduce((sum, v) =&gt; sum + (HCP[v] || 0), 0);
+}
+
+// Myötäpäivään jakajasta alkaen
+function orderFromDealer(dealer) {
+  const seats = ['north', 'east', 'south', 'west'];
+  const i = seats.indexOf(dealer);
+  return [...seats.slice(i), ...seats.slice(0, i)];
+}
+
+function determineMiniRoles(table) {
+  const h = table.gameState.hands;
+  const points = {
+    north: countHcp(h.north), east: countHcp(h.east),
+    south: countHcp(h.south), west: countHcp(h.west)
+  };
+  const ns = points.north + points.south;
+  const ew = points.east + points.west;
+  if (ns === ew) return { points, redeal: true };
+
+  let [a, b] = ns &gt; ew ? ['north', 'south'] : ['east', 'west'];
+  if (points[b] &gt; points[a]) [a, b] = [b, a];
+  else if (points[a] === points[b]) {
+    const order = orderFromDealer(table.currentDealer);
+    if (order.indexOf(b) &lt; order.indexOf(a)) [a, b] = [b, a];
+  }
+  return { points, declarer: a, dummy: b, redeal: false };
+}</code></pre>
+<p>Tallenna tulos: <code>table.miniState = { phase: 'contract', points, declarer, dummy }</code>. Aseta myös <code>gameState.gamePhase = 'contract'</code>, <code>gameState.declarer</code> ja <code>gameState.dummy</code>.</p>
+<p>Varmista lisäksi <code>processCardPlay</code>issa, ettei lepääjää paljasteta minibridgessä toiseen kertaan ensimmäisen kortin kohdalla. Muuten ruudunlukija voi ilmoittaa saman asian kahdesti.</p>
+</section>
+
+<section class="phase" aria-labelledby="v4">
+<h3 id="v4">Vaihe 4: sopimuksen valinta</h3>
+<p>Uusi tapahtuma <code>chooseMiniContract</code>. Sopimus muunnetaan nykyiseen muotoon (<code>1S</code>, <code>4H</code>, <code>3N</code>), jolloin <code>moveToPlayPhase</code>, <code>determineTrickWinner</code> ja asiakkaan <code>formatContract</code> toimivat muuttamattomina.</p>
+<pre><code>socket.on('chooseMiniContract', (data) =&gt; {
+  chooseMiniContract(socket, playerId, data);
+});
+
+const GAME_LEVEL = { N: 3, S: 4, H: 4, D: 5, C: 5 };
+const TRUMP = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs', N: null };
+
+function chooseMiniContract(socket, playerId, { tableCode, type, strain }) {
+  const table = tables.get(tableCode);
+  if (!table || table.gameMode !== 'minibridge')
+    return sendError(socket, 'Not a minibridge table');
+  const ms = table.miniState;
+  if (!ms || ms.phase !== 'contract')
+    return sendError(socket, 'Contract cannot be chosen now');
+  if (table.players[ms.declarer]?.id !== playerId)
+    return sendError(socket, 'Only the declarer chooses the contract');
+  if (!['S', 'H', 'D', 'C', 'N'].includes(strain) || !['partscore', 'game'].includes(type))
+    return sendError(socket, 'Invalid contract');
+
+  const level = type === 'game' ? GAME_LEVEL[strain] : 1;
+  Object.assign(table.biddingState, {
+    contract: `${level}${strain}`,
+    declarer: ms.declarer,
+    dummy: ms.dummy,
+    trumpSuit: TRUMP[strain],
+    biddingComplete: true
+  });
+  ms.phase = 'play';
+  table.lastActivity = Date.now();
+  moveToPlayPhase(table);
+}</code></pre>
+<p>Estä samalla tarjoaminen minibridge-pöydissä <code>makeBid</code>in alussa: <code>if (table.gameMode === 'minibridge') return sendError(...)</code>.</p>
+</section>
+
+<section class="phase" aria-labelledby="v5">
+<h3 id="v5">Vaihe 5: tulos ja pisteytys</h3>
+<p>Lisää <code>scoreMiniDeal(contract, tricksMade)</code>, joka palauttaa pelinviejän puolen pisteet (negatiivinen, jos sopimus kaatuu). Kutsu sitä <code>endGame</code>issa, päivitä <code>table.miniScore</code> ja lisää <code>gameOver</code>-viestiin kentät <code>dealScore</code> ja <code>totalScore</code>.</p>
+<pre><code>function scoreMiniDeal(contract, tricksMade) {
+  const level = parseInt(contract[0], 10);
+  const strain = contract[1];
+  const need = level + 6;
+  if (tricksMade &lt; need) return -50 * (need - tricksMade);
+
+  const per = strain === 'C' || strain === 'D' ? 20 : 30;
+  const trickPoints = (n) =&gt; strain === 'N' ? 40 + 30 * (n - 1) : per * n;
+  const contractPoints = trickPoints(level);
+  const overtricks = (tricksMade - need) * (strain === 'N' ? 30 : per);
+  const bonus = contractPoints &gt;= 100 ? 300 : 50;
+  return contractPoints + overtricks + bonus;
+}</code></pre>
+<p>Esimerkki: osapeli 1♠ ja 10 tikkiä antaa 170 pistettä, peli 4♠ ja 10 tikkiä 420. Juuri tämä ero opettaa minibridgessä pelin tavoittelua.</p>
+</section>
+
+<section class="phase" aria-labelledby="v6">
+<h3 id="v6">Vaihe 6: uudelleenyhdistäminen</h3>
+<ul>
+  <li>Lisää <code>gameReconnect</code>-viestiin <code>gameMode</code>, <code>miniState</code> ja <code>miniScore</code>.</li>
+  <li>Nykyinen ehto lähettää lepääjän kortit vain, kun <code>gamePhase === 'play'</code>. Laajenna ehto koskemaan myös vaihetta <code>contract</code>.</li>
+  <li>Jos pelinviejä katkeaa sopimusvaiheessa, muut pelaajat odottavat. Harkitse ilmoitusta ”Waiting for declarer to reconnect”.</li>
+</ul>
+</section>
+
+<section class="phase" aria-labelledby="v7">
+<h3 id="v7">Vaihe 7: asiakas – pöydän luonti ja liittyminen</h3>
+<p>Lisää luontilomakkeeseen natiivi valintaryhmä ennen Create-painiketta:</p>
+<pre><code>&lt;fieldset&gt;
+  &lt;legend&gt;Game type:&lt;/legend&gt;
+  &lt;label&gt;&lt;input type="radio" name="game-mode" value="bridge" checked&gt; Bridge&lt;/label&gt;
+  &lt;label&gt;&lt;input type="radio" name="game-mode" value="minibridge"&gt; Minibridge (no bidding, for beginners)&lt;/label&gt;
+&lt;/fieldset&gt;</code></pre>
+<ul>
+  <li><code>createTable()</code> lähettää valitun arvon kentässä <code>gameMode</code>.</li>
+  <li>Paikanvalintanäkymä näyttää rivin ”Game type: Minibridge” ennen vapaita paikkoja.</li>
+  <li>Odotushuoneen otsikko on ”Minibridge table 1234”.</li>
+  <li><code>updateWaitingRoomPositions</code> asettaa painikkeen tekstiksi ”Start minibridge” tai ”Start bridge”. Ilmoitus neljän pelaajan kohdalla sisältää pelimuodon.</li>
+  <li>Tallenna <code>gameMode</code> asiakkaan tilamuuttujaan <code>tableInfo</code>-, <code>gameStarted</code>- ja <code>gameReconnect</code>-viesteistä.</li>
+</ul>
+</section>
+
+<section class="phase" aria-labelledby="v8">
+<h3 id="v8">Vaihe 8: asiakas – pelinäkymä ja ruudunlukijailmoitukset</h3>
+<p>Lisää <code>play-area</code>an uusi osio tarjousalueen rinnalle:</p>
+<pre><code>&lt;section id="mini-contract-area" aria-labelledby="mini-contract-title" hidden&gt;
+  &lt;h3 id="mini-contract-title"&gt;Points and contract&lt;/h3&gt;
+  &lt;ul id="mini-points-list"&gt;&lt;/ul&gt;
+  &lt;div id="mini-contract-controls"&gt;&lt;/div&gt;
+&lt;/section&gt;</code></pre>
+<ul>
+  <li><code>gameStarted</code>- ja <code>newDealStarted</code>-käsittelijät: minibridgessä ohitetaan <code>renderBiddingUI()</code> ja kutsutaan uutta <code>renderMiniContractUI()</code>-funktiota.</li>
+  <li>Pisteluettelo: ”North 12, East 8, South 14, West 6. North-South 26.”</li>
+  <li>Pelinviejälle kaksi ryhmää painikkeita, joiden nimet ovat valmiiksi puhuttavia: ryhmä ”Partscore” (1 spades, 1 hearts, 1 diamonds, 1 clubs, 1 no trump) ja ryhmä ”Game” (4 spades, 4 hearts, 5 diamonds, 5 clubs, 3 no trump). Kymmenen suoraa painiketta on selkeämpi kuin kaksivaiheinen valinta.</li>
+  <li>Muille pelaajille teksti ”Waiting for South to choose the contract.”</li>
+  <li><code>canViewHandCards</code>: salli lepääjän käden näyttäminen myös vaiheessa <code>contract</code>.</li>
+  <li>Sopimuksen jälkeen palvelin lähettää olemassa olevan <code>biddingComplete</code>-viestin, joten piilota käsittelijässä myös <code>mini-contract-area</code>.</li>
+  <li>Uusi käsittelijä <code>miniRedeal</code>: ilmoitus ”20–20. Redealing.”</li>
+  <li><code>gameOver</code>: näytä ja ilmoita jaon pisteet sekä kokonaistilanne. Pistealueelle kokonaistilanne tikkien rinnalle.</li>
+</ul>
+<h4>Ilmoitusten sisältö</h4>
+<p>Jaon alussa yksi yhtenäinen ilmoitus <code>announceToScreenReader</code>in kautta: ”Board 3. Points: North 12, East 8, South 14, West 6. North-South 26. South declares, North is dummy.” Pelinviejälle lisätään loppuun ”Choose the contract.” ja fokus siirretään ensimmäiseen sopimuspainikkeeseen. Muiden fokusta ei siirretä.</p>
+</section>
+
+<section class="phase" aria-labelledby="v9">
+<h3 id="v9">Vaihe 9: pikanäppäimet ja ohje</h3>
+<p>Käytä samaa kaavaa kuin tarjousvaiheessa: numero ja sen jälkeen maa. Käyttäjä ei silloin opettele mitään uutta.</p>
+<ul>
+  <li><kbd>1</kbd> ja maa (<kbd>S</kbd>, <kbd>H</kbd>, <kbd>D</kbd>, <kbd>C</kbd>, <kbd>N</kbd>): osapeli</li>
+  <li><kbd>3</kbd> <kbd>N</kbd>, <kbd>4</kbd> <kbd>S</kbd>/<kbd>H</kbd>, <kbd>5</kbd> <kbd>D</kbd>/<kbd>C</kbd>: peli</li>
+  <li>Muut yhdistelmät: ilmoitus ”Not a valid minibridge contract.”</li>
+</ul>
+<p>Tarkista, että <kbd>N</kbd> ei ole jo varattu muuhun käyttöön pelinäkymässä. Lisää <code>updateHelpContent()</code>-listaan osio ”Game: Minibridge” sekä lyhyt sääntökuvaus, johon pääsee ohjeesta.</p>
+</section>
+
+<section class="phase" aria-labelledby="v10">
+<h3 id="v10">Vaihe 10: protokolla Flutter-asiakasta varten</h3>
+<p>Kirjaa alla oleva protokollataulukko projektin dokumentaatioon ennen Flutter-toteutusta. Koska puuttuva <code>gameMode</code> tulkitaan bridgeksi, Flutter-asiakas voi tukea ensin pelkkää bridgeä. Sen täytyy kuitenkin näyttää pelimuoto ja estää liittyminen minibridge-pöytään, kunnes tuki on tehty.</p>
+</section>
+
+<h2 id="protokolla">Protokollamuutokset</h2>
+<div class="table-wrap">
+<table>
+  <caption>Uudet ja muuttuvat Socket.IO-tapahtumat</caption>
+  <thead>
+    <tr><th scope="col">Tapahtuma</th><th scope="col">Suunta</th><th scope="col">Muutos</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>createTable</code></td><td>Asiakas → palvelin</td><td>Uusi kenttä <code>gameMode</code></td></tr>
+    <tr><td><code>tableInfo</code>, <code>tableCreated</code></td><td>Palvelin → asiakas</td><td><code>table.gameMode</code></td></tr>
+    <tr><td><code>activeTablesList</code></td><td>Palvelin → asiakas</td><td><code>gameMode</code> jokaiselle pöydälle</td></tr>
+    <tr><td><code>gameStarted</code>, <code>newDealStarted</code></td><td>Palvelin → asiakas</td><td><code>gameMode</code>, <code>miniState</code> (points, declarer, dummy, phase)</td></tr>
+    <tr><td><code>chooseMiniContract</code></td><td>Asiakas → palvelin</td><td>Uusi: <code>{ tableCode, type, strain }</code></td></tr>
+    <tr><td><code>miniRedeal</code></td><td>Palvelin → asiakas</td><td>Uusi: <code>{ points, message }</code></td></tr>
+    <tr><td><code>biddingComplete</code></td><td>Palvelin → asiakas</td><td>Ennallaan, käytetään myös minibridgessä</td></tr>
+    <tr><td><code>gameOver</code></td><td>Palvelin → asiakas</td><td><code>dealScore</code>, <code>totalScore</code> minibridgessä</td></tr>
+    <tr><td><code>gameReconnect</code></td><td>Palvelin → asiakas</td><td><code>gameMode</code>, <code>miniState</code>, <code>miniScore</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="testaus">Testaus</h2>
+<ol>
+  <li>Tavallinen bridge-pöytä toimii kuten ennen: tarjous, pelaaminen, automaattinen seuraava jako.</li>
+  <li>Minibridge-pöytä: pisteet ovat oikein ja yhteensä 40.</li>
+  <li>20–20 johtaa uuteen jakoon, ja jakaja vaihtuu.</li>
+  <li>Parivaljakon tasapisteet: pelinviejäksi tulee jakajasta myötäpäivään ensimmäinen.</li>
+  <li>Muu kuin pelinviejä yrittää valita sopimuksen: virhe, tila ei muutu.</li>
+  <li>Tarjousviesti minibridge-pöydässä: virhe.</li>
+  <li>Kaikki kymmenen sopimusta toimivat painikkeilla ja pikanäppäimillä, ja valtti on oikea.</li>
+  <li>Pisteytys: osapeli ja ylitikit, peli, kaatunut sopimus, 3NT juuri tehtynä (400).</li>
+  <li>Pelinviejä katkeaa sopimusvaiheessa ja palaa: lepääjä ja valintapainikkeet palautuvat.</li>
+  <li>NVDA- ja JAWS-läpikäynti: jaon alun ilmoitus kuuluu kerran, lepääjää ei ilmoiteta kahdesti, fokus osuu pelinviejällä oikein.</li>
+  <li>Vanha asiakas ilman <code>gameMode</code>-kenttää luo edelleen bridge-pöydän.</li>
+</ol>
+
+<h2 id="havainnot">Sivuhavainnot nykyisestä koodista</h2>
+<ul>
+  <li><code>filterTable()</code> ei palauta pöydän nimeä, joten luonnissa annettu nimi ei näy muille. Saman muutoksen yhteydessä voi lisätä <code>name</code>-kentän.</li>
+  <li>Asiakkaalla ei ole käsittelijää <code>allPassed</code>-viestille, joten ruudunlukijan käyttäjä ei kuule, miksi uusi jako alkoi. Käsittelijä kannattaa tehdä samalla kuin <code>miniRedeal</code>.</li>
+  <li><code>startNewGame</code> kutsuu <code>startGame</code>ia, joka nollaa jakonumeron. Minibridgessä sen pitäisi nollata myös <code>miniScore</code>, tai sitten uuden pelin ei pitäisi nollata kumpaakaan.</li>
+  <li><code>startGame</code> sallii kenen tahansa pöytään istuneen aloittaa pelin. Jos haluat, että vain luoja voi aloittaa, <code>table.creator</code> on jo tallessa.</li>
+</ul>
+
+</main>
+<footer>
+  <p>Suunnitelma perustuu tiedostoihin server.js (1636 riviä) ja index.html (2959 riviä).</p>
+</footer>
+</body>
+</html>
