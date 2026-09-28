@@ -265,7 +265,25 @@
             showHelp: false,
             lastAnnouncement: '',
             bidLevel: null,
+            // Suit chosen with the first key of the two-key card-play shortcut
+            // (see setupKeyboardListeners), waiting for the rank key that
+            // completes it. Cards are no longer focusable buttons (see
+            // renderHand), so this is now the only way to play an exact,
+            // non-extreme card by keyboard -- mirrors BridgeChamp's
+            // content.js suit-then-rank input model.
+            pendingCardSuit: null,
         };
+
+        // Second-key values for the card-play shortcut below. Letters for the
+        // honors and ten (ten has no single-digit key), plain digits for 2-9.
+        const CARD_RANK_KEYS = {
+            'a': 'A', 'k': 'K', 'q': 'Q', 'j': 'J', 't': '10',
+            '9': '9', '8': '8', '7': '7', '6': '6', '5': '5', '4': '4', '3': '3', '2': '2'
+        };
+        // First-key suit letters for the same shortcut, mapped to this app's
+        // lowercase suit names (as opposed to suitKeys further down, which
+        // maps to the single-letter bidding notation).
+        const SUIT_NAME_KEYS = { 's': 'spades', 'h': 'hearts', 'd': 'diamonds', 'c': 'clubs' };
 
         // ANNOUNCEMENT SYSTEM
         const announcementQueue = {
@@ -1071,15 +1089,23 @@ function renderHand(position, hand, targetElement) {
                     const cardLabel = `${suitNames[suit]} ${card}`;
                     
                     if (isPlayPhase && canPlayFromThisPosition) {
+                        // Not a <button>: playable cards are plain, non-focusable
+                        // markup like IntoBridge's, so a re-render (renderAllHands()
+                        // on every played card) can never destroy a focused element
+                        // and drop focus to <body> -- the cause of NVDA re-reading
+                        // the window title after each card (see setupKeyboardListeners
+                        // for the keyboard replacement, since Tab can no longer reach
+                        // a specific card). Mouse/touch play still works: onclick
+                        // fires on any element, focusability isn't required for it.
                         html += `
-                            <button 
-                                class="card-button ${suitClass}"
+                            <span
+                                class="card-display ${suitClass}"
                                 onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
                                 aria-label="${cardLabel}"
                             >
                                 <span class="card-suit">${suitSymbol}</span>
                                 <span class="card-rank">${card}</span>
-                            </button>
+                            </span>
                         `;
                     } else {
                         html += `
@@ -1090,7 +1116,7 @@ function renderHand(position, hand, targetElement) {
                         `;
                     }
                 });
-                
+
                 html += `</div>`; // suit-row
             }
         }
@@ -1113,15 +1139,17 @@ function renderHand(position, hand, targetElement) {
                     const cardLabel = `${suitNames[suit]} ${card}`;
                     
                     if (isPlayPhase && canPlayFromThisPosition) {
+                        // See the side-position branch above for why this is a
+                        // <span>, not a <button>.
                         html += `
-                            <button 
-                                class="card-button ${suitClass}"
+                            <span
+                                class="card-display ${suitClass}"
                                 onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
                                 aria-label="${cardLabel}"
                             >
                                 <span class="card-suit">${suitSymbol}</span>
                                 <span class="card-rank">${card}</span>
-                            </button>
+                            </span>
                         `;
                     } else {
                         html += `
@@ -1134,7 +1162,7 @@ function renderHand(position, hand, targetElement) {
                 });
             }
         }
-        
+
         html += `</div>`; // all-cards-row
     }
     
@@ -1865,7 +1893,8 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Tab/Arrow keys', desc: 'Navigate between game elements' },
                 
                 { key: '', desc: '--- Game: Bidding Phase ---' },
-                { key: 'Alt + P', desc: 'Pass bid (when it\'s your turn), or announce cards in the current trick' },
+                { key: 'P', desc: 'Pass (when it\'s your turn to bid)' },
+                { key: 'Alt + P', desc: 'Announce cards in the current trick' },
                 { key: '1-7', desc: 'Select bid level (then press suit key)' },
                 { key: 'S', desc: 'Spades suit (after selecting level)' },
                 { key: 'H', desc: 'Hearts suit (after selecting level)' },
@@ -1882,17 +1911,17 @@ function formatContract(contract, asHtml = false) {
                 { key: '', desc: 'Only the declarer can choose the contract; other combinations are announced as invalid.' },
 
                 { key: '', desc: '--- Game: Card Viewing (Your Hand) ---' },
-                { key: 'Alt + A', desc: 'Announce your spades and focus lowest card' },
-                { key: 'Alt + S', desc: 'Announce your hearts and focus lowest card' },
-                { key: 'Alt + D', desc: 'Announce your diamonds and focus lowest card' },
-                { key: 'Alt + F', desc: 'Announce your clubs and focus lowest card' },
+                { key: 'Alt + A', desc: 'Announce your spades' },
+                { key: 'Alt + S', desc: 'Announce your hearts' },
+                { key: 'Alt + D', desc: 'Announce your diamonds' },
+                { key: 'Alt + F', desc: 'Announce your clubs' },
                 { key: 'Alt + G', desc: 'Announce your entire hand (all suits)' },
                 
                 { key: '', desc: '--- Game: Card Viewing (Dummy Hand) ---' },
-                { key: 'Alt + Q', desc: 'Announce dummy spades and focus lowest card' },
-                { key: 'Alt + W', desc: 'Announce dummy hearts and focus lowest card' },
-                { key: 'Alt + E', desc: 'Announce dummy diamonds and focus lowest card' },
-                { key: 'Alt + R', desc: 'Announce dummy clubs and focus lowest card' },
+                { key: 'Alt + Q', desc: 'Announce dummy spades' },
+                { key: 'Alt + W', desc: 'Announce dummy hearts' },
+                { key: 'Alt + E', desc: 'Announce dummy diamonds' },
+                { key: 'Alt + R', desc: 'Announce dummy clubs' },
                 { key: 'Alt + T', desc: 'Announce dummy entire hand (all suits)' },
                 
                 { key: '', desc: '--- Game: Information Commands ---' },
@@ -1915,10 +1944,12 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Alt + ↓', desc: 'Play lowest card of led suit' },
                 { key: 'Alt + ↑', desc: 'Play highest card of led suit' },
 
-                { key: '', desc: '--- Game: Manual Card Play ---' },
-                { key: 'Click/Enter', desc: 'Play specific card (navigate to card first)' },
-                { key: 'Tab/Arrow keys', desc: 'Navigate between playable cards' },
-                
+                { key: '', desc: '--- Game: Manual Card Play (exact card) ---' },
+                { key: 'Click/Tap', desc: 'Play that exact card with the mouse or touch' },
+                { key: 'S/H/D/C', desc: 'Choose the suit of the card to play' },
+                { key: 'A/K/Q/J/T/2-9', desc: 'Choose the card\'s rank (T = 10), completing and playing it' },
+                { key: 'Escape', desc: 'Cancel a suit that was chosen but not yet completed' },
+
                 { key: '', desc: '--- Notes ---' },
                 { key: '', desc: 'Card viewing commands work only when cards are visible' },
                 { key: '', desc: 'Quick play commands work only during your turn' },
@@ -2054,7 +2085,11 @@ function getSuitNameWithCount(suit, count) {
 
         
         /**
-         * Announces cards in a specific suit from a hand AND focuses on lowest card
+         * Announces cards in a specific suit from a hand. Named "WithFocus" for
+         * its callers (Alt+A etc.), but cards are plain, non-focusable <span>s
+         * now (see renderHand), so there is no card left to move DOM focus to --
+         * use the S/H/D/C + rank keyboard shortcut (setupKeyboardListeners) to
+         * actually play one of the announced cards.
          */
         function announceHandSuitWithFocus(position, suit) {
             const canViewCards = canViewHandCards(position);
@@ -2081,9 +2116,6 @@ const message = `No ${getSuitName(suit)}s.`;
             
 const message = `${cards.length} ${getSuitNameWithCount(suit, cards.length)}: ${cards.join(', ')}`;
             announceToScreenReader(message);
-            
-            // Focus on lowest card
-            focusOnLowestCard(position, suit);
         }
 
 /**
@@ -2281,42 +2313,6 @@ function announceMiniPoints() {
             const cardValues = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
             const sortedCards = [...cards].sort((a, b) => cardValues.indexOf(b) - cardValues.indexOf(a));
             return sortedCards[0];
-        }
-
-        /**
-         * Focus on lowest card in suit
-         */
-        function focusOnLowestCard(position, suit) {
-            if (!gameState || !gameState.hands || !gameState.hands[position]) return;
-            
-            const hand = gameState.hands[position];
-            const cards = hand[suit] || [];
-            
-            if (cards.length === 0) return;
-            
-            const lowestCard = findLowestCard(cards);
-            if (!lowestCard) return;
-            
-            const layout = getPositionLayout();
-            let areaId = 'bottom-position-area'; // Default to player
-            
-            // Find which area this position is in
-            if (position === layout.top) areaId = 'top-position-area';
-            else if (position === layout.left) areaId = 'left-position-area';
-            else if (position === layout.right) areaId = 'right-position-area';
-            else if (position === layout.bottom) areaId = 'bottom-position-area';
-            
-            const handArea = document.getElementById(areaId);
-            
-            if (!handArea) return;
-            
-            const cardButton = handArea.querySelector(`button[onclick*="attemptToPlayCard('${suit}', '${lowestCard}'"]`);
-            
-            if (cardButton) {
-                setTimeout(() => {
-                    cardButton.focus();
-                }, 250);
-            }
         }
 
         /**
@@ -2619,17 +2615,76 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                         return;
                     }
 
+                    // Card playing shortcuts - choose an exact card by suit then
+                    // rank. Cards are plain <span> elements now (see renderHand),
+                    // not focusable buttons, so Tab/Enter can no longer reach a
+                    // specific card -- this two-key sequence replaces that for
+                    // keyboard and screen reader users (same model as BridgeChamp's
+                    // content.js: press a suit key, then the rank that completes it).
+                    // Skipped while typing in a text field (e.g. chat) so ordinary
+                    // letters and digits there aren't hijacked.
+                    if (!e.altKey && !e.ctrlKey && !e.shiftKey &&
+                        gameState && gameState.gamePhase === 'play') {
+                        const activeTag = document.activeElement && document.activeElement.tagName;
+                        const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' ||
+                                         (document.activeElement && document.activeElement.isContentEditable);
+
+                        if (!isTyping) {
+                            if (e.key === 'Escape' && uiState.pendingCardSuit) {
+                                e.preventDefault();
+                                uiState.pendingCardSuit = null;
+                                announceToScreenReader('Card selection cancelled.');
+                                return;
+                            }
+
+                            const suitName = SUIT_NAME_KEYS[e.key.toLowerCase()];
+                            if (suitName) {
+                                e.preventDefault();
+                                if (!canPlayFromPosition(gameState.currentPlayer)) {
+                                    announceToScreenReader("It's not your turn to play.");
+                                    return;
+                                }
+                                uiState.pendingCardSuit = suitName;
+                                announceToScreenReader(`${getSuitName(suitName)}. Press card value: A, K, Q, J, T for 10, or 2 to 9.`);
+                                return;
+                            }
+
+                            if (uiState.pendingCardSuit) {
+                                const rank = CARD_RANK_KEYS[e.key.toLowerCase()];
+                                if (rank) {
+                                    e.preventDefault();
+                                    const suit = uiState.pendingCardSuit;
+                                    const actingPosition = gameState.currentPlayer;
+                                    uiState.pendingCardSuit = null;
+                                    attemptToPlayCard(suit, rank, actingPosition);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
                     // Bidding shortcuts
+                    // Pass is bare "P" now (like BridgeChamp's content.js:
+                    // key === 'p' && isBiddingPhase() -> submitPass()), not Alt+P --
+                    // see the bare-key block below. Alt+P keeps its other job:
+                    // reading the current trick's cards.
                     if (e.altKey && e.key.toLowerCase() === 'p') {
                         e.preventDefault();
-                        if (gameState && gameState.gamePhase === 'bidding' &&
-                            biddingState && biddingState.currentBidder === myPosition) {
-                            makeBid('P');
-                        } else {
-                            // Outside your own bidding turn, Alt+P reads the current trick's cards.
-                            announceCurrentTrick();
-                        }
+                        announceCurrentTrick();
                         return;
+                    }
+
+                    if (!e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'p' &&
+                        gameState && gameState.gamePhase === 'bidding' &&
+                        biddingState && biddingState.currentBidder === myPosition) {
+                        const activeTag = document.activeElement && document.activeElement.tagName;
+                        const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' ||
+                                         (document.activeElement && document.activeElement.isContentEditable);
+                        if (!isTyping) {
+                            e.preventDefault();
+                            makeBid('P');
+                            return;
+                        }
                     }
 
                     if (e.altKey && e.key.toLowerCase() === 'm') {
