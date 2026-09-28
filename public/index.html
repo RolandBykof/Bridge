@@ -1893,8 +1893,7 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Tab/Arrow keys', desc: 'Navigate between game elements' },
                 
                 { key: '', desc: '--- Game: Bidding Phase ---' },
-                { key: 'P', desc: 'Pass (when it\'s your turn to bid)' },
-                { key: 'Alt + P', desc: 'Announce cards in the current trick' },
+                { key: 'P', desc: 'Pass (when it\'s your turn to bid), or announce cards in the current trick' },
                 { key: '1-7', desc: 'Select bid level (then press suit key)' },
                 { key: 'S', desc: 'Spades suit (after selecting level)' },
                 { key: 'H', desc: 'Hearts suit (after selecting level)' },
@@ -1941,8 +1940,8 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Alt + 2', desc: 'Play lowest heart' },
                 { key: 'Alt + 3', desc: 'Play lowest diamond' },
                 { key: 'Alt + 4', desc: 'Play lowest club' },
-                { key: 'Alt + ↓', desc: 'Play lowest card of led suit' },
-                { key: 'Alt + ↑', desc: 'Play highest card of led suit' },
+                { key: '↓ / O', desc: 'Play lowest card of led suit' },
+                { key: '↑ / I', desc: 'Play highest card of led suit' },
 
                 { key: '', desc: '--- Game: Manual Card Play (exact card) ---' },
                 { key: 'Click/Tap', desc: 'Play that exact card with the mouse or touch' },
@@ -2585,34 +2584,39 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                         return;
                     }
 
-// Lead suit shortcuts - play lowest/highest of led suit
-                    if (e.altKey && e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        if (!gameState || gameState.gamePhase !== 'play') {
-                            announceToScreenReader("Game is not in play phase.");
-                            return;
+// Lead suit shortcuts - play lowest/highest of led suit. No Alt anymore
+                    // (like BridgeChamp's content.js): plain ArrowUp/ArrowDown, plus
+                    // "i"/"o" as the letter-key equivalents BridgeChamp also offers
+                    // (i = highest, like ArrowUp; o = lowest, like ArrowDown).
+                    // Skipped while typing in a text field, so arrow-key cursor
+                    // movement and "i"/"o" as ordinary letters still work there.
+                    if (!e.altKey && !e.ctrlKey && !e.shiftKey) {
+                        const lowerKey = e.key.toLowerCase();
+                        const isLowKey = e.key === 'ArrowDown' || lowerKey === 'o';
+                        const isHighKey = e.key === 'ArrowUp' || lowerKey === 'i';
+                        if (isLowKey || isHighKey) {
+                            const activeTag = document.activeElement && document.activeElement.tagName;
+                            const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' ||
+                                             (document.activeElement && document.activeElement.isContentEditable);
+                            if (!isTyping) {
+                                e.preventDefault();
+                                if (!gameState || gameState.gamePhase !== 'play') {
+                                    announceToScreenReader("Game is not in play phase.");
+                                    return;
+                                }
+                                if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
+                                    announceToScreenReader("No suit has been led yet. You must lead a card.");
+                                    return;
+                                }
+                                const leadSuit = gameState.currentTrick[0].suit;
+                                if (isLowKey) {
+                                    playLowestCard(leadSuit);
+                                } else {
+                                    playHighestCard(leadSuit);
+                                }
+                                return;
+                            }
                         }
-                        if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
-                            announceToScreenReader("No suit has been led yet. You must lead a card.");
-                            return;
-                        }
-                        const leadSuit = gameState.currentTrick[0].suit;
-                        playLowestCard(leadSuit);
-                        return;
-                    }
-                    if (e.altKey && e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        if (!gameState || gameState.gamePhase !== 'play') {
-                            announceToScreenReader("Game is not in play phase.");
-                            return;
-                        }
-                        if (!gameState.currentTrick || gameState.currentTrick.length === 0) {
-                            announceToScreenReader("No suit has been led yet. You must lead a card.");
-                            return;
-                        }
-                        const leadSuit = gameState.currentTrick[0].suit;
-                        playHighestCard(leadSuit);
-                        return;
                     }
 
                     // Card playing shortcuts - choose an exact card by suit then
@@ -2664,25 +2668,22 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                     }
 
                     // Bidding shortcuts
-                    // Pass is bare "P" now (like BridgeChamp's content.js:
-                    // key === 'p' && isBiddingPhase() -> submitPass()), not Alt+P --
-                    // see the bare-key block below. Alt+P keeps its other job:
-                    // reading the current trick's cards.
-                    if (e.altKey && e.key.toLowerCase() === 'p') {
-                        e.preventDefault();
-                        announceCurrentTrick();
-                        return;
-                    }
-
-                    if (!e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'p' &&
-                        gameState && gameState.gamePhase === 'bidding' &&
-                        biddingState && biddingState.currentBidder === myPosition) {
+                    // Bare "P" now, no Alt (like BridgeChamp's content.js:
+                    // key === 'p' && isBiddingPhase() -> submitPass()). Kept its
+                    // other job too: outside your own bidding turn, P reads the
+                    // current trick's cards, same as it did as Alt+P before.
+                    if (!e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'p') {
                         const activeTag = document.activeElement && document.activeElement.tagName;
                         const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' ||
                                          (document.activeElement && document.activeElement.isContentEditable);
                         if (!isTyping) {
                             e.preventDefault();
-                            makeBid('P');
+                            if (gameState && gameState.gamePhase === 'bidding' &&
+                                biddingState && biddingState.currentBidder === myPosition) {
+                                makeBid('P');
+                            } else {
+                                announceCurrentTrick();
+                            }
                             return;
                         }
                     }
