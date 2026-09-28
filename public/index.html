@@ -193,6 +193,7 @@
     </div>
     
     <div id="current-trick-area">
+        <h3 class="current-trick-heading">Current Trick</h3>
         <div id="game-played-cards-container">
             <p>No cards played yet.</p>
         </div>
@@ -1011,6 +1012,21 @@ function attemptToPlayCard(suit, card, fromPosition) {
             return layouts[myPosition] || layouts['south'];
         }
 
+        /**
+         * Position whose turn it currently is, whether we're bidding or
+         * playing cards. Without this, the table's turn highlight only
+         * tracked gameState.currentPlayer, which stays unset/stale during
+         * the entire bidding phase (biddingState.currentBidder is the field
+         * that actually advances then), so sighted players had no visual
+         * cue for whose turn it was to bid.
+         */
+        function getCurrentTurnPosition() {
+            if (gameState?.gamePhase === 'play') {
+                return gameState.currentPlayer;
+            }
+            return biddingState?.currentBidder;
+        }
+
 function renderHand(position, hand, targetElement) {
     if (!hand || !targetElement) return;
     
@@ -1018,6 +1034,8 @@ function renderHand(position, hand, targetElement) {
     let positionType = position === myPosition ? 'You' : (isRobot ? 'Robot' : 'Human');
     if (position === gameState?.dummy && gameState?.declarer === myPosition) {
         positionType = 'Dummy (You control)';
+    } else if (position === gameState?.dummy) {
+        positionType = 'Dummy';
     } else if (position === gameState?.declarer && isOverrideDeclarerController()) {
         positionType = 'Declarer, Robot (You control)';
     }
@@ -1129,12 +1147,12 @@ function renderHand(position, hand, targetElement) {
         targetElement.classList.remove('is-dummy');
     }
     
-    if (position === gameState?.currentPlayer) {
+    if (position === getCurrentTurnPosition()) {
         targetElement.classList.add('is-current-player');
     } else {
         targetElement.classList.remove('is-current-player');
     }
-    
+
     targetElement.classList.add('has-cards');
 }
 
@@ -1174,8 +1192,8 @@ function renderHand(position, hand, targetElement) {
     
     element.innerHTML = `<div class="position-name">${displayText}</div>`;
             element.classList.remove('has-cards', 'is-dummy');
-            
-            if (position === gameState?.currentPlayer) {
+
+            if (position === getCurrentTurnPosition()) {
                 element.classList.add('is-current-player');
             } else {
                 element.classList.remove('is-current-player');
@@ -1277,7 +1295,12 @@ function updateContractDisplay() {
             if (biddingArea) {
                 biddingArea.style.display = 'block';
             }
-            
+
+            // Päivitä pöydän vuorokorostus (samat position-area-elementit
+            // kuin pelivaiheessa), jotta näkevä pelaaja näkee tarjousvaiheessa
+            // kenen vuoro on, ei vain pienestä tekstistä tarjouspaneelissa.
+            renderAllHands();
+
             renderBiddingHistory();
             
             if (biddingState && biddingState.currentBidder === myPosition) {
@@ -1296,223 +1319,57 @@ function updateContractDisplay() {
         function renderBiddingHistory() {
             const biddingHistory = document.getElementById('game-bidding-history');
             if (!biddingHistory) return;
-            
+
             let html = '<h3>History</h3>';
-            
+
             if (!biddingState || !biddingState.bidHistory || biddingState.bidHistory.length === 0) {
                 html += '<p>No bids yet</p>';
-            } else {
-                html += '<table><tr><th>W</th><th>N</th><th>E</th><th>S</th></tr>';
-                
-                const positions = ['west', 'north', 'east', 'south']; // Bidding order starts at dealer
-                let dealerPosition = biddingState.dealer || 'south';
-                
-                // Find start index based on dealer
-                let dealerIndex = positions.indexOf(dealerPosition);
-                
-                // Adjust position order so that dealer is at the start of the list
-                const adjustedPositions = positions.slice(dealerIndex).concat(positions.slice(0, dealerIndex));
-                
-                // Fix header row (should be in fixed order N E S W)
-                html += '<table><tr><th>W</th><th>N</th><th>E</th><th>S</th></tr>';
-                
-                const rounds = [];
-                let currentRound = [];
-                let currentPosIndex = positions.indexOf(biddingState.dealer || 'south');
-                
-                for (const bid of biddingState.bidHistory) {
-                    // Fill nulls until current position is reached (only at start of round)
-                    if (currentRound.length === 0) {
-                        const roundStartPosIndex = currentPosIndex;
-                        const startOfTableIndex = positions.indexOf('west');
-                        
-                        let offset = (roundStartPosIndex - startOfTableIndex + 4) % 4;
-                        
-                        for (let i = 0; i < offset; i++) {
-                             // This part is tricky due to the fixed table header (W N E S) vs. variable start pos
-                             // Simpler: iterate 4 positions and put bid in the right column
-                             // Let's rely on server state's bidHistory having correct order, 
-                             // and render based on fixed WNES columns.
-                             // This simplified rendering logic is error-prone based on dealer, I'll use the existing logic from the original file for rendering.
-                        }
-                    }
-                    
-                    currentRound.push(bid);
-                    
-                    if (currentRound.length === 4) {
-                        rounds.push([...currentRound]);
-                        currentRound = [];
-                    }
-                }
-                
-                if (currentRound.length > 0) {
-                    rounds.push([...currentRound]);
-                }
-                
-                // Re-creating the original rendering logic for W N E S columns.
-                
-                const renderPositions = ['west', 'north', 'east', 'south'];
-                let currentPositionIndex = renderPositions.indexOf(biddingState.dealer || 'south');
-                let bidHistoryIndex = 0;
-
-                html = '<h3>History</h3>';
-                html += '<table><tr><th>W</th><th>N</th><th>E</th><th>S</th></tr>';
-
-                while (bidHistoryIndex < biddingState.bidHistory.length) {
-                    html += '<tr>';
-                    
-                    // Add empty cells for positions before the dealer's first bid
-                    for (let i = 0; i < 4; i++) {
-                        const colPosition = renderPositions[i];
-                        
-                        if (bidHistoryIndex >= biddingState.bidHistory.length) {
-                            html += '<td></td>';
-                        } else {
-                            const bid = biddingState.bidHistory[bidHistoryIndex];
-                            
-                            // Check if this bid belongs to the current column (W, N, E, S)
-                            if (bid.player === colPosition) {
-                                html += `<td>${formatBid(bid.bid)}</td>`;
-                                bidHistoryIndex++;
-                                
-                                // Reset position index to start of round if needed
-                                if (bidHistoryIndex % 4 === 0) {
-                                    currentPositionIndex = 0;
-                                } else {
-                                    currentPositionIndex = (currentPositionIndex + 1) % 4;
-                                }
-                            } else {
-                                html += '<td></td>';
-                            }
-                        }
-                    }
-                    
-                    html += '</tr>';
-                }
-                
-                html += '</table>';
+                biddingHistory.innerHTML = html;
+                return;
             }
-            
-            biddingHistory.innerHTML = html;
-            
-            // Re-implementing simplified rendering logic based on the original file's structure.
-            // The table structure in the original file is based on W N E S columns.
-            // I'll adjust the rendering to fit the WNES columns properly based on dealer start.
-            
-            if (biddingState && biddingState.bidHistory && biddingState.bidHistory.length > 0) {
-                const bids = biddingState.bidHistory;
-                const dealer = biddingState.dealer || 'south';
-                const positions = ['west', 'north', 'east', 'south'];
-                const dealerIndex = positions.indexOf(dealer);
-                
-                let bidsInTable = [];
-                let tempRow = Array(4).fill(null);
-                let currentCellIndex = (dealerIndex + 1) % 4; // Start index in the W N E S table columns
-                
-                // Fill empty cells for positions before the dealer's first bid in the WNES table
-                for (let i = 0; i < dealerIndex; i++) {
-                    tempRow[i] = { bid: '' }; // Empty cell
-                }
-                
-                let bidIndex = 0;
-                let currentBidderPosition = dealer;
 
-                // Adjusting the starting position in the W N E S columns
-                let tableStartIndex = positions.indexOf(currentBidderPosition);
-                
-                for (let i = 0; i < bids.length; i++) {
-                    const bid = bids[i];
-                    const posIndex = positions.indexOf(bid.player); // W=0, N=1, E=2, S=3
-                    
-                    tempRow[posIndex] = bid;
-                    
-                    // If the current cell index is the last in the row, or the last bid
-                    if (posIndex === 3 || i === bids.length - 1) {
-                         // Check if we can complete a row (S is the last column)
-                        let isRowComplete = true;
-                        for (let k = 0; k < 4; k++) {
-                            if (!tempRow[k]) isRowComplete = false;
-                        }
-                        
-                        if (isRowComplete) {
-                            bidsInTable.push(tempRow);
-                            tempRow = Array(4).fill(null);
-                        }
-                    }
-                    
-                    // Simple logic for continuous bidding in W N E S columns:
-                    if (posIndex === 3) {
-                         bidsInTable.push([...tempRow]);
-                         tempRow = Array(4).fill(null);
-                    } else if (i === bids.length - 1) {
-                         bidsInTable.push([...tempRow]);
-                    }
-                }
-                
-                // Simple implementation that respects W N E S columns and dealer start
-                
-                html = '<h3>History</h3><table><tr><th>W</th><th>N</th><th>E</th><th>S</th></tr>';
+            // Sarakkeet samassa vasen/ylä/oikea/ala-järjestyksessä kuin pöytä
+            // näytetään katsojalle (getPositionLayout), eikä aina kiinteässä
+            // W N E S -järjestyksessä. Näin tarjoushistoria vastaa
+            // visuaalisesti tikkinäkymän asettelua.
+            const layout = getPositionLayout();
+            const columns = [layout.left, layout.top, layout.right, layout.bottom];
 
-                let bidCount = 0;
-                let rows = [];
-                let currentRow = Array(4).fill(null);
-                
-                // Find index of dealer in W N E S order
-                let dealerPosIndex = positions.indexOf(dealer);
-                
-                // Initialize the first row with empty cells up to the dealer
-                for (let i = 0; i < dealerPosIndex; i++) {
-                    currentRow[i] = { bid: '' };
-                }
-                
-                for (const bid of bids) {
-                    const posIndex = positions.indexOf(bid.player);
-                    
-                    // If the bid's position is not the expected one in the current row, 
-                    // it means we finished a round in the previous iteration and need a new row.
-                    
-                    // Find the first empty spot *after* the previous bid or *after* dealer for first round
-                    let nextEmptySpot = -1;
-                    for (let i = 0; i < 4; i++) {
-                        if (currentRow[i] === null) {
-                            nextEmptySpot = i;
-                            break;
-                        }
-                    }
+            html += '<table><tr>' + columns.map(pos => `<th>${positionName(pos).charAt(0)}</th>`).join('') + '</tr>';
 
-                    if (nextEmptySpot === -1) {
-                         // Row is full, start new row
-                         rows.push(currentRow);
-                         currentRow = Array(4).fill(null);
-                         nextEmptySpot = 0;
-                    }
-                    
-                    // Place the bid in the correct column
-                    currentRow[posIndex] = bid;
-                    
-                    // If we've hit the end of the row, push it.
-                    if (posIndex === 3) {
-                         rows.push(currentRow);
-                         currentRow = Array(4).fill(null);
-                    }
-                }
+            const dealer = biddingState.dealer || 'south';
+            const dealerColIndex = columns.indexOf(dealer);
 
-                if (currentRow.some(c => c !== null)) {
+            const rows = [];
+            let currentRow = Array(4).fill(null);
+
+            // Tyhjät solut ennen jakajan ensimmäistä tarjousta
+            for (let i = 0; i < dealerColIndex; i++) {
+                currentRow[i] = { bid: '' };
+            }
+
+            for (const bid of biddingState.bidHistory) {
+                const colIndex = columns.indexOf(bid.player);
+                if (colIndex === -1) continue;
+
+                currentRow[colIndex] = bid;
+
+                if (currentRow.every(cell => cell !== null)) {
                     rows.push(currentRow);
+                    currentRow = Array(4).fill(null);
                 }
-                
-                for (const row of rows) {
-                    html += '<tr>';
-                    for (const cell of row) {
-                        html += `<td>${cell ? formatBid(cell.bid) : ''}</td>`;
-                    }
-                    html += '</tr>';
-                }
-
-                html += '</table>';
-                
             }
-            
+
+            if (currentRow.some(cell => cell !== null)) {
+                rows.push(currentRow);
+            }
+
+            for (const row of rows) {
+                html += '<tr>' + row.map(cell => `<td>${cell ? formatBid(cell.bid) : ''}</td>`).join('') + '</tr>';
+            }
+
+            html += '</table>';
+
             biddingHistory.innerHTML = html;
         }
 

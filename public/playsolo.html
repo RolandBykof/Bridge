@@ -1538,22 +1538,6 @@
             }
         }
         
-        // Update played card
-        function updatePlayedCard(position, suit, card) {
-            const centerArea = document.getElementById('center-area');
-            if (!centerArea) return;
-            
-            if (gameState && gameState.currentTrick && gameState.currentTrick.length === 1) {
-                centerArea.innerHTML = '<h3>Current Trick</h3>';
-            }
-            
-            const cardElement = document.createElement('div');
-            cardElement.className = `played-card ${suit === 'hearts' || suit === 'diamonds' ? 'red-card' : ''}`;
-            cardElement.innerHTML = `<span class="player-name">${positionName(position)}:</span> ${suitSymbol(suit)} ${card}`;
-            
-            centerArea.appendChild(cardElement);
-        }
-        
         // Show game over
         function showGameOver(message) {
             const centerArea = document.getElementById('center-area');
@@ -1860,9 +1844,10 @@ if (trickClearTimeout) {
                 }
                 
                 renderHand(data.position, gameState.hands[data.position]);
-                updatePlayedCard(data.position, data.suit, data.card);
-                
-                // LISÄTTY: Päivitä current trick näyttö
+
+                // Pelattu kortti näytetään yhdessä paikassa, selkeästi omassa
+                // "Current Trick" -laatikossaan, jotta se ei sekoitu käsien
+                // korttikuvakkeisiin pöydän keskellä.
                 updatePlayedCardsContainer();
                 
                 announceToScreenReader(`${positionName(data.position)} played ${suitName(data.suit)} ${data.card}`);

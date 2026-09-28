@@ -157,9 +157,16 @@
     min-height: 80px;
 }
 
-/* Dummy - YHTENÄISET VÄRIT */
+/* Dummy - erottuu selvästi muista käsistä myös näkevälle.
+   Violetti valittu, koska se ei osu yhteen minkään maan värin
+   (musta/punainen/vihreä/kulta) tai vuorokorostuksen sinisen kanssa. */
 .position-area.is-dummy {
-    /* Käyttää position-area perusvärejä (valkoinen) */
+    background: #f5f3ff;
+    border: 2px dashed #7c3aed;
+}
+
+.position-area.is-dummy .hand-header {
+    color: #6d28d9;
 }
 
 /* KAIKKI alueet vuorolla - YHTENÄINEN SININEN KOROSTUS */
@@ -346,12 +353,34 @@
 }
 
 /* Current Trick Display - Compact */
+/* Oma taustaväri, reunus ja varjo erottavat pelatun tikin selvästi
+   ympärillä olevista käsien korttilaatikoista (sama korttityyli, joten
+   ilman tätä rajausta tikki näyttää sekoittuvan viereisiin käsiin,
+   erityisesti kapealla näytöllä jossa länsi/tikki/itä pinoutuvat allekkain). */
 #current-trick-area {
     min-height: 80px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     width: 100%;
+    box-sizing: border-box;
+    margin: 6px 0;
+    padding: 10px 8px;
+    background: #eef2f7;
+    border: 2px solid #94a3b8;
+    border-radius: 10px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.current-trick-heading {
+    margin: 0 0 6px 0;
+    font-size: 0.8em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #475569;
+    text-align: center;
 }
 
 /* New Grid Layout for Trick Cards */
@@ -734,6 +763,19 @@
         min-width: 100%;
     }
 
+    /* Kapealla näytöllä #middle-row pinoaa länsi/pelialue/itä allekkain,
+       jolloin pelattu tikki jää visuaalisesti länsen ja idän käsien väliin.
+       Selkeä oma marginaali ja reunus estävät sen sulautumista käsien
+       korttiriveihin. */
+    #play-area {
+        margin: 4px 0;
+    }
+
+    #current-trick-area {
+        margin: 8px 0;
+        border-width: 2px;
+    }
+
     .card-button,
     .card-display {
         padding: 3px 4px;
@@ -741,7 +783,7 @@
         max-width: 36px;
         min-height: 38px;
     }
-    
+
     .card-suit {
         font-size: 1.4em;
     }
@@ -809,10 +851,30 @@
     
     /* CHANGE: Just resize the grid, don't change columns */
     .current-trick-cards {
-        width: 180px;
-        height: 150px;
+        width: 160px;
+        height: 140px;
     }
-    
+
+    /* Pelatun tikin kortit pienemmiksi, jotta ne mahtuvat kompassiruudukon
+       soluihin päällekkäin menemättä kapealla näytöllä. */
+    .played-card .card {
+        min-width: 32px;
+        min-height: 36px;
+        padding: 3px 5px;
+    }
+
+    .played-card .card .card-suit {
+        font-size: 1.3em;
+    }
+
+    .played-card .card .card-rank {
+        font-size: 0.9em;
+    }
+
+    .player-label {
+        font-size: 0.65em;
+    }
+
     .card-button,
     .card-display {
         padding: 2px 3px;
