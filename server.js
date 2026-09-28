@@ -95,6 +95,10 @@ io.on('connection', (socket) => {
         gameMode: mode,
         miniState: null,
         miniScore: { ns: 0, ew: 0 },
+        // Cumulative standard duplicate-bridge score across deals at this table
+        // (separate from miniScore, which is minibridge's own simplified
+        // scoring) -- see scoreContractDeal() / getVulnerability() and endGame().
+        bridgeScore: { ns: 0, ew: 0 },
         autoNextDeal: false,
         pendingNextDealTimeout: null,
         // Bumped by beginDeal() every time a deal starts. Lets a deferred
@@ -518,6 +522,7 @@ function getTableInfo(socket, playerId, data) {
             gameMode: table.gameMode || 'bridge',
             miniState: table.miniState || null,
             miniScore: table.miniScore || { ns: 0, ew: 0 },
+            bridgeScore: table.bridgeScore || { ns: 0, ew: 0 },
             autoNextDeal: !!table.autoNextDeal
         });
 
@@ -1566,6 +1571,7 @@ async function endGame(table) {
     let dealScore = null;
     let doubleDummyTricks = null;
     let actualTricks = null;
+    let dealVulnerability = null;
 
     if (table.gameState.contract) {
         const level = parseInt(table.gameState.contract.charAt(0));
@@ -1596,6 +1602,20 @@ async function endGame(table) {
                     table.miniScore[declarerSide] += dealScore;
                 } else {
                     table.miniScore[defenderSide] += -dealScore;
+                }
+            }
+        } else {
+            dealVulnerability = getVulnerability(table.dealNumber || 1);
+            const declarerVulnerable = dealVulnerability === 'Both' ||
+                dealVulnerability === declarerSide.toUpperCase();
+            dealScore = scoreContractDeal(table.gameState.contract, madeTricks, declarerVulnerable);
+            if (!table.gameState.isReplay) {
+                const defenderSide = declarerSide === 'ns' ? 'ew' : 'ns';
+                if (!table.bridgeScore) table.bridgeScore = { ns: 0, ew: 0 };
+                if (dealScore >= 0) {
+                    table.bridgeScore[declarerSide] += dealScore;
+                } else {
+                    table.bridgeScore[defenderSide] += -dealScore;
                 }
             }
         }
@@ -1636,6 +1656,10 @@ async function endGame(table) {
     if (table.gameMode === 'minibridge') {
         gameOverPayload.dealScore = dealScore;
         gameOverPayload.totalScore = table.miniScore;
+    } else if (table.gameState.contract) {
+        gameOverPayload.dealScore = dealScore;
+        gameOverPayload.totalScore = table.bridgeScore;
+        gameOverPayload.vulnerable = dealVulnerability;
     }
 
     if (doubleDummyTricks !== null) {
@@ -1841,6 +1865,79 @@ function scoreMiniDeal(contract, tricksMade) {
 }
 
 /**
+ * Standard duplicate-bridge vulnerability cycle (16 boards, then repeats),
+ * indexed by deal number. There's no separate "board" concept in this app --
+ * table.dealNumber IS the board number for this purpose. Returns 'None',
+ * 'NS', 'EW' or 'Both'.
+ */
+const VULNERABILITY_CYCLE = [
+    'None', 'NS', 'EW', 'Both', 'NS', 'EW', 'Both', 'None',
+    'EW', 'Both', 'None', 'NS', 'Both', 'None', 'NS', 'EW'
+];
+function getVulnerability(dealNumber) {
+    const n = dealNumber && dealNumber > 0 ? dealNumber : 1;
+    return VULNERABILITY_CYCLE[(n - 1) % 16];
+}
+
+/**
+ * Score a completed contract deal in standard (rubber-style points, no
+ * matchpoints/IMPs) duplicate bridge scoring, from the declaring side's point
+ * of view (negative return value = contract went down, points go to the
+ * defenders instead -- same convention as scoreMiniDeal above).
+ */
+function scoreContractDeal(contract, tricksMade, vulnerable) {
+    const level = parseInt(contract.charAt(0), 10);
+    const strain = contract.charAt(1); // C/D/H/S/N
+    const redoubled = contract.endsWith('XX');
+    const doubled = !redoubled && contract.endsWith('X');
+    const required = level + 6;
+
+    if (tricksMade < required) {
+        const down = required - tricksMade;
+        let penalty;
+        if (!doubled && !redoubled) {
+            penalty = (vulnerable ? 100 : 50) * down;
+        } else {
+            penalty = 0;
+            for (let i = 1; i <= down; i++) {
+                if (!vulnerable) {
+                    penalty += i === 1 ? 100 : (i <= 3 ? 200 : 300);
+                } else {
+                    penalty += i === 1 ? 200 : 300;
+                }
+            }
+            if (redoubled) penalty *= 2;
+        }
+        return -penalty;
+    }
+
+    const perTrick = (strain === 'C' || strain === 'D') ? 20 : 30;
+    const trickValue = (n) => strain === 'N' ? 40 + 30 * (n - 1) : perTrick * n;
+    let contractPoints = trickValue(level);
+    const overtricks = tricksMade - required;
+
+    let overtrickPoints;
+    if (!doubled && !redoubled) {
+        overtrickPoints = (strain === 'N' ? 30 : perTrick) * overtricks;
+    } else {
+        overtrickPoints = (vulnerable ? 200 : 100) * overtricks * (redoubled ? 2 : 1);
+    }
+
+    if (doubled) contractPoints *= 2;
+    if (redoubled) contractPoints *= 4;
+
+    const madeBonus = contractPoints >= 100 ? (vulnerable ? 500 : 300) : 50;
+
+    let slamBonus = 0;
+    if (level === 6) slamBonus = vulnerable ? 750 : 500;
+    else if (level === 7) slamBonus = vulnerable ? 1500 : 1000;
+
+    const insultBonus = redoubled ? 100 : (doubled ? 50 : 0);
+
+    return contractPoints + overtrickPoints + madeBonus + slamBonus + insultBonus;
+}
+
+/**
  * Get next dealer in rotation
  */
 function getNextDealer(currentDealer) {
@@ -2025,7 +2122,11 @@ function createGameState(table, fixedHands) {
     tricks: { ns: 0, ew: 0 },
     totalTricks: 0,
     leadingPlayer: 'south',
-    trickLocked: false
+    trickLocked: false,
+    // 'None'/'NS'/'EW'/'Both' -- see getVulnerability(). Computed for every
+    // deal regardless of game mode, but only meaningful (and announced) for
+    // standard bridge; minibridge's own scoring (scoreMiniDeal) ignores it.
+    vulnerable: getVulnerability(table.dealNumber)
   };
 }
 

@@ -249,6 +249,10 @@
         let gameMode = 'bridge';
         let miniState = null;
         let miniScore = { ns: 0, ew: 0 };
+        // Cumulative standard-bridge score across deals at this table, mirroring
+        // miniScore above (same shape, same update pattern) -- server.js scores
+        // each completed contract and sends the running total on 'gameOver'.
+        let bridgeScore = { ns: 0, ew: 0 };
         let tablePlayers = null; // { north: {name, type}, ... } -- type is 'human' or 'robot'
         let tableCreatorPosition = null;
         let autoNextDeal = false;
@@ -1299,10 +1303,9 @@ function updateCurrentTrickDisplay() {
                 document.getElementById('ew-score').textContent = 'EW 0/13';
             }
 
-            if (gameMode === 'minibridge') {
-                document.getElementById('ns-score').textContent += ` (Total ${miniScore.ns})`;
-                document.getElementById('ew-score').textContent += ` (Total ${miniScore.ew})`;
-            }
+            const totals = gameMode === 'minibridge' ? miniScore : bridgeScore;
+            document.getElementById('ns-score').textContent += ` (Total ${totals.ns})`;
+            document.getElementById('ew-score').textContent += ` (Total ${totals.ew})`;
         }
 
 function updateContractDisplay() {
@@ -1619,6 +1622,23 @@ function updateContractDisplay() {
             }
         }
 
+        /**
+         * "None"/"NS"/"EW"/"Both" (gameState.vulnerable, see server.js
+         * getVulnerability()) -> a spoken sentence. Returns null for
+         * minibridge, since its own scoring (scoreMiniDeal) ignores
+         * vulnerability entirely -- announcing it there would be misleading.
+         */
+        function vulnerabilityAnnouncement(code) {
+            if (gameMode === 'minibridge' || !code) return null;
+            switch (code) {
+                case 'NS': return 'North-South vulnerable.';
+                case 'EW': return 'East-West vulnerable.';
+                case 'Both': return 'Both sides vulnerable.';
+                case 'None': return 'Neither side vulnerable.';
+                default: return null;
+            }
+        }
+
         function handleDealStartUI() {
             // A new deal fires off a burst of state changes and announcements
             // in quick succession (previous deal's end-of-game chatter still
@@ -1631,7 +1651,10 @@ function updateContractDisplay() {
             const dealInfoArea = document.getElementById('deal-info-area');
             if (dealInfoArea) {
                 const dealLabel = dealIsReplay ? `Replaying deal ${dealNumber}` : `Deal ${dealNumber}`;
-                dealInfoArea.setAttribute('aria-label', `${dealLabel}. Dealer ${positionName(currentDealer)}.`);
+                let dealAriaLabel = `${dealLabel}. Dealer ${positionName(currentDealer)}.`;
+                const vulnText = vulnerabilityAnnouncement(gameState && gameState.vulnerable);
+                if (vulnText) dealAriaLabel += ` ${vulnText}`;
+                dealInfoArea.setAttribute('aria-label', dealAriaLabel);
                 dealInfoArea.focus({ preventScroll: true });
             }
 
@@ -1809,6 +1832,7 @@ function formatContract(contract, asHtml = false) {
             gameMode = 'bridge';
             miniState = null;
             miniScore = { ns: 0, ew: 0 };
+            bridgeScore = { ns: 0, ew: 0 };
             myPosition = null;
             myName = null;
             selectedCreatePosition = 'south';
@@ -1926,9 +1950,10 @@ function formatContract(contract, asHtml = false) {
                 { key: '', desc: '--- Game: Information Commands ---' },
                 { key: 'Alt + C', desc: 'Announce each team\'s trick count' },
                 { key: 'Alt + B', desc: 'Bridge: announce all bids made. Minibridge: announce each player\'s HCP points in turn' },
-                { key: 'Alt + X', desc: 'Announce game state and contract' },
+                { key: 'Alt + X', desc: 'Announce game state, contract and vulnerability (bridge only)' },
                 { key: 'Alt + V', desc: 'Announce current player' },
-                
+                { key: 'Alt + P', desc: 'Announce the running point total across all deals (bridge or minibridge scoring)' },
+
                 { key: '', desc: '--- Game: Quick Card Play (Highest) ---' },
                 { key: 'Ctrl + 1', desc: 'Play highest spade' },
                 { key: 'Ctrl + 2', desc: 'Play highest heart' },
@@ -2237,7 +2262,10 @@ function announceMiniPoints() {
             }
             
             let message = `Game phase: ${gameState.gamePhase}. `;
-            
+
+            const vulnText = vulnerabilityAnnouncement(gameState.vulnerable);
+            if (vulnText) message += `${vulnText} `;
+
             if (gameState.gamePhase === 'play' || gameState.gamePhase === 'end') {
                 message += `Contract: ${formatContract(gameState.contract)} by ${positionName(gameState.declarer)}. `;
                 message += `North-South tricks: ${gameState.tricks.ns}. East-West tricks: ${gameState.tricks.ew}. `;
@@ -2290,6 +2318,20 @@ function announceMiniPoints() {
             } else {
                 announceToScreenReader("No score available yet.");
             }
+        }
+
+        /**
+         * Announces the running point total across all deals played at this
+         * table so far (bridge rubber-style scoring, or minibridge's own
+         * scoring) -- not the current deal's trick count, which is Alt+C.
+         */
+        function announceMatchScore() {
+            if (!tableCode || !gameState) {
+                announceToScreenReader("No score available yet.");
+                return;
+            }
+            const totals = gameMode === 'minibridge' ? miniScore : bridgeScore;
+            announceToScreenReader(`North-South total: ${totals.ns} points. East-West total: ${totals.ew} points.`);
         }
 
         /**
@@ -2538,6 +2580,16 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                     if (e.altKey && e.key.toLowerCase() === 'v') {
                         e.preventDefault();
                         announceCurrentPlayer();
+                        return;
+                    }
+                    if (e.altKey && e.key.toLowerCase() === 'p') {
+                        e.preventDefault();
+                        // Cumulative points at the table across deals (bridge
+                        // rubber-style scoring, or minibridge's own scoring) --
+                        // distinct from Alt+C, which is just this deal's trick
+                        // count. Alt+P was freed up for this once Pass and
+                        // "read the current trick" both moved to bare P.
+                        announceMatchScore();
                         return;
                     }
                     // Card playing shortcuts - high cards
@@ -2967,6 +3019,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                 gameMode = data.gameMode === 'minibridge' ? 'minibridge' : 'bridge';
                 miniState = data.miniState || null;
                 miniScore = data.miniScore || { ns: 0, ew: 0 };
+                bridgeScore = data.bridgeScore || { ns: 0, ew: 0 };
                 if (data.table && data.table.players) tablePlayers = data.table.players;
                 if (data.table && data.table.creatorPosition) tableCreatorPosition = data.table.creatorPosition;
                 if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
@@ -3193,13 +3246,17 @@ socket.on('trickComplete', (data) => {
 
                 let message = (data.isReplay ? '(Replay) ' : '') + data.message;
 
-                if (gameMode === 'minibridge' && data.dealScore !== undefined && data.dealScore !== null) {
+                if (data.dealScore !== undefined && data.dealScore !== null) {
                     message += ` Deal score: ${Math.abs(data.dealScore)} points ${data.dealScore >= 0 ? 'for the declaring side' : 'for the defenders'}.`;
                     if (data.isReplay) {
                         message += ' This replay does not count toward the total score.';
-                    } else {
+                    } else if (gameMode === 'minibridge') {
                         miniScore = data.totalScore || miniScore;
                         message += ` Total score: North-South ${miniScore.ns}, East-West ${miniScore.ew}.`;
+                        updateScoreDisplay();
+                    } else {
+                        bridgeScore = data.totalScore || bridgeScore;
+                        message += ` Total score: North-South ${bridgeScore.ns}, East-West ${bridgeScore.ew}.`;
                         updateScoreDisplay();
                     }
                 }
