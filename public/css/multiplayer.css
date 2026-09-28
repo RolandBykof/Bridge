@@ -395,9 +395,12 @@
     grid-template-rows: 1fr 1fr 1fr;
     gap: 4px;
     
-    /* Kiinteä koko ristikolle, jotta se pysyy muodossa */
-    width: 220px; 
-    height: 180px; 
+    /* Kiinteä koko ristikolle, jotta se pysyy muodossa. Korkeutta kasvatettu
+       180px:stä 230px:ään, koska pelatun kortin label+kortti-sisältö on
+       korkeampi kuin kolme 180px:n riviä mahtuu näyttämään ilman
+       päällekkäisyyttä (ks. myös alempi korttien pienennys). */
+    width: 220px;
+    height: 230px;
     align-items: center;
     justify-items: center;
     margin: 0 auto;
@@ -446,26 +449,28 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    
+
     font-size: 1em;
     font-weight: bold;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 3px;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
     min-width: 40px;
-    min-height: 50px;
+    min-height: 48px;
     text-align: center;
 }
 
-/* Pelatut kortit - symboli ja arvo */
+/* Pelatut kortit - symboli ja arvo. Sama koko kuin omassa kädessä
+   (.card-suit/.card-rank), jotta pienennys ei tee tikin kortista
+   pienempää kuin mitä käyttäjä jo lukee omasta kädestään. */
 .played-card .card .card-suit {
-    font-size: 1.8em;
+    font-size: 1.6em;
     font-weight: 900;
 }
 
 .played-card .card .card-rank {
-    font-size: 1.2em;
+    font-size: 1.1em;
 }
 
 /* =================== BIDDING AREA - PLAY-AREAN SISÄLLÄ =================== */
@@ -849,26 +854,31 @@
         min-height: 50px;
     }
     
-    /* CHANGE: Just resize the grid, don't change columns */
+    /* CHANGE: Just resize the grid, don't change columns.
+       Korkeutta kasvatettu 140px:stä 170px:ään samasta syystä kuin
+       täyden koon ristikossa yllä. */
     .current-trick-cards {
         width: 160px;
-        height: 140px;
+        height: 170px;
     }
 
     /* Pelatun tikin kortit pienemmiksi, jotta ne mahtuvat kompassiruudukon
-       soluihin päällekkäin menemättä kapealla näytöllä. */
+       soluihin päällekkäin menemättä kapealla näytöllä. Kokoa ei kuitenkaan
+       lasketa oman käden korttia (.card-suit 1.2em / .card-rank 0.8em /
+       min-height 34px tällä leveydellä) pienemmäksi, ettei tikin kortista
+       tule vaikeaselkoisempi kuin mitä käyttäjä jo lukee omasta kädestään. */
     .played-card .card {
-        min-width: 32px;
-        min-height: 36px;
-        padding: 3px 5px;
+        min-width: 30px;
+        min-height: 34px;
+        padding: 2px 4px;
     }
 
     .played-card .card .card-suit {
-        font-size: 1.3em;
+        font-size: 1.2em;
     }
 
     .played-card .card .card-rank {
-        font-size: 0.9em;
+        font-size: 0.8em;
     }
 
     .player-label {
