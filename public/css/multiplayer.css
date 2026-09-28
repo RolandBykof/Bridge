@@ -396,11 +396,12 @@
     gap: 4px;
     
     /* Kiinteä koko ristikolle, jotta se pysyy muodossa. Korkeutta kasvatettu
-       180px:stä 230px:ään, koska pelatun kortin label+kortti-sisältö on
-       korkeampi kuin kolme 180px:n riviä mahtuu näyttämään ilman
-       päällekkäisyyttä (ks. myös alempi korttien pienennys). */
+       180px:stä 260px:ään, koska pelatun kortin label+kortti-sisältö on
+       korkeampi kuin kolme riviä mahtuu näyttämään ilman päällekkäisyyttä
+       (ks. myös alempi korttien pienennys). 230px jätti vielä laskennallisesti
+       ~7,6px/rivi vajausta oletusfontilla; 260px kattaa sen pienellä marginaalilla. */
     width: 220px;
-    height: 230px;
+    height: 260px;
     align-items: center;
     justify-items: center;
     margin: 0 auto;
@@ -855,11 +856,12 @@
     }
     
     /* CHANGE: Just resize the grid, don't change columns.
-       Korkeutta kasvatettu 140px:stä 170px:ään samasta syystä kuin
-       täyden koon ristikossa yllä. */
+       Korkeutta kasvatettu 140px:stä 195px:ään samasta syystä kuin
+       täyden koon ristikossa yllä (170px jätti vielä ~7,5px/rivi vajausta
+       oletusfontilla; 195px kattaa sen pienellä marginaalilla). */
     .current-trick-cards {
         width: 160px;
-        height: 170px;
+        height: 195px;
     }
 
     /* Pelatun tikin kortit pienemmiksi, jotta ne mahtuvat kompassiruudukon
