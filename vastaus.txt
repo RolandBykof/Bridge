@@ -1,50 +1,23 @@
-Kysymys: ilmoittaako peli jaon alkaessa haavoittuvuustiedot, ja jos ei, sen
-pitää tehdä sekä alt+x-näppäimen pitää myös kertoa tiedot.
+Kävin koodin läpi, ja ongelman syy löytyi. Suunnitelma on alla. En ole vielä muuttanut mitään.
 
-Vastaus: Ei ilmoittanut. Haavoittuvuutta ei laskettu ollenkaan ennen edellistä
-pisteytysmuutosta (ks. edellinen vastaus.txt), ja silloinkin se laskettiin vasta
-jaon PÄÄTTYESSÄ pisteytystä varten (server.js:n endGame()), ei jaon alkaessa
-eikä koskaan lähetetty asiakkaalle sellaisenaan. Alt+X (announceGameState())
-kertoi vain pelivaiheen, sopimuksen ja tikit -- ei vuorossaoloa lainkaan.
+MISTÄ ONGELMA JOHTUU
 
-Mitä tein:
+Moninpelinäkymän (index.html) pelattu tikki näytetään 3×3-ruudukkona: pohjoinen ylhäällä, länsi ja itä keskellä ja etelä alhaalla. Ruudukolla on kiinteä korkeus tiedoston public/css/multiplayer.css rivillä 404 (height: 260px), ja kapealla näytöllä 195px (rivi 864).
 
-1) Palvelin (server.js)
-   - createGameState() laskee nyt haavoittuvuuden heti jaon alussa
-     (getVulnerability(table.dealNumber), sama funktio kuin pisteytyksessä) ja
-     tallentaa sen gameState.vulnerable-kenttään ('None'/'NS'/'EW'/'Both').
-     Koska filterGameState() vain poistaa hands/originalHands-kentät eikä
-     valkolistaa mitään, tämä kulkee automaattisesti kaikkiin tapahtumiin
-     joissa gameState lähetetään asiakkaalle (jaon alku, reconnect, jne.) --
-     ei tarvinnut lisätä erillistä kenttää joka paikkaan käsin.
-   - Lasketaan kaikille pelimuodoille (myös minibridgelle), koska se on
-     halpaa eikä riko mitään -- mutta ks. kohta 3, miksi sitä ei silti
-     ilmoiteta minibridgessä.
+Yksi pelattu kortti vie tilaa noin 95–100px (pelaajan nimi, kortin symboli ja arvo, välit ja reunat). Kolme riviä vie siis lähes 300px, mikä on enemmän kuin 260px. Ruudukko ei kasva, vaan alin rivi eli etelän kortti valuu kehyksen alareunan yli. Jos selaimen tekstikokoa on suurennettu, mitä näkövammaiset käyttäjät usein tekevät, kortti jää vielä pahemmin ulos. Siksi palautteessa sanottiin, että kortti jää "melkein kokonaan" ulkopuolelle.
 
-2) Asiakas (public/index.html)
-   - Uusi apufunktio vulnerabilityAnnouncement(code), joka muuttaa koodin
-     puhutuksi lauseeksi (esim. "North-South vulnerable.") ja palauttaa null
-     minibridgessä.
-   - handleDealStartUI(): jaon alun aria-label (esim. "Deal 5. Dealer South.")
-     sisältää nyt myös vuorossaolon perässä, esim. "Deal 5. Dealer South.
-     North-South vulnerable." Tämä on sama mekanismi jolla koko jaon alku jo
-     ilmoitetaan (fokus siirretään #deal-info-area:aan, jonka aria-label NVDA
-     lukee) -- ei siis uutta erillistä ilmoitusta, vaan laajennus olemassa
-     olevaan.
-   - announceGameState() (Alt+X): kertoo nyt vuorossaolon heti pelivaiheen
-     jälkeen, ennen sopimus-/tikkitietoja, jotta se on käytettävissä myös
-     tarjousvaiheessa (vuorossaolo on tiedossa koko jaon ajan, ei vain
-     pelivaiheessa).
-   - Ohjeteksti päivitetty: "Alt + X: Announce game state, contract and
-     vulnerability (bridge only)".
+MITÄ AION TEHDÄ
 
-3) Miksi minibridge ei saa tätä ilmoitusta
-   Minibridgen oma pisteytys (scoreMiniDeal) ei käytä vuorossaoloa ollenkaan --
-   sen ilmoittaminen siellä vaikuttaisi tarkoitukselliselta säännöltä vaikka se
-   ei todellisuudessa vaikuta mihinkään minibridgen pisteisiin. Tieto
-   LASKETAAN silti taustalla minibridgellekin (harmiton), mutta
-   vulnerabilityAnnouncement() palauttaa sille aina null, joten kumpikaan
-   uusi ilmoituskohta ei koskaan mainitse sitä minibridge-pelissä.
+Muutokset tulevat vain tiedostoon public/css/multiplayer.css:
 
-Tarkistus: node --check vahvisti sekä server.js:n että index.html:n
-<script>-lohkon syntaktisesti valideiksi muutosten jälkeen.
+1. Täysikokoinen näkymä (rivit noin 395–404): Vaihdan kiinteän korkeuden height: 260px joustavaksi. Rivien korkeudeksi tulee auto, ja pienimmäksi korkeudeksi min-height: 260px. Ruudukko kasvaa silloin alaspäin niin paljon kuin kortit vaativat. Kortit mahtuvat kehykseen myös silloin, kun tekstikoko tai zoomaus on suuri.
+
+2. Kapea mobiilinäkymä (rivit noin 862–865): Teen saman muutoksen, eli height: 195px muuttuu muotoon min-height: 195px ja korkeus joustaa.
+
+3. Päivitän kyseisten kohtien suomenkieliset kommentit vastaamaan uutta toimintaa.
+
+Leveys, korttien koko ja asettelu pysyvät ennallaan. Kun tikissä on vain vähän kortteja, alue on saman kokoinen kuin nyt. Se kasvaa vain tarvittaessa.
+
+Yksinpelinäkymään (playsolo.html) en koske, koska siinä kortit ovat joustavassa rivissä eikä sama ongelma koske sitä.
+
+Saanko tehdä nämä muutokset?

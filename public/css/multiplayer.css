@@ -395,13 +395,15 @@
     grid-template-rows: 1fr 1fr 1fr;
     gap: 4px;
     
-    /* Kiinteä koko ristikolle, jotta se pysyy muodossa. Korkeutta kasvatettu
-       180px:stä 260px:ään, koska pelatun kortin label+kortti-sisältö on
-       korkeampi kuin kolme riviä mahtuu näyttämään ilman päällekkäisyyttä
-       (ks. myös alempi korttien pienennys). 230px jätti vielä laskennallisesti
-       ~7,6px/rivi vajausta oletusfontilla; 260px kattaa sen pienellä marginaalilla. */
+    /* Kiinteä leveys ja vähimmäiskorkeus, jotta ristikko pysyy muodossa.
+       Kiinteä height: 260px ei riittänyt: kolme riviä pelattuja kortteja
+       (label+kortti) vie oletusfontilla lähes 300px, jolloin etelän kortti
+       valui alueen reunuksen yli, ja suurennetulla tekstikoolla vielä enemmän.
+       min-height antaa ristikon kasvaa alaspäin sisällön mukaan; rivit pysyvät
+       silti yhtä korkeina (1fr), joten kortit eivät siirry, vaikka tikissä
+       olisi vasta osa korteista. */
     width: 220px;
-    height: 260px;
+    min-height: 260px;
     align-items: center;
     justify-items: center;
     margin: 0 auto;
@@ -856,12 +858,12 @@
     }
     
     /* CHANGE: Just resize the grid, don't change columns.
-       Korkeutta kasvatettu 140px:stä 195px:ään samasta syystä kuin
-       täyden koon ristikossa yllä (170px jätti vielä ~7,5px/rivi vajausta
-       oletusfontilla; 195px kattaa sen pienellä marginaalilla). */
+       Vähimmäiskorkeus kiinteän korkeuden sijaan samasta syystä kuin täyden
+       koon ristikossa yllä: ristikko kasvaa alaspäin sisällön mukaan, jottei
+       etelän kortti valu alueen reunuksen yli. */
     .current-trick-cards {
         width: 160px;
-        height: 195px;
+        min-height: 195px;
     }
 
     /* Pelatun tikin kortit pienemmiksi, jotta ne mahtuvat kompassiruudukon
