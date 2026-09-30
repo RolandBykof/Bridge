@@ -13,7 +13,9 @@ const ROBOTS_ONLY_DELAY_MS = 1000;
 const MAINTENANCE_INTERVAL_MS = 60 * 1000;
 
 // Arvio siitä, kauanko ruudunlukijalta kestää lukea tapahtuman ilmoitus
-// (sama 60 ms/merkki kuin selaimen ilmoitusjonossa).
+// (sama 45 ms/merkki kuin selaimen ilmoitusjonossa, MS_PER_CHAR).
+const MS_PER_CHAR = 45;
+
 function estimateReadingMs(events) {
     let chars = 0;
     for (const e of events) {
@@ -21,7 +23,7 @@ function estimateReadingMs(events) {
         else if (e.type === 'defend') chars += 45 + e.pairs.length * 30 + e.pickedUp.length * 12;
         else chars += 60;
     }
-    return Math.min(6000, chars * 60);
+    return Math.min(5000, chars * MS_PER_CHAR);
 }
 
 function attach(io, options = {}) {

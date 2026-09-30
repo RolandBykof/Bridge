@@ -74,6 +74,10 @@
 
     // ===== Ilmoitukset (Accessible Bridgen announcementQueue) =====
 
+    // Arvioitu lukuaika merkkiä kohden. Sama arvo on palvelimella robottien viiveessä
+    // (maija/socket.js, estimateReadingMs).
+    const MS_PER_CHAR = 45;
+
     const announcer = {
         queue: [],
         processing: false,
@@ -87,14 +91,16 @@
             if (!this.processing) this.next();
         },
 
-        // Vastaus käyttäjän omaan komentoon luetaan heti, ei jonon hännillä.
+        // Vastaus käyttäjän omaan toimintoon luetaan heti, ei jonon hännillä.
         // Kesken oleva ilmoitus katkeaa, mutta jonossa odottavat säilyvät.
-        addUrgent(message) {
-            if (!message) return;
-            ui.lastAnnouncement = message;
+        // Useampi viesti (esim. oma lyönti ja "Pakka loppui") luetaan peräkkäin.
+        addUrgent(messages) {
+            const list = (Array.isArray(messages) ? messages : [messages]).filter(Boolean);
+            if (list.length === 0) return;
+            ui.lastAnnouncement = list.join(' ');
             clearTimeout(this.timer);
             clearTimeout(this.showTimer);
-            this.queue.unshift(message);
+            this.queue.unshift(...list);
             this.next();
         },
 
@@ -112,7 +118,7 @@
                 speak(message);
                 // Arvio siitä, kauanko ruudunlukijalta kestää lukea viesti, jotta
                 // seuraava ilmoitus ei ylikirjoita sitä kesken.
-                const duration = Math.max(400, Math.min(6000, message.length * 60));
+                const duration = Math.max(400, Math.min(5000, message.length * MS_PER_CHAR));
                 this.timer = setTimeout(() => this.next(), duration);
             }, 50);
         },
@@ -373,11 +379,38 @@
         }
     }
 
+    function isOwnMove(e) {
+        return (e.type === 'attack' && isMe(e.attackerId, e.attackerName))
+            || (e.type === 'defend' && isMe(e.defenderId, e.defenderName));
+    }
+
+    // Oman siirron tulos ja sen välittömät seuraukset (pakka loppui, pois pääsy,
+    // pelin loppu ja seuraava vuoro) kerätään yhteen ja luetaan heti jonon kärjestä.
+    // Palvelin lähettää siirron tapahtumat ja heti perään uuden tilan, jolloin ryhmä luetaan.
+    const OWN_MOVE_FOLLOWUPS = ['deck-empty', 'out', 'over'];
+
+    function flushOwnMove(turnText) {
+        clearTimeout(ui.ownMoveTimer);
+        const batch = ui.ownMove;
+        ui.ownMove = null;
+        if (batch) announcer.addUrgent([...batch, turnText]);
+        else if (turnText) announce(turnText);
+    }
+
     function handleEvent(e) {
         const text = eventText(e);
         if (text) {
-            announce(text);
             addLog(text);
+            if (isOwnMove(e)) {
+                ui.ownMove = [text];
+                // Varmistus siltä varalta, ettei tila saavu: luetaan ryhmä silti.
+                clearTimeout(ui.ownMoveTimer);
+                ui.ownMoveTimer = setTimeout(() => flushOwnMove(null), 300);
+            } else if (ui.ownMove && OWN_MOVE_FOLLOWUPS.includes(e.type)) {
+                ui.ownMove.push(text);
+            } else {
+                announce(text);
+            }
         }
         if (e.type === 'start') {
             ui.selected.clear();
@@ -393,14 +426,15 @@
     }
 
     // Kun vuoro vaihtuu, kerrotaan kuka on vuorossa. Oma vuoro saa lisäksi äänen.
-    function announceTurnChange() {
+    // Palauttaa vuoroilmoituksen tekstin, jos vuoro vaihtui (muuten null).
+    function turnChangeText() {
         const g = game();
         if (!g || g.phase === 'over') {
             ui.previousTurnKey = g ? 'over' : null;
-            return;
+            return null;
         }
         const key = `${g.phase}:${g.attackerId}:${g.defenderId}`;
-        if (key === ui.previousTurnKey) return;
+        if (key === ui.previousTurnKey) return null;
         ui.previousTurnKey = key;
         ui.pendingPickup = false;
 
@@ -408,15 +442,16 @@
         const defender = nameOf(g.defenderId);
         if (g.phase === 'attack') {
             if (g.attackerId === myId()) {
-                announce(`Sinun vuorosi lyödä pelaajalle ${defender}. Voit lyödä enintään ${korttiaObj(g.maxAttack)}.`);
                 playTurnCue();
-            } else {
-                announce(`Vuorossa: ${attacker} lyö pelaajalle ${defender}.`);
+                return `Sinun vuorosi lyödä pelaajalle ${defender}. Voit lyödä enintään ${korttiaObj(g.maxAttack)}.`;
             }
-        } else if (g.phase === 'defend' && g.defenderId === myId()) {
-            announce('Sinun vuorosi kaataa. Valitse kaatavat kortit ja paina L.');
-            playTurnCue();
+            return `Vuorossa: ${attacker} lyö pelaajalle ${defender}.`;
         }
+        if (g.phase === 'defend' && g.defenderId === myId()) {
+            playTurnCue();
+            return 'Sinun vuorosi kaataa. Valitse kaatavat kortit ja paina L.';
+        }
+        return null;
     }
 
     // ===== Piirto =====
@@ -1237,7 +1272,7 @@
     socket.on('state', (state) => {
         ui.state = state;
         render();
-        announceTurnChange();
+        flushOwnMove(turnChangeText());
     });
 
     socket.on('game-event', handleEvent);
