@@ -838,6 +838,27 @@
         respond(`${text} ${selectionSummary()}`);
     }
 
+    const SUIT_PLURALS = { spades: 'padat', hearts: 'hertat', diamonds: 'ruudut', clubs: 'ristit' };
+
+    // Valitsee maan kaikki kortit. Jos ne ovat jo kaikki valittuina, valinta poistetaan.
+    function toggleSuit(suit) {
+        const g = game();
+        if (!g || g.hand === null) return;
+        const cards = myHand().filter(c => c.suit === suit);
+        if (cards.length === 0) {
+            respond(`${SUIT_NONE[suit]}.`);
+            return;
+        }
+        const ids = cards.map(cardId);
+        const allSelected = ids.every(id => ui.selected.has(id));
+        ids.forEach(id => (allSelected ? ui.selected.delete(id) : ui.selected.add(id)));
+        refreshSelection();
+        const list = formatCardList(cards);
+        respond(allSelected
+            ? `Poistettu kaikki ${SUIT_PLURALS[suit]}: ${list}. ${selectionSummary()}`
+            : `Valittu kaikki ${SUIT_PLURALS[suit]}: ${list}. ${selectionSummary()}`);
+    }
+
     function clearSelection() {
         const count = selectedCards().length;
         ui.selected.clear();
@@ -969,9 +990,11 @@
         }
         const cards = selectedCards();
         const total = myHand().length;
-        respond(cards.length === 0
+        const own = cards.length === 0
             ? `Sinulla on ${korttia(total)}, ei valittuja.`
-            : `Sinulla on ${korttia(total)}, joista ${cards.length} valittu: ${formatCardList(cards)}.`);
+            : `Sinulla on ${korttia(total)}, joista ${cards.length} valittu: ${formatCardList(cards)}.`;
+        const deck = g.deckCount > 0 ? `Pakassa on ${korttia(g.deckCount)}.` : 'Pakka on loppu.';
+        respond(`${own} ${deck}`);
     }
 
     function readTurn() {
@@ -1096,8 +1119,14 @@
         }
         if (SUIT_KEYS[key]) {
             e.preventDefault();
-            ui.pendingSuit = SUIT_KEYS[key];
             ui.pendingPickup = false;
+            // Sama maakirjain kahdesti (esim. S S) valitsee maan kaikki kortit.
+            if (ui.pendingSuit === SUIT_KEYS[key]) {
+                ui.pendingSuit = null;
+                toggleSuit(SUIT_KEYS[key]);
+                return;
+            }
+            ui.pendingSuit = SUIT_KEYS[key];
             respond(`${capitalize(SUIT_NAMES[ui.pendingSuit])}, anna arvo.`);
             return;
         }
