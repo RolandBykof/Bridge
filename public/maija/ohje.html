@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ohje – Musta Maija</title>
+    <link rel="stylesheet" href="css/maija.css">
+    <style>
+        .guide p, .guide li { max-width: 42rem; }
+        .guide table { border-collapse: collapse; width: 100%; background: var(--surface); }
+        .guide th, .guide td { border: 1px solid var(--rule); padding: .5rem .75rem; text-align: left; vertical-align: top; }
+        .guide thead th { background: var(--area-bg); }
+        .table-wrap { overflow-x: auto; }
+        kbd { font-family: Consolas, "Courier New", monospace; border: 1px solid var(--area-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 .3em; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Siirry sisältöön</a>
+    <header class="site-header">
+        <h1>Musta Maija – ohje</h1>
+        <nav aria-label="Takaisin" class="header-tools"><a href="index.html">Takaisin peliin</a></nav>
+    </header>
+    <main id="main" class="guide">
+        <h2>Säännöt lyhyesti</h2>
+        <ul>
+            <li>Peliä pelataan 52 kortin pakalla, ja siihen tarvitaan 2–5 pelaajaa. Jokainen saa aluksi viisi korttia.</li>
+            <li>Pakan pohjimmainen kortti käännetään näkyviin, ja sen maa on valtti. Pata ei voi olla valtti. Valttikortti nostetaan pakasta viimeisenä.</li>
+            <li>Arvojärjestys on 2–10, jätkä, rouva, kuningas, ässä. Ässä on korkein.</li>
+            <li>Vuorossa oleva pelaaja lyö seuraavalle 1–5 saman maan korttia. Lyödä saa enintään niin monta korttia kuin vastaanottajalla on kädessä.</li>
+            <li>Vastaanottaja kaataa lyödyt kortit saman maan korkeammilla korteilla tai valtilla. Valtin kaataa vain korkeampi valtti.</li>
+            <li><strong>Musta Maijaa eli pata rouvaa ei voi kaataa, eikä sillä voi kaataa.</strong></li>
+            <li>Kaatamatta jääneet kortit nostetaan automaattisesti kaatajan käteen.</li>
+            <li>Jos kaataja kaatoi kaiken, hän lyö seuraavaksi. Muuten vuoro siirtyy hänen ohitseen seuraavalle.</li>
+            <li>Kortteja nostetaan pakasta niin, että kädessä on viisi korttia, niin kauan kuin pakassa on kortteja. Kun pakka loppuu, alkaa loppukiri.</li>
+            <li>Kun pakka on loppu, se jonka kädestä loppuvat kortit pääsee pois pelistä. Viimeiseksi jäänyt pelaaja pitää pata rouvaa, ja hänestä tulee Musta Maija.</li>
+            <li>Jakovuoro kiertää: jokaisessa uudessa pelissä jakaja vaihtuu istumajärjestyksessä seuraavaan. Kortit jaetaan jakajaa seuraavasta alkaen, ja jakajaa seuraava pelaaja aloittaa. Ensimmäisen pelin jakaja arvotaan.</li>
+        </ul>
+
+        <h2>Pöydät</h2>
+        <ul>
+            <li><strong>Luo pöytä</strong> antaa nelinumeroisen pöytäkoodin. Anna koodi muille, tai kopioi linkki painikkeella <em>Kopioi linkki</em>.</li>
+            <li>Muut liittyvät kohdassa <strong>Liity pöytään</strong> kirjoittamalla pöytäkoodin ja oman nimensä. Linkin kautta tultaessa koodi on valmiiksi täytetty.</li>
+            <li>Vain <strong>pöydän luoja</strong> voi lisätä ja poistaa robotteja sekä aloittaa ja keskeyttää pelin. Jos luojan yhteys on poikki yli viisi minuuttia, oikeudet siirtyvät pisimpään pöydässä olleelle.</li>
+            <li>Jos lataat sivun uudelleen, palaat samaan pöytään ja samalle paikalle.</li>
+            <li>Käyttämätön pöytä suljetaan automaattisesti.</li>
+        </ul>
+
+        <h2>Robotit</h2>
+        <ul>
+            <li>Pöydän luoja lisää robotin odotushuoneessa painikkeella <strong>Lisää robotti</strong>. Robotteja voi olla useita, mutta pöydässä on enintään viisi pelaajaa ihmiset ja robotit yhteensä.</li>
+            <li>Peliin tarvitaan vähintään kaksi pelaajaa, ja heistä yhden on oltava ihminen. Yksin voi siis pelata robotteja vastaan.</li>
+            <li>Robotin voi poistaa sen vieressä olevalla <strong>Poista</strong>-painikkeella. Pelin päätyttyä luoja pääsee takaisin odotushuoneeseen painikkeella <em>Odotushuoneeseen</em>.</li>
+            <li><strong>Robottien nopeus</strong> (hidas, normaali, nopea) määrää, kauanko robotti odottaa ennen siirtoaan. Odotusaikaan lisätään edellisen ilmoituksen lukemiseen kuluva aika, jotta ehdit kuulla, mitä tapahtui.</li>
+            <li>Robotin vuorolla vuoropalkissa lukee "miettii…". Robotin siirrot ilmoitetaan samalla tavalla kuin muiden pelaajien siirrot.</li>
+        </ul>
+
+        <h2>Korttien valinta näppäimistöllä</h2>
+        <p>Kortti valitaan painamalla ensin maata ja sitten arvoa. Esimerkiksi <kbd>S</kbd> ja sitten <kbd>2</kbd> valitsee kortin pata 2. Kortteja voi valita useita peräkkäin. Kun valitset jo valitun kortin uudelleen, sen valinta poistuu. Kun kortit on valittu, paina <kbd>L</kbd>.</p>
+        <div class="table-wrap">
+        <table>
+            <caption class="sr-only">Maat ja arvot</caption>
+            <thead><tr><th scope="col">Näppäin</th><th scope="col">Merkitys</th></tr></thead>
+            <tbody>
+                <tr><td><kbd>S</kbd></td><td>pata</td></tr>
+                <tr><td><kbd>H</kbd></td><td>hertta</td></tr>
+                <tr><td><kbd>D</kbd></td><td>ruutu</td></tr>
+                <tr><td><kbd>C</kbd></td><td>risti</td></tr>
+                <tr><td><kbd>A</kbd> <kbd>K</kbd> <kbd>Q</kbd> <kbd>J</kbd></td><td>ässä, kuningas, rouva, jätkä</td></tr>
+                <tr><td><kbd>T</kbd> tai <kbd>1</kbd></td><td>10</td></tr>
+                <tr><td><kbd>2</kbd>–<kbd>9</kbd></td><td>2–9</td></tr>
+            </tbody>
+        </table>
+        </div>
+
+        <h2>Kaikki näppäinkomennot</h2>
+        <p>Komennot eivät toimi, kun kirjoitat tekstikenttään.</p>
+        <div class="table-wrap">
+        <table>
+            <caption class="sr-only">Näppäinkomennot</caption>
+            <thead><tr><th scope="col">Näppäin</th><th scope="col">Toiminto</th></tr></thead>
+            <tbody>
+                <tr><td>Maa + arvo, esim. <kbd>S</kbd> <kbd>2</kbd></td><td>Valitse kortti tai poista valinta.</td></tr>
+                <tr><td><kbd>L</kbd></td><td>Jos pöytä on tyhjä ja on sinun vuorosi, valitut kortit lyödään. Jos pöydässä on kortteja ja on sinun vuorosi kaataa, valituilla korteilla kaadetaan, ja kaatamatta jääneet nostetaan käteesi. Jos et ole valinnut kortteja, kahdesti painettu L nostaa kaikki pöydän kortit.</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Nollaa valinnat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>A</kbd></td><td>Lue padat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Lue hertat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>D</kbd></td><td>Lue ruudut.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>F</kbd></td><td>Lue ristit.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>G</kbd></td><td>Lue koko käsi.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>P</kbd></td><td>Pöydän viimeisin tapahtuma, esim. "Kalle löi pelaajalle Liisa 3 korttia: pata 2, 3, 4".</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>X</kbd></td><td>Montako korttia sinulla on ja montako niistä on valittu.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>V</kbd></td><td>Kenen vuoro on.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>C</kbd></td><td>Montako korttia voit lyödä eli montako korttia vastaanottajalla on.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>Y</kbd></td><td>Yhteenveto: pöytäkoodi, valtti, jakaja, pakka, pelaajien korttimäärät ja pois päässeet.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>I</kbd></td><td>Toista viimeisin ilmoitus.</td></tr>
+            </tbody>
+        </table>
+        </div>
+
+        <h2>Hiiri ja kosketusnäyttö</h2>
+        <p>Valitse kortti napsauttamalla tai napauttamalla sitä. Valittu kortti nousee ylös, ja sen reunus muuttuu siniseksi ja paksuksi. Painike <em>Lyö valitut</em> tai <em>Kaada valituilla</em> tekee saman kuin <kbd>L</kbd>. Kun kortteja ei ole valittu, painikkeesta tulee <em>Nosta kaikki</em>, joka kysyy vahvistuksen.</p>
+
+        <h2>Kenen vuoro?</h2>
+        <p>Vuorossa olevan pelaajan laatikossa on paksu sininen reunus ja teksti "▶ VUOROSSA". Kun on sinun vuorosi, sivun yläosaan tulee sininen palkki, oman käden alue korostuu, kuuluu merkkiääni ja välilehden otsikko muuttuu muotoon "▶ Sinun vuorosi".</p>
+
+        <h2>Asetukset</h2>
+        <p><em>Äänet</em> kytkee pelin äänet päälle ja pois. <em>Puhesynteesi</em> lukee ilmoitukset selaimen suomenkielisellä puheella. Jos käytät ruudunlukijaa, puhesynteesi kannattaa pitää pois päältä, jotta samoja ilmoituksia ei kuulu kahdesti.</p>
+    </main>
+</body>
+</html>

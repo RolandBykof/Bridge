@@ -1,23 +1,119 @@
-Kävin koodin läpi, ja ongelman syy löytyi. Suunnitelma on alla. En ole vielä muuttanut mitään.
+ARVIO PALAUTTEESTA (palaute.txt) JA SUUNNITELMA PARANNUKSISTA
 
-MISTÄ ONGELMA JOHTUU
+Koodia ei ole vielä muutettu. Arvio perustuu moninpelinäkymän koodiin (public/index.html ja public/css/multiplayer.css). En nähnyt palautteen antajan kuvakaappausta, joten kohta 1 on arvioitu koodin ja mittojen perusteella. Kontrastit on laskettu WCAG-kaavalla koodissa olevista väreistä.
 
-Moninpelinäkymän (index.html) pelattu tikki näytetään 3×3-ruudukkona: pohjoinen ylhäällä, länsi ja itä keskellä ja etelä alhaalla. Ruudukolla on kiinteä korkeus tiedoston public/css/multiplayer.css rivillä 404 (height: 260px), ja kapealla näytöllä 195px (rivi 864).
+Yhteenveto: palaute on pääosin totta. Kuusi kohtaa kahdeksasta pitää paikkansa sellaisenaan. Kohta 5 (haaleat tekstit) pitää paikkansa vain osittain: kontrasti täyttää vaatimuksen, mutta teksti on hyvin pientä. Lisäksi löysin tarkistuksen aikana tummasta tilasta vakavan virheen, jota palautteessa ei mainita.
 
-Yksi pelattu kortti vie tilaa noin 95–100px (pelaajan nimi, kortin symboli ja arvo, välit ja reunat). Kolme riviä vie siis lähes 300px, mikä on enemmän kuin 260px. Ruudukko ei kasva, vaan alin rivi eli etelän kortti valuu kehyksen alareunan yli. Jos selaimen tekstikokoa on suurennettu, mitä näkövammaiset käyttäjät usein tekevät, kortti jää vielä pahemmin ulos. Siksi palautteessa sanottiin, että kortti jää "melkein kokonaan" ulkopuolelle.
 
-MITÄ AION TEHDÄ
+1. KOKO PÖYTÄ EI MAHDU NÄKYMÄÄN KERRALLA – todennäköisesti totta
 
-Muutokset tulevat vain tiedostoon public/css/multiplayer.css:
+Havainnot koodista:
+- Tikkiruudukolla on vähimmäiskorkeus 260px, ja jokainen pelattu kortti vie noin 95–100px korkeutta. Ruudukossa on kolme riviä, vaikka kortteja on vain neljä. Tikkialue vie siksi otsikkoineen noin 330px, mikä on noin kolmannes 1080px:n näytön näkyvästä korkeudesta.
+- Tikin yläpuolella ovat vielä sivun pääotsikko, tilarivi, Help- ja Back-painikkeet, pisterivi ja pohjoisen käsi. Oma käsi jää helposti näytön alareunan alle.
+- Pohjoisen otsikon leikkautuminen yläreunasta johtuu todennäköisesti siitä, että sivu vierii kohti omaa kättä. Tämä pitää varmistaa selaimessa.
 
-1. Täysikokoinen näkymä (rivit noin 395–404): Vaihdan kiinteän korkeuden height: 260px joustavaksi. Rivien korkeudeksi tulee auto, ja pienimmäksi korkeudeksi min-height: 260px. Ruudukko kasvaa silloin alaspäin niin paljon kuin kortit vaativat. Kortit mahtuvat kehykseen myös silloin, kun tekstikoko tai zoomaus on suuri.
+Suunnitelma:
+- Tiivistetään tikkialue: pienennetään pelatun kortin sisä- ja ulkoreunuksia ja rivien välejä. Pienimmäksi korkeudeksi asetetaan se, mitä kortit oikeasti tarvitsevat. Korttien kirjasinkokoa ei pienennetä.
+- Tiivistetään tikkialueen yläpuolisia välejä (sopimusrivi, otsikon marginaali).
+- Tavoite: koko pöytä, eli pohjoinen, länsi, tikki, itä ja oma käsi, mahtuu 1920×1080-näytölle ilman vierittämistä 100 %:n zoomilla. Tämä mitataan selaimessa ennen ja jälkeen muutoksen.
+- Selvitetään selaimessa, miksi pohjoisen otsikko leikkautuu, ja korjataan syy.
 
-2. Kapea mobiilinäkymä (rivit noin 862–865): Teen saman muutoksen, eli height: 195px muuttuu muotoon min-height: 195px ja korkeus joustaa.
 
-3. Päivitän kyseisten kohtien suomenkieliset kommentit vastaamaan uutta toimintaa.
+2. RUUDUN ORANSSI ON HEIKKO – totta
 
-Leveys, korttien koko ja asettelu pysyvät ennallaan. Kun tikissä on vain vähän kortteja, alue on saman kokoinen kuin nyt. Se kasvaa vain tarvittaessa.
+- Ruudun väri #d97706 valkoisella taustalla on noin 3,2:1 ja tikin kortin vaalealla taustalla noin 3,1:1. Maasymboli ylittää niukasti graafisten elementtien 3:1-rajan. Kortin arvo (esim. Q) on kuitenkin tekstiä, ja sen pitäisi olla vähintään 4,5:1. Se jää selvästi alle.
+- Punainen (#dc2626) ja vihreä (#15803d) ovat lähes yhtä kirkkaita, joten puna-vihersokea ei erota niitä värin perusteella. Olen samaa mieltä palautteen kanssa: erimuotoiset maasymbolit riittävät, joten tämä ei ole kriittinen.
+- Lisähavainto: tarjousnapeissa ruutu on punainen ja risti musta, eli niissä on käytössä kaksivärinen pakka. Käsissä ja tikissä on nelivärinen. Epäjohdonmukaisuus voi hämmentää.
 
-Yksinpelinäkymään (playsolo.html) en koske, koska siinä kortit ovat joustavassa rivissä eikä sama ongelma koske sitä.
+Suunnitelma:
+- Vaihdetaan ruudun väriksi tummempi ruskeanoranssi #b45309. Sen kontrasti on noin 5,0:1, joten se täyttää myös tekstin vaatimuksen. Väri erottuu yhä hertan punaisesta.
+- Yhtenäistetään tarjousnapit samaan nelivärimalliin kuin kortit (pata musta, hertta punainen, ruutu ruskeanoranssi, risti vihreä).
+- Tarkistetaan, käytetäänkö samaa oranssia myös yksinpelissä (main.css/playsolo.html). Jos käytetään, korjataan sekin.
 
-Saanko tehdä nämä muutokset?
+
+3. TIKIN TILAA EI NÄE – totta
+
+- Tikkinäkymä näyttää vain neljä korttia pelaajien nimineen. Palvelin kertoo tikin voittajan (trickComplete-viesti), mutta tietoa käytetään vain ruudunlukijan ilmoitukseen. Näkyvään tikkiin sitä ei merkitä.
+- Johtajaa ei merkitä, vaikka tieto on saatavilla: tikin ensimmäinen kortti on aina johtajan kortti.
+- Täysi tikki jää näkyviin, kunnes seuraava kortti pelataan, joten voittajan ehtisi hyvin näyttää.
+
+Suunnitelma:
+- Merkitään johtajan kortti pienellä tekstimerkinnällä, esim. "Led".
+- Kun tikki on valmis, voittajakortti korostetaan paksulla reunuksella ja tekstillä "Wins". Korostus ei perustu pelkkään väriin.
+- Tikin alle lisätään tekstirivi, joka kertoo, kenen vuoro on seuraavaksi (esim. "Next: North").
+- Merkinnät poistuvat, kun seuraava tikki alkaa. Ruudunlukijan nykyiset ilmoitukset säilyvät ennallaan.
+
+
+4. LÄNNEN JA IDÄN LAATIKOT OVAT IRRALLISIA – totta
+
+- Kun kättä ei näytetä, laatikossa lukee vain nimi, esim. "West (Robot)". Korttimäärää tai muuta tietoa ei ole.
+- Laatikot on tasattu ylös (align-items: flex-start), joten ne ovat tikin yläkulman tasolla eivätkä sen sivuilla keskellä.
+
+Suunnitelma:
+- Keskitetään länsi ja itä pystysuunnassa tikkialueen sivuille.
+- Lisätään laatikkoon jäljellä olevien korttien määrä (esim. "8 cards"). Pitää ensin tarkistaa, lähettääkö palvelin piilotettujen käsien korttimäärän. Jos ei lähetä, määrä voidaan laskea pelattujen tikkien perusteella.
+- Laatikoille annetaan kiinteä vähimmäisleveys, jotta ne eivät näytä pieniltä irrallisilta nappuloilta.
+
+
+5. TIKKIALUEEN TEKSTIT OVAT HAALEITA – osittain totta
+
+- Kontrasti täyttää vaatimuksen: otsikko "CURRENT TRICK" (#475569 vaaleanharmaalla) on noin 6,7:1, ja pelaajien nimet (#6b7280 valkoisella) noin 4,8:1. Nimet ovat kuitenkin vain niukasti 4,5:1-rajan yläpuolella.
+- Varsinainen ongelma on koko: nimet ovat 0,7em (noin 11px) ja otsikko 0,8em, ja molemmat ovat versaalia ja harvennettua. Heikkonäköiselle ne ovat raskaita lukea, vaikka kontrasti riittää.
+
+Suunnitelma:
+- Suurennetaan pelaajien nimet noin 0,85em:iin ja otsikko noin 0,9em:iin.
+- Tummennetaan tekstien väri noin #374151:ksi (kontrasti noin 10:1).
+- Harkitaan versaalin poistamista, koska tavallinen kirjoitusasu on helpompi lukea.
+
+
+6. KEHYSTEN MERKITYS ON EPÄSELVÄ – totta
+
+- Yhtenäinen sininen kehys tarkoittaa vuorossa olevaa kättä ja katkoviivainen violetti kehys lepääjää. Merkityksiä ei kerrota näkyvästi missään.
+- Kun käyttäjä itse on lepääjä, oman käden otsikossa ei lue mitään lisätietoa, koska omalle kädelle ei näytetä tyyppiä. Siksi etelän violetti katkoviiva jää täysin selittämättä.
+
+Suunnitelma:
+- Lisätään käden otsikkoon aina näkyvä tekstimerkintä: "Dummy" lepääjälle (myös omalle kädelle) ja "Your turn" tai "Turn" vuorossa olevalle kädelle. Kehys säilyy, mutta merkitys ei ole enää pelkän värin ja viivatyylin varassa.
+- Lisätään selitys Help-näkymään.
+
+
+7. KORTIT NÄYTTÄVÄT ERILAISILTA KÄDESSÄ JA TIKISSÄ – totta
+
+- Kädessä kortilla on 2px musta reunus. Tikissä kortilla on 1px vaaleanharmaa reunus, ja sen ympärillä on vielä toinen harmaa laatikko, jolloin kehyksiä on kaksi sisäkkäin.
+- Lisähavainto: tikin kortti liikahtaa, kun hiiren vie sen päälle, vaikka korttia ei voi klikata. Se on turha ja häiritsevä liike.
+
+Suunnitelma:
+- Annetaan tikin kortille sama 2px musta reunus ja valkoinen tausta kuin kädessä.
+- Poistetaan ulompi harmaa laatikko tai kevennetään sitä, ja poistetaan hover-liike tikin korteilta.
+
+
+8. OTSIKON SULUT OVAT SISÄKKÄIN – totta
+
+- Koodi tuottaa tekstin "North (Declarer, Robot (You control))", koska tyyppiteksti "Declarer, Robot (You control)" kääritään vielä toisiin sulkuihin.
+
+Suunnitelma:
+- Muutetaan muoto viivalla eroteltuun luetteloon, esim. "North – declarer, robot, you control" ja "North – dummy, you control". Käyttöliittymä on englanninkielinen, joten tekstit pysyvät englanniksi.
+- Käytetään samaa muotoa myös laatikoissa, joissa näytetään vain nimi, esim. "West – robot".
+
+
+9. LISÄHAVAINTO: TUMMAN TILAN VAKAVA VIRHE – ei palautteessa, mutta tärkeä
+
+Jos käyttäjän käyttöjärjestelmässä on tumma tila päällä, näkymässä on kolme lähes näkymätöntä kohtaa:
+- Padan väri on tummassa tilassa vaaleanharmaa #e5e7eb, mutta kortit pysyvät valkoisina. Padan symboli ja arvo ovat valkoisella lähes näkymättömiä (kontrasti noin 1,2:1).
+- Pelkän nimen näyttävissä laatikoissa (esim. "West (Robot)") teksti on vaaleaa #e2e8f0 valkoisella taustalla, joten sekin on lähes näkymätön.
+- Vuorossa olevan käden tausta muuttuu tummaksi (#1a2c35), mutta otsikkoteksti pysyy tummana (#1f2937), joten otsikko katoaa.
+
+Suunnitelma:
+- Koska kortit ja laatikot pysyvät tummassakin tilassa valkoisina, pidetään padan ja tekstien värit tummina myös tummassa tilassa. Vaihtoehtoisesti koko näkymä muutetaan johdonmukaisesti tummaksi.
+- Vuorossa olevan käden korostukselle valitaan tummassa tilassa väri, jolla otsikko on luettava.
+
+
+EHDOTETTU TOTEUTUSJÄRJESTYS
+
+1. Tumman tilan virheet (kohta 9), koska ne voivat tehdä kortit lukukelvottomiksi.
+2. Pöydän tiivistäminen ja sivulaatikoiden keskittäminen (kohdat 1 ja 4). Nämä kannattaa tehdä yhdessä, koska molemmat koskevat samaa asettelua.
+3. Tikin johtaja, voittaja ja seuraava vuoro (kohta 3).
+4. Ruudun väri ja tarjousnappien värit (kohta 2).
+5. Kehysten tekstimerkinnät ja otsikoiden muoto (kohdat 6 ja 8). Nämä koskevat samaa otsikkoriviä.
+6. Tikkialueen tekstien koko ja korttien yhtenäinen ulkoasu (kohdat 5 ja 7).
+
+Jokaisen vaiheen jälkeen tarkistetaan selaimessa täysikokoinen näkymä, kapea näkymä, suurennettu tekstikoko ja tumma tila. Lisäksi varmistetaan, etteivät ruudunlukijan ilmoitukset muutu.

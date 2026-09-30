@@ -1,0 +1,19 @@
+muutama asia pistää silmään. Tässä ne suunnilleen tärkeysjärjestyksessä.
+
+**Koko pöytä ei mahdu näkymään kerralla.** Pohjoisen käden otsikko on leikkautunut yläreunasta, ja etelän kortit jatkuvat alareunan yli, joten niistä näkyy vain maasymbolien yläosat. Jo 1920 pikseliä leveällä näytöllä pelaajan pitää vierittää nähdäkseen oman kätensä, lepääjän ja tikin yhtä aikaa. Tikin keskialue vie paljon pystytilaa, vaikka siinä on vain neljä pientä korttia, ja siitä saisi tiiviimmän.
+
+**Ruutujen oranssi on heikko kontrastiltaan.** Pakassa on neljä väriä: pata musta, hertta punainen, ruutu oranssi ja risti vihreä. Oranssi valkoisella taustalla jää todennäköisesti alle WCAG:n 3:1-rajan graafisille elementeille, ja ohut oranssi Q-kirjain on vaikeimmin luettava merkki koko näkymässä. Tummempi oranssi tai ruskeanoranssi auttaisi. Punainen ja vihreä voivat lisäksi mennä sekaisin puna-vihersokealla, mutta koska maasymbolit ovat erimuotoiset, se ei ole kriittistä.
+
+**Tikin tilaa ei näe.** Tikissä on neljä korttia, mutta mikään ei kerro, kuka johti, kuka voitti (pohjoisen ♣A) tai kenen vuoro on seuraavaksi. Voittavan kortin korostus ja johtajan merkintä helpottaisivat hahmottamista huomattavasti.
+
+**Lännen ja idän laatikot ovat tyhjiä ja irrallisen näköisiä.** Niissä on vain teksti "West (Robot)" ja "East (Robot)" ilman korttimäärää tai muuta sisältöä. Ne myös istuvat tikkialueen yläkulman tasolla eivätkä sen sivuilla keskellä, joten yhteys pöydän ilmansuuntiin jää epäselväksi.
+
+**Tikkialueen tekstit ovat haaleita.** Otsikot "CURRENT TRICK", "NORTH", "WEST" ja niin edelleen ovat harmaata pientä tekstiä vaaleanharmaalla taustalla, mikä voi jäädä alle tekstin 4,5:1-kontrastivaatimuksen.
+
+**Kehysten merkitys on epäselvä.** Pohjoisella on yhtenäinen sininen kehys ja etelällä katkoviivainen violetti kehys. Jos katkoviiva tarkoittaa lepääjää tai vuorossa olevaa kättä, sitä ei kerrota missään, joten ero jää arvailun varaan.
+
+**Kortit näyttävät eri tavalla kädessä ja tikissä.** Kädessä korteilla on paksu musta reunus, tikissä ohut harmaa. Tämä ei ole virhe, mutta yhtenäisempi ulkoasu tekisi korteista helpommin tunnistettavia samoiksi asioiksi.
+
+**Otsikon sulut ovat sisäkkäin.** "North (Declarer, Robot (You control))" on raskas lukea. Selkeämpi muoto olisi esimerkiksi "North – pelinviejä, robotti, sinä ohjaat".
+
+Suurimmat hyödyt saisi todennäköisesti ensimmäisestä ja kolmannesta: jos pöytä mahtuu yhteen näkymään ja tikin voittaja näkyy suoraan, näkevän pelaajan kokonaiskuva paranee selvästi.

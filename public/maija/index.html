@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musta Maija</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E♠%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/maija.css">
+</head>
+<body>
+    <a class="skip" href="#main">Siirry sisältöön</a>
+
+    <header class="site-header">
+        <h1>Musta Maija</h1>
+        <nav aria-label="Asetukset ja ohje" class="header-tools">
+            <a href="ohje.html" target="_blank" rel="noopener">Ohje ja näppäinkomennot</a>
+            <label><input type="checkbox" id="sound-toggle" checked> Äänet</label>
+            <label><input type="checkbox" id="speech-toggle"> Puhesynteesi</label>
+        </nav>
+    </header>
+
+    <!-- Ilmoitukset ruudunlukijalle. Jono huolehtii siitä, etteivät ilmoitukset ylikirjoita toisiaan. -->
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <main id="main">
+        <section id="start-view" aria-labelledby="start-heading">
+            <h2 id="start-heading">Pelaa Musta Maijaa</h2>
+            <p id="start-error" class="error" role="alert"></p>
+            <div class="start-grid">
+                <section class="panel" aria-labelledby="create-heading">
+                    <h3 id="create-heading">Luo pöytä</h3>
+                    <p>Saat pöytäkoodin, jonka voit antaa muille. Voit myös pelata robotteja vastaan.</p>
+                    <form id="create-form" class="stack-form">
+                        <label for="create-name">Nimesi</label>
+                        <input type="text" id="create-name" maxlength="20" autocomplete="nickname" required>
+                        <button type="submit">Luo pöytä</button>
+                    </form>
+                </section>
+                <section class="panel" aria-labelledby="join-heading">
+                    <h3 id="join-heading">Liity pöytään</h3>
+                    <form id="join-form" class="stack-form">
+                        <label for="join-code">Pöytäkoodi (4 numeroa)</label>
+                        <input type="text" id="join-code" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+                        <label for="join-name">Nimesi</label>
+                        <input type="text" id="join-name" maxlength="20" autocomplete="nickname" required>
+                        <button type="submit">Liity pöytään</button>
+                    </form>
+                </section>
+            </div>
+            <p class="back-link"><a href="../">Takaisin Bridgeen</a></p>
+        </section>
+
+        <section id="lobby-view" aria-labelledby="lobby-heading" hidden>
+            <h2 id="lobby-heading">Odotushuone</h2>
+            <div class="panel">
+                <p class="table-code">Pöytäkoodi: <strong id="lobby-code"></strong>
+                    <button type="button" id="copy-link-button" class="secondary">Kopioi linkki</button></p>
+                <p id="lobby-info"></p>
+                <h3 id="members-heading">Pöydässä</h3>
+                <ul id="lobby-members" class="member-list" aria-labelledby="members-heading"></ul>
+                <div id="creator-tools" class="creator-tools" hidden>
+                    <button type="button" id="add-robot-button" class="secondary">Lisää robotti</button>
+                    <label for="robot-speed">Robottien nopeus</label>
+                    <select id="robot-speed">
+                        <option value="slow">Hidas</option>
+                        <option value="normal">Normaali</option>
+                        <option value="fast">Nopea</option>
+                    </select>
+                    <button type="button" id="start-button">Aloita peli</button>
+                </div>
+                <p><button type="button" id="leave-button" class="secondary">Poistu pöydästä</button></p>
+            </div>
+        </section>
+
+        <section id="game-view" aria-labelledby="game-heading" hidden>
+            <h2 id="game-heading" class="sr-only">Peli</h2>
+
+            <div id="turn-bar" class="turn-bar"></div>
+
+            <section aria-labelledby="players-heading">
+                <h3 id="players-heading" class="sr-only">Pelaajat</h3>
+                <ul id="players" class="players"></ul>
+            </section>
+
+            <div class="table-row">
+                <section id="table-area" class="table-area" aria-labelledby="table-heading">
+                    <h3 id="table-heading" class="area-heading">Pöytä</h3>
+                    <div id="table-cards" class="table-cards"></div>
+                </section>
+                <section id="deck-area" class="deck-area" aria-labelledby="deck-heading">
+                    <h3 id="deck-heading" class="area-heading">Valtti</h3>
+                    <div id="trump-card"></div>
+                    <p id="deck-count" class="deck-count"></p>
+                </section>
+            </div>
+
+            <section id="hand-area" class="hand-area" aria-labelledby="hand-heading">
+                <h3 id="hand-heading" class="area-heading">Oma käsi</h3>
+                <div id="hand" class="hand"></div>
+            </section>
+
+            <section aria-labelledby="actions-heading" class="actions">
+                <h3 id="actions-heading" class="sr-only">Toiminnot</h3>
+                <button type="button" id="action-button" aria-disabled="true">Odota vuoroasi</button>
+                <button type="button" id="clear-button" class="secondary">Tyhjennä valinnat (Esc)</button>
+                <button type="button" id="abort-button" class="secondary" hidden>Keskeytä peli</button>
+            </section>
+
+            <section id="result" class="panel result" aria-labelledby="result-heading" hidden>
+                <h3 id="result-heading">Peli päättyi</h3>
+                <p id="result-maija" class="result-maija"></p>
+                <ol id="result-ranking"></ol>
+                <div id="result-creator-tools" class="creator-tools" hidden>
+                    <button type="button" id="new-game-button">Uusi peli</button>
+                    <button type="button" id="to-lobby-button" class="secondary">Odotushuoneeseen (robotit)</button>
+                </div>
+                <p id="result-wait"></p>
+            </section>
+        </section>
+
+        <section id="log-section" aria-labelledby="log-heading" hidden>
+            <h2 id="log-heading">Tapahtumat</h2>
+            <ol id="log" class="log"></ol>
+        </section>
+    </main>
+
+    <dialog id="confirm-dialog" aria-labelledby="confirm-text">
+        <p id="confirm-text"></p>
+        <div class="dialog-buttons">
+            <button type="button" id="confirm-yes">Kyllä</button>
+            <button type="button" id="confirm-no" class="secondary">Peruuta</button>
+        </div>
+    </dialog>
+
+    <audio id="sound-deal" src="../deal.mp3" preload="auto"></audio>
+    <audio id="sound-kaada" src="kaada.mp3" preload="auto"></audio>
+    <audio id="sound-nosta" src="nosta.mp3" preload="auto"></audio>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/kortit.js"></script>
+    <script src="js/maija.js"></script>
+</body>
+</html>

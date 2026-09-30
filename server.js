@@ -17,6 +17,9 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
+// Musta Maija: oma Socket.IO-nimiavaruus /maija ja sivu /maija/ (kansiot maija/ ja public/maija/).
+require('./maija/socket').attach(io, { app });
+
 // Server state
 const tables = new Map(); // Active tables by code
 const players = new Map(); // Players by Socket ID
