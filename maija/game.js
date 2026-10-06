@@ -213,7 +213,8 @@ class Game {
             attackerId: attacker.id, attackerName: attacker.name,
             defenderId: defender.id, defenderName: defender.name,
             cards: cards.slice(),
-            drew: drawn.length
+            drew: drawn.length,
+            drawn               // vain lyöjälle, ks. publicEvent()
         };
         this.lastTableEvent = event;
         this.phase = 'defend';
@@ -264,7 +265,8 @@ class Game {
             defenderId: defender.id, defenderName: defender.name,
             pairs, pickedUp, allBeaten,
             unused,             // vain kaatajalle, ks. publicEvent()
-            drew: drawn.length
+            drew: drawn.length,
+            drawn               // vain kaatajalle, ks. publicEvent()
         };
         this.lastTableEvent = event;
         this.lastTable = this.table;
@@ -302,10 +304,14 @@ class Game {
         };
     }
 
-    // Tapahtuma muille kuin kaatajalle: käteen jääneitä valittuja kortteja ei paljasteta.
+    // Tapahtuma muille pelaajille: käteen jääneitä valittuja kortteja ja pakasta
+    // nostettuja kortteja ei paljasteta.
     static publicEvent(event, viewerId) {
         if (event.type === 'defend' && event.defenderId !== viewerId) {
-            return { ...event, unused: [] };
+            return { ...event, unused: [], drawn: [] };
+        }
+        if (event.type === 'attack' && event.attackerId !== viewerId) {
+            return { ...event, drawn: [] };
         }
         return event;
     }

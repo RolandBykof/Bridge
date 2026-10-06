@@ -215,6 +215,19 @@ test('kaatajan käteen jääneitä kortteja ei paljasteta muille', () => {
     assert.strictEqual(game.getView(null).hand, null);
 });
 
+test('pakasta nostetut kortit näkyvät vain nostajalle', () => {
+    const game = setupGame({
+        hands: [[c('clubs', '2')], [c('diamonds', '3'), c('clubs', '9')], [c('hearts', 'A')]],
+        deck: [c('spades', '7'), c('spades', '8')]
+    });
+    const [event] = game.attack('a', ids([c('clubs', '2')]));
+    assert.ok(event.drew > 0);
+    assert.strictEqual(event.drawn.length, event.drew);
+    assert.deepStrictEqual(Game.publicEvent(event, 'a').drawn, event.drawn);
+    assert.deepStrictEqual(Game.publicEvent(event, 'b').drawn, []);
+    assert.deepStrictEqual(Game.publicEvent(event, null).drawn, []);
+});
+
 test('pakan loputtua tyhjäkätinen pääsee pois ja viimeisestä tulee Maija', () => {
     const game = setupGame({
         hands: [[c('clubs', '2')], [c('clubs', '9'), c('spades', 'Q')], [c('diamonds', 'A')]]

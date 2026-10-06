@@ -287,7 +287,7 @@
             const list = formatCardList(e.pickedUp);
             parts.push(me
                 ? `Nostit käteesi ${korttiaObj(e.pickedUp.length)}: ${list}.`
-                : `${e.defenderName} nosti käteensä ${korttiaObj(e.pickedUp.length)}: ${list}.`);
+                : `${e.defenderName} nosti ${korttiaObj(e.pickedUp.length)}: ${list}.`);
         }
 
         if (me && e.unused && e.unused.length > 0) {
@@ -296,8 +296,13 @@
                 : `Kortit ${formatCardList(e.unused)} eivät kaataneet mitään ja jäivät käteesi.`);
         }
 
-        if (me && e.drew > 0) parts.push(`Nostit pakasta ${korttiaObj(e.drew)}.`);
+        if (me && e.drew > 0) parts.push(drawText(e));
         return parts.join(' ');
+    }
+
+    function drawText(e) {
+        const list = e.drawn && e.drawn.length > 0 ? `: ${formatCardList(e.drawn)}` : '';
+        return `Nostit pakasta ${korttiaObj(e.drew)}${list}.`;
     }
 
     function attackText(e) {
@@ -305,7 +310,7 @@
         const amount = korttiaObj(e.cards.length);
         if (isMe(e.attackerId, e.attackerName)) {
             let text = `Löit pelaajalle ${e.defenderName} ${amount}: ${list}.`;
-            if (e.drew > 0) text += ` Nostit pakasta ${korttiaObj(e.drew)}.`;
+            if (e.drew > 0) text += ` ${drawText(e)}`;
             return text;
         }
         if (isMe(e.defenderId, e.defenderName)) return `${e.attackerName} löi sinulle ${amount}: ${list}.`;

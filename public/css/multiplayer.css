@@ -124,7 +124,8 @@
 #middle-row {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    /* Länsi ja itä tikkialueen sivuille keskelle, ei yläkulman tasolle */
+    align-items: center;
     margin: 5px 0;
     gap: 10px;
     order: 2;
@@ -143,6 +144,30 @@
     padding: 10px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
+    /* Vähimmäisleveys, jottei pelkän nimen näyttävä laatikko näytä
+       pieneltä irralliselta nappulalta */
+    min-width: 140px;
+    box-sizing: border-box;
+}
+
+/* Piilotetun käden korttimäärä nimen alla */
+.position-card-count {
+    font-size: 0.9em;
+    color: #374151;
+    text-align: center;
+}
+
+/* Aina näkyvä tekstimerkintä vuorosta, jottei vuoron kehys ole pelkän
+   värin varassa */
+.turn-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: #005fcc;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.9em;
 }
 
 /* Bottom Position (Always player) - YHTENÄISET VÄRIT */
@@ -320,8 +345,10 @@
     color: #15803d; /* Vihreä - erottuu Padasta */
 }
 
+/* Ruskeanoranssi: kontrasti valkoisella n. 5:1, joten kortin arvokin täyttää
+   tekstin 4,5:1-vaatimuksen. Aiempi #d97706 jäi n. 3,2:1:een. */
 .suit-diamonds {
-    color: #d97706; /* Oranssi/Kulta - erottuu Hertasta */
+    color: #b45309; /* Ruskeanoranssi - erottuu Hertasta */
 }
 
 /* CHANGE: Uusi tyyli NT-sopimuksille */
@@ -343,10 +370,10 @@
 #contract-info {
     text-align: center;
     font-weight: bold;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
     color: #000000; /* Muutettu sinisestä mustaksi */
     font-size: 1em;
-    padding: 6px 12px;
+    padding: 4px 12px;
     background: #eff6ff;
     border-radius: 4px;
     border: 1px solid #dbeafe;
@@ -365,8 +392,8 @@
     justify-content: center;
     width: 100%;
     box-sizing: border-box;
-    margin: 6px 0;
-    padding: 10px 8px;
+    margin: 4px 0;
+    padding: 6px 8px;
     background: #eef2f7;
     border: 2px solid #94a3b8;
     border-radius: 10px;
@@ -374,39 +401,46 @@
 }
 
 .current-trick-heading {
-    margin: 0 0 6px 0;
-    font-size: 0.8em;
+    margin: 0 0 4px 0;
+    font-size: 0.9em;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #475569;
+    color: #374151;
     text-align: center;
 }
 
-/* New Grid Layout for Trick Cards */
+/* Pelattujen korttien ristikko vinoneliönä: pohjoinen ylhäällä, länsi ja itä
+   puoli korttia alempana sivuilla ja etelä alhaalla. Jokainen kortti vie kaksi
+   puolikasriviä, joten koko tikki on vain kahden kortin korkuinen (aiempi
+   3x3-ristikko oli kolmen kortin korkuinen ja vei 1080px:n näytöstä noin
+   kolmanneksen). Rivit ovat yhtä korkeita (1fr) ja ristikko mitoittuu
+   sisällön mukaan, joten kortit eivät siirry, vaikka tikissä olisi vasta osa
+   korteista, eikä etelän kortti valu alueen reunuksen yli suurennetullakaan
+   tekstikoolla. */
 .current-trick-cards {
     display: grid;
-    /* Määritellään 3x3 ristikko: ylä, ala, vasen, oikea */
     grid-template-areas:
-        ". top ."
-        "left . right"
-        ". bottom .";
+        ".    top    ."
+        "left top    right"
+        "left bottom right"
+        ".    bottom .";
     grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: 1fr 1fr 1fr;
-    gap: 4px;
-    
-    /* Kiinteä leveys ja vähimmäiskorkeus, jotta ristikko pysyy muodossa.
-       Kiinteä height: 260px ei riittänyt: kolme riviä pelattuja kortteja
-       (label+kortti) vie oletusfontilla lähes 300px, jolloin etelän kortti
-       valui alueen reunuksen yli, ja suurennetulla tekstikoolla vielä enemmän.
-       min-height antaa ristikon kasvaa alaspäin sisällön mukaan; rivit pysyvät
-       silti yhtä korkeina (1fr), joten kortit eivät siirry, vaikka tikissä
-       olisi vasta osa korteista. */
-    width: 220px;
-    min-height: 260px;
+    grid-template-rows: repeat(4, 1fr);
+    gap: 2px 6px;
+    width: 280px;
     align-items: center;
     justify-items: center;
     margin: 0 auto;
+}
+
+/* Seuraavan vuoron tekstirivi tikin alla */
+.trick-status {
+    margin: 4px 0 0 0;
+    min-height: 1.3em;
+    font-weight: 700;
+    font-size: 0.95em;
+    font-style: normal; /* main.css:n .trick-status on kursiivi */
+    color: #1f2937;
+    text-align: center;
 }
 
 /* Yksittäiset sijainnit gridissä */
@@ -415,53 +449,68 @@
 .trick-pos-left { grid-area: left; }
 .trick-pos-right { grid-area: right; }
 
+/* Ei omaa laatikkoa kortin ympärillä: kortti näyttää samalta kuin kädessä
+   eikä sisäkkäisiä kehyksiä tule. Ei hover-liikettä, koska korttia ei voi
+   klikata. */
 .played-card {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
-    padding: 4px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
+    padding: 0;
     margin: 0;
-}
-
-.played-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    background: transparent;
+    border: none;
 }
 
 .player-label {
-    font-size: 0.7em;
+    font-size: 0.85em;
     font-weight: bold;
-    margin-bottom: 3px;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+    color: #374151;
 }
 
-/* Pelatut kortit - pystysuora asettelu */
+/* Pelatut kortit - sama ulkoasu kuin kädessä (.card-display) */
 .played-card .card {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 1px;
 
     font-size: 1em;
-    font-weight: bold;
-    padding: 6px 10px;
-    border-radius: 3px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: #ffffff;
+    border: 2px solid #000000;
     min-width: 40px;
     min-height: 48px;
+    box-sizing: border-box;
     text-align: center;
+}
+
+/* Tikin voittajakortti: paksu sininen reunus + teksti "Wins", joten tieto
+   ei ole pelkän värin varassa */
+.played-card.is-winner .card {
+    box-shadow: 0 0 0 3px #005fcc;
+}
+
+.trick-tag {
+    margin-top: 3px;
+    padding: 0 5px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    font-weight: 700;
+    background: #ffffff;
+    color: #1f2937;
+    border: 1px solid #6b7280;
+}
+
+.played-card.is-winner .trick-tag {
+    background: #005fcc;
+    border-color: #005fcc;
+    color: #ffffff;
 }
 
 /* Pelatut kortit - symboli ja arvo. Sama koko kuin omassa kädessä
@@ -581,13 +630,13 @@
     opacity: 0.6;
 }
 
-/* Maasymbolin värit */
+/* Maasymbolin värit - sama nelivärinen pakka kuin korteissa */
 .bid-clubs {
-    color: #1f2937;
+    color: #15803d;
 }
 
 .bid-diamonds {
-    color: #dc2626;
+    color: #b45309;
 }
 
 .bid-hearts {
@@ -595,7 +644,7 @@
 }
 
 .bid-spades {
-    color: #1f2937;
+    color: #000000;
 }
 
 .bid-notrump {
@@ -857,13 +906,10 @@
         min-height: 50px;
     }
     
-    /* CHANGE: Just resize the grid, don't change columns.
-       Vähimmäiskorkeus kiinteän korkeuden sijaan samasta syystä kuin täyden
-       koon ristikossa yllä: ristikko kasvaa alaspäin sisällön mukaan, jottei
-       etelän kortti valu alueen reunuksen yli. */
+    /* Vain ristikon leveys pienenee; korkeus mitoittuu sisällön mukaan kuten
+       täyden koon ristikossa yllä. */
     .current-trick-cards {
-        width: 160px;
-        min-height: 195px;
+        width: 210px;
     }
 
     /* Pelatun tikin kortit pienemmiksi, jotta ne mahtuvat kompassiruudukon
@@ -886,7 +932,7 @@
     }
 
     .player-label {
-        font-size: 0.65em;
+        font-size: 0.8em;
     }
 
     .card-button,
@@ -1005,21 +1051,30 @@
         /* Käyttää position-area perusvärejä */
     }
     
-    /* KAIKKI alueet vuorolla - YHTENÄINEN KOROSTUS (dark mode) */
+    /* KAIKKI alueet vuorolla - YHTENÄINEN KOROSTUS (dark mode).
+       Käsien laatikot pysyvät tummassakin tilassa vaaleina, joten korostus on
+       sama vaaleansininen kuin vaaleassa tilassa. Aiempi tumma #1a2c35 teki
+       tummasta otsikkotekstistä näkymättömän. */
     .position-area.is-current-player,
     #bottom-position-area.is-current-player,
     .position-area.is-dummy.is-current-player {
-        background: #1a2c35 !important;
+        background: #e8f4f8 !important;
         border-color: #005fcc !important;
     }
-    
+
     .side-position {
         background: #f8fafc;
         border-color: #e2e8f0;
     }
-    
+
+    /* Laatikko on vaalea, joten tekstin pitää olla tumma (aiempi vaalea
+       #e2e8f0 oli valkoisella lähes näkymätön) */
     .position-name {
-        color: #e2e8f0;
+        color: #1f2937;
+    }
+
+    .position-area.is-dummy {
+        background: #f5f3ff;
     }
     
     /* Kortit säilyvät kirkkaina myös dark modessa */
@@ -1047,6 +1102,31 @@
     .suit-clubs { color: #22c55e; }     /* Kirkkaampi vihreä */
     .suit-spades { color: #e5e7eb; }    /* Vaalea harmaa/valkoinen tummalla taustalla */
     .suit-notrump { color: #93c5fd; }   /* Vaaleansininen Sangi dark modessa */
+
+    /* Kortit ovat tummassakin tilassa valkoisia, joten niissä käytetään
+       vaalean tilan maavärejä. Ilman tätä pata (#e5e7eb) oli valkoisella
+       kortilla lähes näkymätön. Yllä olevat vaaleat värit jäävät tummille
+       taustoille, kuten sopimusriville. */
+    .card-display.suit-spades, .card-button.suit-spades, .played-card .card.suit-spades { color: #000000; }
+    .card-display.suit-hearts, .card-button.suit-hearts, .played-card .card.suit-hearts { color: #dc2626; }
+    .card-display.suit-diamonds, .card-button.suit-diamonds, .played-card .card.suit-diamonds { color: #b45309; }
+    .card-display.suit-clubs, .card-button.suit-clubs, .played-card .card.suit-clubs { color: #15803d; }
+
+    /* Tarjousnapit ovat tummassa tilassa tummia, joten maille vaaleat värit
+       nelivärisen pakan mukaan. */
+    .bidding-buttons button.bid-spades { color: #f3f4f6; }
+    .bidding-buttons button.bid-hearts { color: #f87171; }
+    .bidding-buttons button.bid-diamonds { color: #fbbf24; }
+    .bidding-buttons button.bid-clubs { color: #4ade80; }
+
+    .played-card {
+        background: transparent;
+    }
+
+    #current-trick-area {
+        background: #eef2f7;
+        color: #1f2937;
+    }
     
     #game-chat-messages {
         background: #374151;

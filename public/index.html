@@ -1053,19 +1053,58 @@ function attemptToPlayCard(suit, card, fromPosition) {
             return biddingState?.currentBidder;
         }
 
+        /**
+         * Hand title roles, e.g. ['dummy', 'you control']. Shown after a
+         * dash ("North – dummy, you control") instead of the old nested
+         * parentheses ("North (Declarer, Robot (You control))"). Our own hand
+         * gets 'dummy' too, so the dashed dummy frame is always explained.
+         */
+        function positionRoles(position) {
+            const isRobot = tablePlayers?.[position]?.type === 'robot';
+            if (position === myPosition) {
+                return position === gameState?.dummy ? ['dummy'] : [];
+            }
+            if (position === gameState?.dummy) {
+                return gameState?.declarer === myPosition ? ['dummy', 'you control'] : ['dummy'];
+            }
+            if (position === gameState?.declarer && isOverrideDeclarerController()) {
+                return ['declarer', 'robot', 'you control'];
+            }
+            return [isRobot ? 'robot' : 'human'];
+        }
+
+        /**
+         * Visible "Turn"/"Your turn" label next to the hand title, so the
+         * blue turn frame isn't conveyed by color alone.
+         */
+        function turnTagHtml(position) {
+            if (!gameState || gameState.gamePhase === 'end') return '';
+            if (position !== getCurrentTurnPosition()) return '';
+            const isMine = gameState.gamePhase === 'play'
+                ? canPlayFromPosition(position)
+                : position === myPosition;
+            return ` <span class="turn-tag">${isMine ? 'Your turn' : 'Turn'}</span>`;
+        }
+
+        /**
+         * Cards left in a hand whose cards we can't see: 13 minus completed
+         * tricks, minus one more if the player has a card in the trick that
+         * hasn't been scored yet (lastTrickWinner is set once trickComplete
+         * arrives, at which point that card is already in gameState.tricks).
+         */
+        function remainingCardCount(position) {
+            if (!gameState || (gameState.gamePhase !== 'play' && gameState.gamePhase !== 'end')) return 13;
+            const completed = (gameState.tricks?.ns || 0) + (gameState.tricks?.ew || 0);
+            const trick = gameState.currentTrick || [];
+            const inOpenTrick = !gameState.lastTrickWinner && trick.some(c => c.player === position);
+            return Math.max(0, 13 - completed - (inOpenTrick ? 1 : 0));
+        }
+
 function renderHand(position, hand, targetElement) {
     if (!hand || !targetElement) return;
-    
-    const isRobot = tablePlayers?.[position]?.type === 'robot';
-    let positionType = position === myPosition ? 'You' : (isRobot ? 'Robot' : 'Human');
-    if (position === gameState?.dummy && gameState?.declarer === myPosition) {
-        positionType = 'Dummy (You control)';
-    } else if (position === gameState?.dummy) {
-        positionType = 'Dummy';
-    } else if (position === gameState?.declarer && isOverrideDeclarerController()) {
-        positionType = 'Declarer, Robot (You control)';
-    }
-    
+
+    const roles = positionRoles(position);
+
     const canPlayFromThisPosition = canPlayFromPosition(position);
     const isPlayPhase = gameState && gameState.gamePhase === 'play';
     const layout = getPositionLayout();
@@ -1074,7 +1113,8 @@ function renderHand(position, hand, targetElement) {
     const isSidePosition = (position === layout.left || position === layout.right);
     
     // Player name header
-    let html = `<div class="hand-header">${positionName(position)} ${position === myPosition ? '' : `(${positionType})`}</div>`;
+    const rolesText = roles.length > 0 ? ` – ${roles.join(', ')}` : '';
+    let html = `<div class="hand-header">${positionName(position)}${rolesText}${turnTagHtml(position)}</div>`;
     
     const suitNames = { spades: 'Spades', hearts: 'Hearts', diamonds: 'Diamonds', clubs: 'Clubs' };
     
@@ -1224,9 +1264,11 @@ function renderHand(position, hand, targetElement) {
         function renderPlayerNameOnly(element, position) {
     const playerName = gameState?.players?.[position]?.name;
     const posName = positionName(position);
-    const displayText = playerName ? `${posName} (${playerName})` : posName;
-    
-    element.innerHTML = `<div class="position-name">${displayText}</div>`;
+    const displayText = playerName ? `${posName} – ${playerName}` : posName;
+    const count = remainingCardCount(position);
+
+    element.innerHTML = `<div class="position-name">${displayText}${turnTagHtml(position)}</div>` +
+        `<div class="position-card-count">${count} ${count === 1 ? 'card' : 'cards'}</div>`;
             element.classList.remove('has-cards', 'is-dummy');
 
             if (position === getCurrentTurnPosition()) {
@@ -1241,16 +1283,21 @@ function updateCurrentTrickDisplay() {
     if (!container) return;
     
     if (!gameState || !gameState.currentTrick || gameState.currentTrick.length === 0) {
-        container.innerHTML = '<p>No cards played yet</p>';
+        container.innerHTML = '<p>No cards played yet</p>' + trickStatusHtml();
         return;
     }
-    
+
     // 1. Hae nykyinen asettelu (missä ilmansuunnassa kukin pelaaja on ruudulla)
     const layout = getPositionLayout();
-    
+
+    // Tikin voittaja tiedetään vasta trickComplete-viestistä; siihen asti
+    // täysi tikki näytetään ilman voittajaa.
+    const trick = gameState.currentTrick;
+    const winner = trick.length === 4 ? gameState.lastTrickWinner : null;
+
     let html = '<div class="current-trick-cards">';
-    
-    for (const card of gameState.currentTrick) {
+
+    trick.forEach((card, index) => {
         const suitClass = `suit-${card.suit}`;
         
         // 2. Määritä kortin sijainti ruudukossa
@@ -1266,19 +1313,46 @@ function updateCurrentTrickDisplay() {
             gridAreaClass = 'trick-pos-right';  // Oikea vastustaja
         }
 
+        // Tikin ensimmäinen kortti on aina johtajan kortti
+        const isWinner = card.player === winner;
+        const tags = [];
+        if (index === 0) tags.push('Led');
+        if (isWinner) tags.push('Wins');
+        const tagHtml = tags.length > 0 ? `<div class="trick-tag">${tags.join(', ')}</div>` : '';
+
         html += `
-            <div class="played-card ${gridAreaClass}">
+            <div class="played-card ${gridAreaClass}${isWinner ? ' is-winner' : ''}">
                 <div class="player-label">${positionName(card.player)}</div>
                 <div class="card ${suitClass}">
                     <span class="card-suit">${getSuitSymbol(card.suit)}</span>
                     <span class="card-rank">${card.card}</span>
                 </div>
+                ${tagHtml}
             </div>
         `;
-    }
-    
+    });
+
     html += '</div>';
-    container.innerHTML = html;
+    container.innerHTML = html + trickStatusHtml();
+}
+
+/**
+ * "Next: North" line under the trick during card play. Empty while a full
+ * trick waits for trickComplete, because currentPlayer is stale until then.
+ */
+function trickStatusHtml() {
+    if (!gameState || gameState.gamePhase !== 'play') return '';
+    const trick = gameState.currentTrick || [];
+    let text = '';
+    if (trick.length < 4 || gameState.lastTrickWinner) {
+        const next = gameState.currentPlayer;
+        if (next) {
+            text = canPlayFromPosition(next)
+                ? `Next: ${positionName(next)} (you)`
+                : `Next: ${positionName(next)}`;
+        }
+    }
+    return `<p class="trick-status">${text}</p>`;
 }
 
         function updateGameUI() {
@@ -1977,6 +2051,11 @@ function formatContract(contract, asHtml = false) {
                 { key: 'S/H/D/C', desc: 'Choose the suit of the card to play' },
                 { key: 'A/K/Q/J/T/2-9', desc: 'Choose the card\'s rank (T = 10), completing and playing it' },
                 { key: 'Escape', desc: 'Cancel a suit that was chosen but not yet completed' },
+
+                { key: '', desc: '--- Table Markings ---' },
+                { key: '', desc: 'Solid blue frame and "Turn" or "Your turn" label: it is this hand\'s turn' },
+                { key: '', desc: 'Dashed purple frame and "dummy" in the hand title: the dummy hand' },
+                { key: '', desc: 'In the current trick, "Led" marks the first card and "Wins" with a thick blue frame marks the winning card' },
 
                 { key: '', desc: '--- Notes ---' },
                 { key: '', desc: 'Card viewing commands work only when cards are visible' },
@@ -3199,8 +3278,10 @@ socket.on('cardPlayed', (data) => {
     
     if (!gameState.currentTrick) gameState.currentTrick = [];
     
-    // Päivitä tikki
+    // Päivitä tikki. Uusi kortti tarkoittaa, että edellisen tikin voittajaa
+    // ei enää näytetä.
     gameState.currentTrick = data.currentTrick;
+    gameState.lastTrickWinner = null;
     
     if (gameState.hands[data.position]) {
         const suitCards = gameState.hands[data.position][data.suit];
@@ -3223,8 +3304,11 @@ socket.on('trickComplete', (data) => {
     
     gameState.tricks = data.tricks;
     gameState.currentPlayer = data.nextPlayer;
-    
+    gameState.lastTrickWinner = data.winner;
+
     updateGameUI();
+    // Vuoron kehys ja "Turn"-merkintä siirtyvät tikin voittajalle
+    renderAllHands();
     
     const winner = positionName(data.winner);
 
