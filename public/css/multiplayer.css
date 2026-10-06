@@ -525,6 +525,84 @@
     font-size: 1.1em;
 }
 
+/* =================== DOUBLE DUMMY -KATSELU =================== */
+
+/* hidden-attribuutti ohittaa aina muut display-säännöt pelinäkymässä */
+#game-view [hidden] {
+    display: none !important;
+}
+
+/* Sama kehys kuin pelin tikkialueella, jotta katselu on tuttu näkymä */
+#dd-review-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 4px 0;
+    padding: 6px 8px 10px;
+    background: #eef2f7;
+    color: #1f2937;
+    border: 2px solid #005fcc;
+    border-radius: 10px;
+}
+
+#dd-review-title:focus {
+    outline: 3px solid #005fcc;
+    outline-offset: 2px;
+}
+
+.dd-review-sub {
+    margin: 0 0 6px;
+    font-size: 0.95em;
+    text-align: center;
+}
+
+#dd-review-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+#dd-review-controls button {
+    padding: 8px 14px;
+    font-size: 0.95em;
+    font-weight: 700;
+    border-radius: 4px;
+    border: 2px solid #1f2937;
+    background: #ffffff;
+    color: #1f2937;
+    cursor: pointer;
+}
+
+#dd-review-controls #dd-next-button {
+    background: #005fcc;
+    border-color: #005fcc;
+    color: #ffffff;
+}
+
+#dd-review-controls button:focus {
+    outline: 3px solid #005fcc;
+    outline-offset: 2px;
+}
+
+/* Reunatikissä painike pysyy kohdistettavana (aria-disabled, ei disabled),
+   mutta näyttää käytöstä poistetulta */
+#dd-review-controls button[aria-disabled="true"] {
+    background: #e5e7eb;
+    border-color: #6b7280;
+    color: #374151;
+    cursor: not-allowed;
+}
+
+#dd-review-viewer-note {
+    margin: 8px 0 0;
+    font-weight: 700;
+    text-align: center;
+}
+
 /* =================== BIDDING AREA - PLAY-AREAN SISÄLLÄ =================== */
 
 #game-bidding-area {
@@ -1122,6 +1200,14 @@
     .played-card {
         background: transparent;
     }
+
+    /* Katselunäkymä pysyy vaaleana, joten sopimusrivin maasymbolit
+       vaalean tilan väreillä */
+    #dd-review-area .suit-spades { color: #000000; }
+    #dd-review-area .suit-hearts { color: #dc2626; }
+    #dd-review-area .suit-diamonds { color: #b45309; }
+    #dd-review-area .suit-clubs { color: #15803d; }
+    #dd-review-area .suit-notrump { color: #1e40af; }
 
     #current-trick-area {
         background: #eef2f7;

@@ -202,6 +202,20 @@
             <p>No cards played yet.</p>
         </div>
     </div>
+
+    <!-- Double dummy -katselu: pöydän luoja ohjaa, kaikki näkevät saman tikin.
+         Painikkeet ovat staattisia, jotta kohdistus ei katoa tikkiä vaihdettaessa;
+         vain #dd-review-content piirretään uudelleen. -->
+    <section id="dd-review-area" hidden aria-labelledby="dd-review-title">
+        <h3 id="dd-review-title" class="current-trick-heading" tabindex="-1">Double Dummy Play</h3>
+        <div id="dd-review-content"></div>
+        <div id="dd-review-controls">
+            <button type="button" id="dd-prev-button" onclick="ddReviewStep(-1)">Previous Trick</button>
+            <button type="button" id="dd-next-button" onclick="ddReviewStep(1)">Next Trick</button>
+            <button type="button" id="dd-close-button" onclick="closeDdReview()">Close</button>
+        </div>
+        <p id="dd-review-viewer-note" hidden></p>
+    </section>
 </div>
                 
                 <div id="right-position-area" class="position-area side-position">
@@ -214,6 +228,7 @@
             <div id="game-controls">
                 <button onclick="requestNextDealFromGame()" id="next-deal-button" disabled>Next Deal</button>
                 <button onclick="replayDealFromGame()" id="replay-deal-button" disabled>Replay This Deal</button>
+                <button type="button" onclick="startDdReview()" id="show-dd-button" hidden>Show Double Dummy</button>
                 <span id="next-deal-status" aria-hidden="true"></span>
                 <div>
                     <input type="checkbox" id="auto-next-deal-checkbox" onchange="setAutoNextDealFromGame(this.checked)">
@@ -233,6 +248,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="js/dd-review.js"></script>
     <script>
         // GLOBAL STATE
         let aanetAlustettu = false;
@@ -268,6 +284,10 @@
         let availableJoinPositions = [];
         let lastAnnouncementTime = 0;
         let socket = null;
+        // Double dummy review of the deal that just ended, while it's open:
+        // { index, tricks, originalHands, contract, declarer, trump,
+        //   optimumTricks, actualTricks, startedBy }. See "DOUBLE DUMMY REVIEW".
+        let ddReviewState = null;
 
         const uiState = {
             showHelp: false,
@@ -1248,10 +1268,17 @@ function renderHand(position, hand, targetElement) {
             const element = document.getElementById(`${area}-position-area`);
             if (!element) return;
             
+            // Double dummy -katselussa näytetään kaikki neljä kättä
+            // sellaisina kuin ne olivat näytettävän tikin alussa.
+            if (ddReviewState) {
+                renderHand(position, getDdReviewHands()[position], element);
+                return;
+            }
+
             // Check if we can view this position's cards
             const canView = canViewHandCards(position);
             const hand = gameState.hands[position];
-            
+
             if (canView && hand) {
                 // Show full hand with cards
                 renderHand(position, hand, element);
@@ -1287,13 +1314,21 @@ function updateCurrentTrickDisplay() {
         return;
     }
 
-    // 1. Hae nykyinen asettelu (missä ilmansuunnassa kukin pelaaja on ruudulla)
-    const layout = getPositionLayout();
-
     // Tikin voittaja tiedetään vasta trickComplete-viestistä; siihen asti
     // täysi tikki näytetään ilman voittajaa.
     const trick = gameState.currentTrick;
     const winner = trick.length === 4 ? gameState.lastTrickWinner : null;
+
+    container.innerHTML = trickGridHtml(trick, winner) + trickStatusHtml();
+}
+
+/**
+ * Pelatut kortit vinoneliöruudukkona ("Led"- ja "Wins"-merkinnöin).
+ * Käytössä sekä pelin aikana että double dummy -katselussa.
+ */
+function trickGridHtml(trick, winner) {
+    // 1. Hae nykyinen asettelu (missä ilmansuunnassa kukin pelaaja on ruudulla)
+    const layout = getPositionLayout();
 
     let html = '<div class="current-trick-cards">';
 
@@ -1333,7 +1368,7 @@ function updateCurrentTrickDisplay() {
     });
 
     html += '</div>';
-    container.innerHTML = html + trickStatusHtml();
+    return html;
 }
 
 /**
@@ -1818,11 +1853,194 @@ function updateContractDisplay() {
                 replayButton.style.display = isCreator ? '' : 'none';
                 replayButton.disabled = !dealHasEnded;
             }
+
+            // Show Double Dummy: only the table creator starts the shared
+            // review, and only once a deal with a contract has ended. Hidden
+            // while the review is open (Close is the way out of it then).
+            const ddButton = document.getElementById('show-dd-button');
+            if (ddButton) {
+                ddButton.hidden = !(isCreator && dealHasEnded && gameState.contract) || !!ddReviewState;
+            }
         }
 
         function updateAutoNextDealCheckbox() {
             const checkbox = document.getElementById('auto-next-deal-checkbox');
             if (checkbox) checkbox.checked = autoNextDeal;
+        }
+
+        // DOUBLE DUMMY REVIEW
+        //
+        // Shared review of the deal that just ended: the table creator starts
+        // it and moves between tricks, and every player at the table sees and
+        // hears the same trick. The server holds the state (table.ddReview)
+        // and broadcasts every change; this client only renders what it gets.
+
+        function isTableCreator() {
+            return !tableCreatorPosition || tableCreatorPosition === myPosition;
+        }
+
+        function getDdReviewHands() {
+            return DdReview.handsBeforeTrick(ddReviewState.originalHands, ddReviewState.tricks, ddReviewState.index);
+        }
+
+        function resetDdButton() {
+            const button = document.getElementById('show-dd-button');
+            if (!button) return;
+            button.disabled = false;
+            button.textContent = 'Show Double Dummy';
+        }
+
+        function startDdReview() {
+            const button = document.getElementById('show-dd-button');
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Calculating…';
+            }
+            announceToScreenReader('Calculating the double dummy play.');
+            socket.emit('startDoubleDummyReview', { tableCode: tableCode });
+        }
+
+        /**
+         * Previous/Next. Sends the target trick number rather than "next",
+         * so a doubled key press can't skip a trick while the server's
+         * answer is still on its way.
+         */
+        function ddReviewStep(delta) {
+            if (!ddReviewState) return;
+            if (!isTableCreator()) {
+                announceToScreenReader('Only the table creator can change tricks.');
+                return;
+            }
+            const target = ddReviewState.index + delta;
+            if (target < 0) {
+                announceToScreenReader('This is the first trick.');
+                return;
+            }
+            if (target >= ddReviewState.tricks.length) {
+                announceToScreenReader('This is the last trick.');
+                return;
+            }
+            socket.emit('ddReviewGoTo', { tableCode: tableCode, index: target });
+        }
+
+        function closeDdReview() {
+            if (!ddReviewState) return;
+            if (!isTableCreator()) {
+                announceToScreenReader('Only the table creator can close the review.');
+                return;
+            }
+            socket.emit('closeDoubleDummyReview', { tableCode: tableCode });
+        }
+
+        /**
+         * Spoken description of one trick, e.g. "Trick 3 of 13. West leads
+         * Spades 4, North Spades 9, East Spades K, South Spades A. South
+         * wins. Declarer side 3, defenders 0."
+         */
+        function ddTrickAnnouncement() {
+            const s = ddReviewState;
+            const trick = s.tricks[s.index];
+            const cards = trick.cards.map((c, i) => i === 0
+                ? `${positionName(c.player)} leads ${getSuitName(c.suit)} ${c.card}`
+                : `${positionName(c.player)} ${getSuitName(c.suit)} ${c.card}`);
+            let text = `Trick ${trick.number} of ${s.tricks.length}. ${cards.join(', ')}. ` +
+                `${positionName(trick.winner)} wins. ` +
+                `Declarer side ${trick.declarerTricks}, defenders ${trick.defenderTricks}.`;
+            if (s.index === s.tricks.length - 1) {
+                text += ` Double dummy result: declarer side ${s.optimumTricks} tricks.`;
+                if (s.actualTricks !== null && s.actualTricks !== undefined) {
+                    text += ` In the actual play declarer side made ${s.actualTricks}.`;
+                }
+            }
+            return text;
+        }
+
+        function renderDdReview() {
+            const area = document.getElementById('dd-review-area');
+            const trickArea = document.getElementById('current-trick-area');
+            if (!area) return;
+
+            if (!ddReviewState) {
+                area.hidden = true;
+                if (trickArea) trickArea.hidden = false;
+                return;
+            }
+
+            const s = ddReviewState;
+            const trick = s.tricks[s.index];
+            const last = s.tricks.length - 1;
+
+            area.hidden = false;
+            if (trickArea) trickArea.hidden = true;
+
+            document.getElementById('dd-review-title').textContent =
+                `Double Dummy Play – Trick ${trick.number} of ${s.tricks.length}`;
+
+            const declarerName = positionName(s.declarer);
+            let summary = `${positionName(trick.winner)} wins. Declarer side ${trick.declarerTricks}, defenders ${trick.defenderTricks}.`;
+            if (s.index === last) {
+                summary += ` Double dummy result: ${s.optimumTricks} tricks.`;
+            }
+            document.getElementById('dd-review-content').innerHTML =
+                `<p class="dd-review-sub">Contract ${formatContract(s.contract, true)} by ${declarerName}. One optimal line.</p>` +
+                trickGridHtml(trick.cards, trick.winner) +
+                `<p class="trick-status">${summary}</p>`;
+
+            // Buttons stay in the DOM and enabled (aria-disabled only), so a
+            // focused button never vanishes or gets disabled under the user.
+            const creator = isTableCreator();
+            document.getElementById('dd-review-controls').hidden = !creator;
+            document.getElementById('dd-prev-button').setAttribute('aria-disabled', String(s.index === 0));
+            document.getElementById('dd-next-button').setAttribute('aria-disabled', String(s.index === last));
+            const note = document.getElementById('dd-review-viewer-note');
+            note.hidden = creator;
+            note.textContent = creator ? '' :
+                `${positionName(tableCreatorPosition)} (table creator) controls the review.`;
+
+            renderAllHands();
+        }
+
+        /**
+         * Keys while the review is open. Returns true when the key was handled.
+         * Alt+1-6/7-0 (left and right player) are handled by the general
+         * hand-reading keys, which read the review hands while it's open.
+         */
+        function handleDdReviewKey(e) {
+            if (e.ctrlKey) return false; // AltGr is Ctrl+Alt on Windows
+
+            if (e.altKey && e.code === 'KeyN') {
+                e.preventDefault();
+                ddReviewStep(e.shiftKey ? -1 : 1);
+                return true;
+            }
+
+            if (e.altKey && e.shiftKey && e.code === 'KeyP') {
+                e.preventDefault();
+                announceToScreenReader(ddTrickAnnouncement());
+                return true;
+            }
+
+            if (e.key === 'Escape' && !e.altKey && !e.shiftKey && isTableCreator()) {
+                const tag = (e.target && e.target.tagName) || '';
+                if (tag === 'INPUT' || tag === 'TEXTAREA') return false;
+                e.preventDefault();
+                closeDdReview();
+                return true;
+            }
+
+            // In the review Alt+Q/W/E/R/T always read the partner (all hands
+            // are visible), instead of the situational dummy/declarer hand.
+            const partnerKeys = { KeyQ: 'spades', KeyW: 'hearts', KeyE: 'diamonds', KeyR: 'clubs', KeyT: null };
+            if (e.altKey && !e.shiftKey && e.code in partnerKeys) {
+                e.preventDefault();
+                const partner = getPositionLayout().top;
+                const suit = partnerKeys[e.code];
+                if (suit) announceHandSuitWithFocus(partner, suit, true);
+                else announceEntireHand(partner);
+                return true;
+            }
+
+            return false;
         }
 
         // UTILITY FUNCTIONS
@@ -1906,6 +2124,8 @@ function formatContract(contract, asHtml = false) {
         function resetState() {
             tableCode = null;
             gameState = null;
+            ddReviewState = null;
+            renderDdReview();
             biddingState = null;
             gameMode = 'bridge';
             miniState = null;
@@ -2038,11 +2258,30 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Ctrl + 3', desc: 'Play highest diamond' },
                 { key: 'Ctrl + 4', desc: 'Play highest club' },
                 
+                { key: '', desc: '--- Game: Card Viewing (Left and Right Player) ---' },
+                { key: '', desc: 'Works whenever that hand is visible: the dummy during play, and every hand in the double dummy review.' },
+                { key: 'Alt + 1', desc: 'Announce left player\'s spades' },
+                { key: 'Alt + 2', desc: 'Announce left player\'s hearts' },
+                { key: 'Alt + 3', desc: 'Announce left player\'s diamonds' },
+                { key: 'Alt + 4', desc: 'Announce left player\'s clubs' },
+                { key: 'Alt + 5', desc: 'Announce left player\'s entire hand' },
+                { key: 'Alt + 7', desc: 'Announce right player\'s spades' },
+                { key: 'Alt + 8', desc: 'Announce right player\'s hearts' },
+                { key: 'Alt + 9', desc: 'Announce right player\'s diamonds' },
+                { key: 'Alt + 0', desc: 'Announce right player\'s clubs' },
+                { key: 'Alt + 6', desc: 'Announce right player\'s entire hand' },
+
+                { key: '', desc: '--- Game: Double Dummy Review (after the deal) ---' },
+                { key: '', desc: 'The table creator starts the review with the Show Double Dummy button. Everyone sees the same trick; only the table creator can change it.' },
+                { key: 'Alt + N', desc: 'Next trick (table creator)' },
+                { key: 'Alt + Shift + N', desc: 'Previous trick (table creator)' },
+                { key: 'Escape', desc: 'Close the review (table creator)' },
+                { key: 'Alt + Shift + P', desc: 'Announce the shown trick again' },
+                { key: 'Alt + A/S/D/F/G', desc: 'Your hand at the start of the shown trick' },
+                { key: 'Alt + Q/W/E/R/T', desc: 'Partner\'s hand at the start of the shown trick' },
+                { key: 'Alt + 1-5 / 7-0, 6', desc: 'Left / right opponent\'s hand at the start of the shown trick' },
+
                 { key: '', desc: '--- Game: Quick Card Play (Lowest) ---' },
-                { key: 'Alt + 1', desc: 'Play lowest spade' },
-                { key: 'Alt + 2', desc: 'Play lowest heart' },
-                { key: 'Alt + 3', desc: 'Play lowest diamond' },
-                { key: 'Alt + 4', desc: 'Play lowest club' },
                 { key: '↓ / O', desc: 'Play lowest card of led suit' },
                 { key: '↑ / I', desc: 'Play highest card of led suit' },
 
@@ -2198,30 +2437,54 @@ function getSuitNameWithCount(suit, count) {
          * use the S/H/D/C + rank keyboard shortcut (setupKeyboardListeners) to
          * actually play one of the announced cards.
          */
-        function announceHandSuitWithFocus(position, suit) {
-            const canViewCards = canViewHandCards(position);
-            
-            if (!canViewCards) {
+        /**
+         * Spoken name of a hand relative to our own seat, e.g.
+         * "West, left opponent". Used whenever the hand being read isn't
+         * obviously our own (the double dummy review, Alt+1-6/7-0).
+         */
+        function handOwnerLabel(position) {
+            if (position === myPosition) return 'Your hand';
+            const layout = getPositionLayout();
+            if (position === layout.left) return `${positionName(position)}, left opponent`;
+            if (position === layout.right) return `${positionName(position)}, right opponent`;
+            if (position === layout.top) return `${positionName(position)}, partner`;
+            return positionName(position);
+        }
+
+        /**
+         * Hand to read aloud: during the double dummy review every hand as
+         * it was at the start of the shown trick, otherwise the live hand if
+         * we're allowed to see it. Returns undefined when we can't see it.
+         */
+        function getReadableHand(position) {
+            if (ddReviewState) return getDdReviewHands()[position] || null;
+            if (!canViewHandCards(position)) return undefined;
+            return gameState && gameState.hands ? gameState.hands[position] : null;
+        }
+
+        function announceHandSuitWithFocus(position, suit, withLabel = false) {
+            const label = (withLabel || ddReviewState) ? `${handOwnerLabel(position)}: ` : '';
+            const hand = getReadableHand(position);
+
+            if (hand === undefined) {
                 const message = `Cannot view ${positionName(position)}'s cards at this time.`;
                 announceToScreenReader(message);
                 return;
             }
-            
-            const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+
             if (!hand) {
                 announceToScreenReader(`No cards available for ${positionName(position)}.`);
                 return;
             }
-            
+
             const cards = hand[suit] || [];
-            
+
             if (cards.length === 0) {
-const message = `No ${getSuitName(suit)}s.`;
-                announceToScreenReader(message);
+                announceToScreenReader(`${label}No ${getSuitName(suit)}.`);
                 return;
             }
-            
-const message = `${cards.length} ${getSuitNameWithCount(suit, cards.length)}: ${cards.join(', ')}`;
+
+            const message = `${label}${cards.length} ${getSuitNameWithCount(suit, cards.length)}: ${cards.join(', ')}`;
             announceToScreenReader(message);
         }
 
@@ -2229,21 +2492,23 @@ const message = `${cards.length} ${getSuitNameWithCount(suit, cards.length)}: ${
  * Announces all cards in a hand
  */
 function announceEntireHand(position) {
-    const canViewCards = canViewHandCards(position);
-    
-    if (!canViewCards) {
+    const hand = getReadableHand(position);
+
+    if (hand === undefined) {
         const message = `Cannot view ${positionName(position)}'s cards at this time.`;
         announceToScreenReader(message);
         return;
     }
-    
-    const hand = gameState && gameState.hands ? gameState.hands[position] : null;
+
     if (!hand) {
         announceToScreenReader(`No cards available for ${positionName(position)}.`);
         return;
     }
-    
-    let message = `Your hand: `;
+
+    // Previously always "Your hand", even when reading dummy's cards.
+    let message = `${handOwnerLabel(position)}`;
+    if (ddReviewState) message += `, before trick ${ddReviewState.index + 1}`;
+    message += ': ';
     const suitMessages = [];
     
     for (const suit of ['spades', 'hearts', 'diamonds', 'clubs']) {
@@ -2558,6 +2823,38 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
 
                 // Process advanced keyboard shortcuts when in game
                 if (currentView === 'game') {
+                    // Double dummy review keys first: Alt+Shift+P would
+                    // otherwise reach the Alt+P handler below.
+                    if (ddReviewState && handleDdReviewKey(e)) return;
+
+                    // Hands of the left and right player, by physical key
+                    // (e.code) so they work on every keyboard layout. Alt+1-4
+                    // used to play the lowest card of a suit; they now read
+                    // hands instead (lowest card of the led suit is still ↓/O).
+                    // !ctrlKey: AltGr is Ctrl+Alt on Windows, and on a Finnish
+                    // keyboard AltGr+7/8/9/0 types { [ ] }.
+                    if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+                        const relativeHandKeys = {
+                            Digit1: ['left', 'spades'], Digit2: ['left', 'hearts'],
+                            Digit3: ['left', 'diamonds'], Digit4: ['left', 'clubs'],
+                            Digit5: ['left', null],
+                            Digit7: ['right', 'spades'], Digit8: ['right', 'hearts'],
+                            Digit9: ['right', 'diamonds'], Digit0: ['right', 'clubs'],
+                            Digit6: ['right', null]
+                        };
+                        const target = relativeHandKeys[e.code];
+                        if (target) {
+                            e.preventDefault();
+                            const position = getPositionLayout()[target[0]];
+                            if (target[1]) {
+                                announceHandSuitWithFocus(position, target[1], true);
+                            } else {
+                                announceEntireHand(position);
+                            }
+                            return;
+                        }
+                    }
+
                     // Card viewing shortcuts (Own cards)
                     if (e.altKey && e.key.toLowerCase() === 'a') {
                         e.preventDefault();
@@ -2694,28 +2991,6 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                     if (e.ctrlKey && e.key === '4' && !e.altKey) {
                         e.preventDefault();
                         playHighestCard('clubs');
-                        return;
-                    }
-
-                    // Card playing shortcuts - low cards
-                    if (e.altKey && e.key === '1') {
-                        e.preventDefault();
-                        playLowestCard('spades');
-                        return;
-                    }
-                    if (e.altKey && e.key === '2') {
-                        e.preventDefault();
-                        playLowestCard('hearts');
-                        return;
-                    }
-                    if (e.altKey && e.key === '3') {
-                        e.preventDefault();
-                        playLowestCard('diamonds');
-                        return;
-                    }
-                    if (e.altKey && e.key === '4') {
-                        e.preventDefault();
-                        playLowestCard('clubs');
                         return;
                     }
 
@@ -3414,10 +3689,72 @@ socket.on('trickComplete', (data) => {
                 }
             });
 
+            socket.on('ddReviewStarted', (data) => {
+                const wasOpen = !!ddReviewState;
+                ddReviewState = {
+                    index: data.index || 0,
+                    tricks: data.tricks || [],
+                    originalHands: data.originalHands,
+                    contract: data.contract,
+                    declarer: data.declarer,
+                    trump: data.trump,
+                    optimumTricks: data.optimumTricks,
+                    actualTricks: data.actualTricks,
+                    startedBy: data.startedBy
+                };
+                if (ddReviewState.tricks.length === 0) {
+                    ddReviewState = null;
+                    resetDdButton();
+                    return;
+                }
+                resetDdButton();
+                updateNextDealButtonState();
+                renderDdReview();
+
+                let intro = '';
+                if (data.rejoined) {
+                    intro = 'Double dummy review in progress. ';
+                } else if (!wasOpen && !isTableCreator()) {
+                    intro = `${positionName(data.startedBy)} started the double dummy review. `;
+                }
+                // Only the creator's focus moves into the review: for the
+                // others it opened on its own, possibly mid-chat-message.
+                if (isTableCreator() && !wasOpen) {
+                    const title = document.getElementById('dd-review-title');
+                    if (title) title.focus();
+                }
+                announceToScreenReader(intro + ddTrickAnnouncement());
+            });
+
+            socket.on('ddReviewTrick', (data) => {
+                if (!ddReviewState) return;
+                ddReviewState.index = data.index;
+                renderDdReview();
+                announceToScreenReader(ddTrickAnnouncement());
+            });
+
+            socket.on('ddReviewClosed', (data) => {
+                if (!ddReviewState) return;
+                const area = document.getElementById('dd-review-area');
+                const focusWasInside = area && area.contains(document.activeElement);
+                ddReviewState = null;
+                renderDdReview();
+                renderAllHands();
+                updateNextDealButtonState();
+                // A new deal announces itself; don't talk over it.
+                if (data && data.reason === 'newDeal') return;
+                if (focusWasInside) {
+                    const button = document.getElementById('show-dd-button');
+                    if (button && !button.hidden) button.focus();
+                }
+                announceToScreenReader('Double dummy review closed.');
+            });
+
             socket.on('error', (data) => {
                 const message = data && data.message ? data.message : 'Error occurred';
                 showErrorWithAnnouncement(message);
-                
+                resetDdButton();
+
                 resetCreateTableUI();
                 resetJoinTableUI();
             });

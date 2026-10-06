@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Double dummy -katselu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* Sama sävymaailma kuin bridge-robotti-suunnitelma.html: pelipöydän vihreä
+   huopa ja punainen korostus. Yksi kapea lukupalsta, näkymän luonnos
+   kuvataan oikeina HTML-elementteinä, jotta ruudunlukija lukee senkin. */
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --suit-black: #111111;
+  --suit-orange: #b45309;
+  --suit-green: #15803d;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  --card-bg: #ffffff;
+  --win: #005fcc;
+  --on-felt: #ffffff;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+    --on-felt: #0f1612;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+  --on-felt: #0f1612;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip { position: absolute; left: -9999px; top: 0; background: var(--felt); color: var(--on-felt); padding: .5rem 1rem; }
+.skip:focus { left: 1rem; top: 1rem; }
+header.page { background: var(--felt); color: var(--on-felt); padding: 2.5rem 1.25rem 2rem; }
+header.page .inner, main { max-width: 46rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; text-wrap: balance; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 38rem; }
+main { padding: 1.5rem 1.25rem 4rem; }
+h2 { font-size: 1.6rem; line-height: 1.25; margin: 3rem 0 1rem; padding-top: 1rem; border-top: 3px solid var(--felt); text-wrap: balance; }
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+p, li { max-width: 40rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--suit-red); outline-offset: 3px; }
+.verdict { background: var(--surface); border-left: 6px solid var(--felt); padding: 1rem 1.25rem; margin: 1.5rem 0; }
+.verdict.warn { border-left-color: var(--suit-red); }
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 32rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre { background: var(--code-bg); padding: 1rem; overflow-x: auto; font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt); }
+pre code { background: none; padding: 0; }
+.phase { background: var(--surface); border: 1px solid var(--rule); padding: .25rem 1.25rem 1rem; margin: 1.5rem 0; }
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+.tag { display: inline-block; background: var(--felt-soft); color: var(--felt); border-radius: 1rem; padding: .1rem .7rem; font-size: .85rem; font-weight: 700; margin-right: .4rem; }
+footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+
+/* Näkymän luonnos */
+figure.mock { margin: 1.5rem 0; }
+figure.mock figcaption { color: var(--muted); font-size: .95rem; margin-top: .5rem; }
+.dd-panel { background: #eef2f7; color: #1f2937; border: 2px solid #94a3b8; border-radius: 10px; padding: .75rem 1rem 1rem; }
+.dd-panel h4 { margin: 0 0 .25rem; font-size: 1.1rem; text-align: center; }
+.dd-sub { text-align: center; margin: 0 0 .75rem; font-size: .95rem; }
+.dd-grid {
+  display: grid; margin: 0 auto; width: min(100%, 17.5rem);
+  grid-template-areas: ". top ." "left top right" "left bottom right" ". bottom .";
+  grid-template-columns: 1fr 1fr 1fr; grid-template-rows: repeat(4, 1fr);
+  gap: 2px 6px; align-items: center; justify-items: center;
+}
+.dd-card { display: flex; flex-direction: column; align-items: center; }
+.dd-card .who { font-size: .85rem; font-weight: 700; color: #374151; }
+.dd-card .face { display: flex; flex-direction: column; align-items: center; min-width: 2.6rem; padding: .2rem .5rem; background: var(--card-bg); border: 2px solid #000; border-radius: 4px; font-weight: 800; line-height: 1.1; }
+.dd-card .face .s { font-size: 1.5rem; }
+.dd-card.win .face { box-shadow: 0 0 0 3px var(--win); }
+.dd-card .t { margin-top: 3px; padding: 0 5px; border-radius: 3px; font-size: .78rem; font-weight: 700; border: 1px solid #6b7280; background: #fff; color: #1f2937; }
+.dd-card.win .t { background: var(--win); border-color: var(--win); color: #fff; }
+.p-top { grid-area: top; } .p-left { grid-area: left; } .p-right { grid-area: right; } .p-bottom { grid-area: bottom; }
+.c-s { color: var(--suit-black); } .c-h { color: #dc2626; } .c-d { color: var(--suit-orange); } .c-c { color: var(--suit-green); }
+.dd-note { margin: .75rem 0 0; text-align: center; font-size: .95rem; font-weight: 700; }
+.dd-buttons { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-top: .75rem; }
+.dd-buttons span { display: inline-block; padding: .4rem .9rem; border-radius: 4px; border: 2px solid #1f2937; background: #fff; color: #1f2937; font-weight: 700; font-size: .95rem; }
+.dd-buttons span.primary { background: #005fcc; border-color: #005fcc; color: #fff; }
+.speech { background: var(--surface); border: 1px dashed var(--rule); padding: .75rem 1rem; font-style: italic; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Double dummy -katselu pelin loppuun</h1>
+    <p>Suunnitelma painikkeesta <strong>Show Double Dummy</strong>, joka näyttää ja lukee tikki tikiltä, miten ratkaisija olisi pelannut jaon täydellisesti. Katselu on pöydän yhteinen: pöydän luoja käynnistää sen ja vaihtaa tikkejä painikkeilla <strong>Previous Trick</strong> ja <strong>Next Trick</strong>, ja kaikki pöydän pelaajat näkevät ja kuulevat saman tikin. Tämä on suunnitteludokumentti, koodia ei ole vielä muutettu.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#suositus">Suositus</a></li>
+    <li><a href="#kokemus">Mitä pelaaja kokee</a></li>
+    <li><a href="#loydokset">Löydökset koodista</a></li>
+    <li><a href="#ratkaisu">Tekninen ratkaisu</a></li>
+    <li><a href="#saavutettavuus">Saavutettavuus</a></li>
+    <li><a href="#kadet">Kaikkien käsien kuuleminen</a></li>
+    <li><a href="#vaiheet">Toteutuksen vaiheet</a></li>
+    <li><a href="#paatokset">Avoimet päätökset</a></li>
+    <li><a href="#riskit">Riskit</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+  </ol>
+</nav>
+
+<h2 id="suositus">Suositus</h2>
+<div class="verdict">
+  <p><strong>Toteutettavissa pienellä työllä.</strong> Projektiin vendoroidussa ratkaisijassa on jo valmis funktio <code>dd_optimal_line</code>, joka palauttaa koko jaon täydellisen pelin: kaikki 52 korttia järjestyksessä pelaajineen. Kokeilin sitä tällä koneella, ja yksi jako ratkesi noin 0,2 sekunnissa.</p>
+  <p>Palvelin tuntee pelin lopussa jo kaikki alkuperäiset kädet (<code>originalHands</code>), valttimaan ja pelinviejän. Tarvitaan kolme uutta socket-viestiä (aloita, vaihda tikkiä, sulje), tikkeihin ryhmittely palvelimella ja uusi näkymä asiakkaalle.</p>
+  <p><strong>Pöydän luoja ohjaa, kaikki katsovat.</strong> Katselun tila (näytettävä tikki) on palvelimella, ja palvelin lähettää jokaisen muutoksen kaikille pöydän pelaajille. Sama malli on jo käytössä seuraavan jaon aloittamisessa: vain pöydän luoja voi painaa Next Deal (<code>table.creatorPosition</code>).</p>
+  <p><strong>Automaattinen seuraava jako pysähtyy katselun ajaksi.</strong> Nyt seuraava jako alkaa 10 sekunnin päästä, ja se aika ei riitä katseluun. Koska katselu on yhteinen ja pöydän luojan käynnistämä, ajastin pysäytetään koko pöydältä, kun katselu alkaa, ja käynnistetään uudelleen, kun luoja sulkee sen.</p>
+</div>
+
+<h2 id="kokemus">Mitä pelaaja kokee</h2>
+
+<h3>Pöydän luoja</h3>
+<ol class="steps">
+  <li>Jako päättyy. Nykyinen ilmoitus kertoo jo tuloksen ja double dummy -optimin, esim. <em>"You made 9 tricks. Double dummy optimum for this deal: 10 tricks."</em> Pöydän luojan pelin ohjaimiin (<code>#game-controls</code>) ilmestyy painike <strong>Show Double Dummy</strong>. Muille pelaajille painiketta ei näytetä.</li>
+  <li>Painettaessa tikkialueen paikalle avautuu katselunäkymä kaikille, ja luojan kohdistus siirtyy näkymän otsikkoon. Ruudunlukija lukee ensimmäisen tikin.</li>
+  <li><strong>Next Trick</strong> ja <strong>Previous Trick</strong> vaihtavat tikkiä kaikilta. Kohdistus pysyy painikkeessa, ja uuden tikin sisältö luetaan. Ensimmäisessä tikissä Previous on poissa käytöstä ja viimeisessä Next.</li>
+  <li><strong>Close</strong> sulkee näkymän kaikilta ja palauttaa luojan kohdistuksen Show Double Dummy -painikkeeseen. Katselun voi avata uudelleen niin kauan kuin uutta jakoa ei ole aloitettu.</li>
+  <li><strong>Next Deal</strong> toimii katselun aikanakin: se sulkee katselun ja aloittaa uuden jaon.</li>
+</ol>
+
+<h3>Muut pelaajat</h3>
+<ol class="steps">
+  <li>Kun luoja avaa katselun, näkymä avautuu myös heille, ja ruudunlukija ilmoittaa: <em>"North started the double dummy review."</em> Sen jälkeen luetaan ensimmäinen tikki. Kohdistusta ei siirretä, jottei esimerkiksi kesken jäänyt chat-viesti keskeydy.</li>
+  <li>Kun luoja vaihtaa tikkiä, uusi tikki piirretään ja luetaan kaikille automaattisesti.</li>
+  <li>Previous-, Next- ja Close-painikkeiden paikalla lukee <em>"North (table creator) controls the review."</em> Painikkeita ei näytetä lainkaan, koska poissa käytöstä olevat painikkeet ovat ruudunlukijalla turhia pysähdyspaikkoja.</li>
+  <li>Jos muu pelaaja painaa tikinvaihtonäppäintä, hän kuulee: <em>"Only the table creator can change tricks."</em></li>
+  <li>Kun luoja sulkee katselun, kaikki kuulevat: <em>"Double dummy review closed."</em></li>
+</ol>
+
+<h3>Kaikille yhteistä</h3>
+<ul>
+  <li><strong>Kaikkien neljän pelaajan kortit näkyvät</strong> pöydän tavallisilla paikoilla (ylhäällä, vasemmalla, oikealla ja alhaalla), kunkin pelaajan oman istumapaikan mukaan. Kädet näytetään sellaisina kuin ne olivat näytettävän tikin alussa, ja ne muuttuvat tikkiä vaihdettaessa.</li>
+  <li><strong>Jokainen voi kuunnella mitä tahansa kättä omilla pikanäppäimillään</strong> (ks. <a href="#kadet">kaikkien käsien kuuleminen</a>). Kädet luetaan paikallisesti, eivätkä ne vaikuta muiden näkymään.</li>
+</ul>
+
+<figure class="mock">
+  <div class="dd-panel" role="img" aria-label="Luonnos katselunäkymästä: tikki 3/13, länsi johtaa pata neljällä, etelä voittaa pata ässällä. Alla painikkeet Previous Trick, Next Trick ja Close.">
+    <h4>Double Dummy Play – Trick 3 of 13</h4>
+    <p class="dd-sub">Contract 4♠ by South · Declarer side 2, defenders 0 before this trick</p>
+    <div class="dd-grid">
+      <div class="dd-card p-top"><span class="who">North</span><span class="face c-s"><span class="s">♠</span>9</span></div>
+      <div class="dd-card p-left"><span class="who">West</span><span class="face c-s"><span class="s">♠</span>4</span><span class="t">Led</span></div>
+      <div class="dd-card p-right"><span class="who">East</span><span class="face c-s"><span class="s">♠</span>K</span></div>
+      <div class="dd-card p-bottom win"><span class="who">South</span><span class="face c-s"><span class="s">♠</span>A</span><span class="t">Wins</span></div>
+    </div>
+    <p class="dd-note">South wins. Declarer side 3, defenders 0.</p>
+    <div class="dd-buttons">
+      <span>Previous Trick</span><span class="primary">Next Trick</span><span>Close</span>
+    </div>
+  </div>
+  <figcaption>Luonnos pöydän luojan näkymästä. Muilla pelaajilla painikkeiden paikalla lukee "North (table creator) controls the review." Tikki piirretään samalla vinoneliöruudukolla ja samoilla "Led"- ja "Wins"-merkinnöillä kuin pelin aikana, joten näkymä on pelaajalle tuttu.</figcaption>
+</figure>
+
+<h3>Mitä ruudunlukija sanoo</h3>
+<p>Yksi ilmoitus tikkiä kohden samassa järjestyksessä kuin pelissä. Kortit luetaan samalla tavalla kuin <code>cardPlayed</code>-ilmoituksissa nyt.</p>
+<p class="speech">"Trick 3 of 13. West leads Spades 4, North Spades 9, East Spades King, South Spades Ace. South wins. Declarer side 3, defenders 0."</p>
+<p>Viimeisen tikin perään lisätään yhteenveto: <em>"Double dummy result: declarer side 10 tricks. You made 9."</em></p>
+
+<h2 id="loydokset">Löydökset koodista</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Mitä on jo olemassa</caption>
+  <thead><tr><th scope="col">Asia</th><th scope="col">Missä</th><th scope="col">Merkitys tälle työlle</th></tr></thead>
+  <tbody>
+    <tr><td>Ratkaisijan <code>dd_optimal_line(request, from)</code></td><td><code>lib/vendor/bridge-solver-wasm/</code>, ei vielä käytössä</td><td>Palauttaa <code>{ cards: [...52], seats: [...52], declaring_tricks }</code>. Testattu: 52 korttia noin 180 ms:ssa.</td></tr>
+    <tr><td>Ratkaisijan <code>dd_play(request)</code></td><td>sama, ei vielä käytössä</td><td>Antaa jokaiselle oikeasti pelatulle kortille hinnan tikkeinä (<code>cost</code>). Mahdollistaa vertailun "tämä kortti maksoi tikin" (vaihe 3).</td></tr>
+    <tr><td>Kääre <code>lib/bridge_solver_wasm.js</code></td><td><code>solveContract</code>, <code>bestCard</code></td><td>Siihen lisätään <code>optimalLine()</code>. PBN-muunnokset ovat siellä valmiina.</td></tr>
+    <tr><td><code>originalHands</code>, <code>playedCards</code></td><td><code>server.js</code> (jaon alussa ja jokaisessa pelatussa kortissa)</td><td>Kaikki syötteet ovat palvelimella. <code>originalHands</code> poistetaan asiakkaalle lähtevästä tilasta, eli kädet eivät vuoda pelin aikana.</td></tr>
+    <tr><td><code>endGame()</code> ja <code>gameOver</code>-viesti</td><td><code>server.js</code> noin rivi 1569</td><td>Laskee jo double dummy -tikkimäärän. Uusi painike näytetään tämän viestin jälkeen.</td></tr>
+    <tr><td>Automaattinen seuraava jako 10 s</td><td><code>endGame()</code>, <code>table.pendingNextDealTimeout</code></td><td>Liian lyhyt aika katselulle. Ajastin pysäytetään katselun ajaksi.</td></tr>
+    <tr><td>Pöydän luojan oikeudet</td><td><code>table.creatorPosition</code>, <code>requestNextDeal()</code> ja <code>replayDeal()</code></td><td>Valmis malli: palvelin tarkistaa <code>player.position === table.creatorPosition</code> ja palauttaa muuten virheen. Asiakas tuntee luojan muuttujasta <code>tableCreatorPosition</code>.</td></tr>
+    <tr><td>Tikin vinoneliöruudukko, "Led" ja "Wins"</td><td><code>updateCurrentTrickDisplay()</code>, <code>multiplayer.css</code></td><td>Käytetään uudelleen katselunäkymässä.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="ratkaisu">Tekninen ratkaisu</h2>
+
+<h3>Palvelin</h3>
+<ol>
+  <li><strong><code>lib/bridge_solver_wasm.js</code>: uusi <code>optimalLine({ hands, trump, declarer, leader })</code></strong>. Kutsuu <code>dd_optimal_line(request, 0)</code> ja muuntaa PBN-kortit palvelimen muotoon <code>{ suit, card }</code>.</li>
+  <li><strong>Uusi puhdas moduuli <code>lib/double_dummy_line.js</code></strong>, joka ryhmittelee 52 korttia 13 tikiksi, laskee jokaisen tikin voittajan ja juoksevan tikkitilanteen. Voittajasääntö on sama kuin <code>determineTrickWinner()</code>:ssa, mutta se ei riipu <code>table</code>-oliosta, joten sitä voi testata erikseen.</li>
+  <li><strong>Katselun tila pöydällä:</strong> <code>table.ddReview = { epoch, line, index }</code>. <code>line</code> on laskettu tulos ja <code>index</code> näytettävä tikki (0–12). Tila on <code>null</code>, kun katselu ei ole auki. Laskettu <code>line</code> säilytetään erikseen kentässä <code>table.ddLineCache</code>, jotta uudelleen avaaminen ei laske jakoa uudelleen. Uusi jako tyhjentää molemmat.</li>
+  <li><strong>Kolme uutta socket-viestiä asiakkaalta.</strong> Kaikki tarkistavat, että lähettäjä istuu pöydässä ja että <code>player.position === table.creatorPosition</code>. Muussa tapauksessa palautetaan <code>sendError(socket, 'Only the table creator can control the double dummy review')</code> samaan tapaan kuin <code>requestNextDeal()</code>:
+    <ul>
+      <li><code>startDoubleDummyReview</code>: sallittu vain, kun <code>gamePhase === 'end'</code> ja sopimus on olemassa (ei passattua jakoa), koska vastaus paljastaa kaikki kädet. Laskee tai hakee välimuistista linjan, pysäyttää <code>pendingNextDealTimeout</code>-ajastimen, asettaa <code>index = 0</code> ja lähettää kaikille <code>ddReviewStarted</code>.</li>
+      <li><code>ddReviewGoTo { index }</code>: palvelin tarkistaa, että arvo on väliltä 0–12, ja lähettää kaikille <code>ddReviewTrick { index }</code>. Asiakas lähettää kohdeindeksin, ei "seuraava/edellinen"-komentoa, joten kaksi nopeaa painallusta ei voi ohittaa tikkiä viiveen takia.</li>
+      <li><code>closeDoubleDummyReview</code>: asettaa <code>ddReview = null</code>, lähettää kaikille <code>ddReviewClosed</code> ja käynnistää automaattisen jaon ajastimen uudelleen (10 s), jos <code>table.autoNextDeal</code> on päällä.</li>
+    </ul>
+  </li>
+  <li><strong>Next Deal katselun aikana</strong> (<code>requestNextDeal()</code>) lähettää ensin <code>ddReviewClosed</code> ja aloittaa sitten jaon normaalisti.</li>
+  <li><strong>Uudelleenliittyminen:</strong> pöytään palaavalle pelaajalle lähetetään nykyinen <code>ddReview</code> samassa yhteydessä kuin muu pöydän tila. Silloin katselu jatkuu hänellä samasta tikistä.</li>
+  <li><strong>Kesken laskennan</strong> aloitettu uusi jako hylkää tuloksen <code>dealEpoch</code>-tarkistuksella samoin kuin robottien siirroissa nyt.</li>
+</ol>
+
+<pre><code>// Palvelin → kaikki pöydän pelaajat: 'ddReviewStarted'
+{
+  startedBy: 'north', index: 0,
+  contract: '4S', declarer: 'south', trump: 'spades',
+  optimumTricks: 10,          // declaring_tricks
+  actualTricks: 9,
+  originalHands: { north: { spades: [...], ... }, ... },  // kaikki 4 kättä jaon alussa
+  playedCards: [ { player, suit, card }, ... ],           // oikea peli, vaihe 3
+  tricks: [
+    { number: 1, leader: 'west', winner: 'south',
+      cards: [ { player: 'west', suit: 'diamonds', card: 'Q' }, ... ],
+      declarerTricks: 1, defenderTricks: 0 },   // tilanne tikin jälkeen
+    ...
+  ]
+}
+
+// Palvelin → kaikki: 'ddReviewTrick'   { index: 3 }
+// Palvelin → kaikki: 'ddReviewClosed'  { }</code></pre>
+
+<p>Avausiskijä on aina pelinviejästä seuraava (<code>getNextPlayer(declarer)</code>). Syötteenä käytetään <code>originalHands</code>-kenttää, ei pelin lopussa tyhjiä käsiä.</p>
+
+<h3>Asiakas (<code>public/index.html</code>, <code>multiplayer.css</code>)</h3>
+<ul>
+  <li>Painike <code>#show-dd-button</code> pelin ohjaimiin. Se näytetään vain pöydän luojalle (<code>tableCreatorPosition === myPosition</code>), kun <code>gameOver</code> saapuu ja viestissä on <code>doubleDummyTricks</code>. Se piiloutuu <code>newDealStarted</code>-viestissä.</li>
+  <li>Katselunäkymä avautuu kaikille <code>ddReviewStarted</code>-viestistä, ei painikkeen painalluksesta. Näin luojan oma näkymä toimii täsmälleen samoin kuin muiden.</li>
+  <li>Previous, Next ja Close näytetään vain luojalle. Muille niiden paikalla on teksti <em>"North (table creator) controls the review."</em></li>
+  <li>Uusi osio <code>#dd-review-area</code> tikkialueen (<code>#current-trick-area</code>) paikalle. Tikkialue piilotetaan katselun ajaksi.</li>
+  <li>Tila <code>ddReview = { line, index }</code>. Funktio <code>renderDdTrick()</code> piirtää vain tikkiruudukon ja tekstirivit, ei painikkeita, jotta kohdistus ei katoa (ks. alla).</li>
+  <li>Funktio <code>ddHandsAt(index)</code> laskee kädet näytettävän tikin alussa: <code>originalHands</code>, josta on poistettu tikkien <code>0 … index − 1</code> kortit. Kädet piirretään nykyisillä paikoilla (<code>#top-</code>, <code>#left-</code>, <code>#right-</code> ja <code>#bottom-position-area</code>) olemassa olevalla <code>renderHand()</code>-funktiolla vain luku -tilassa, eli ilman <code>onclick</code>-käsittelijää. Otsikkoon tulee merkintä "– double dummy".</li>
+  <li>Laskennan aikana painikkeessa lukee <em>"Calculating…"</em>, ja se on poissa käytöstä. Virheestä kerrotaan näkyvästi ja ruudunlukijalle: <em>"Double dummy analysis failed. Try again."</em></li>
+</ul>
+
+<h2 id="saavutettavuus">Saavutettavuus</h2>
+<ul>
+  <li><strong>Painikkeet ovat oikeita <code>&lt;button&gt;</code>-elementtejä, joita ei piirretä uudelleen.</strong> Koodissa on jo dokumentoitu ongelma: kun kohdistettu elementti tuhotaan uudelleenpiirrossa, kohdistus putoaa <code>&lt;body&gt;</code>-elementtiin ja NVDA lukee ikkunan otsikon uudelleen. Siksi Previous, Next ja Close ovat staattisia, ja vain tikin sisältö vaihtuu.</li>
+  <li><strong>Ilmoitus tehdään olemassa olevalla <code>announceToScreenReader()</code>-funktiolla</strong>, ei uudella live-alueella, jotta ilmoitukset eivät tule kahteen kertaan.</li>
+  <li><strong>Pikanäppäimet</strong> katselun ollessa auki. Ehdotus: <kbd>Alt + N</kbd> seuraava tikki ja <kbd>Alt + Shift + N</kbd> edellinen tikki. Molemmat ovat nyt vapaina. Lisäksi <kbd>Escape</kbd> sulkee näkymän. Nämä toimivat vain pöydän luojalla. Muut kuulevat <em>"Only the table creator can change tricks."</em> Uudet näppäimet lisätään Help-näkymään ja <code>userguide.html</code>-ohjeeseen.</li>
+  <li><strong>Kaikki voivat kuunnella nykyisen tikin uudelleen.</strong> Uusi näppäin <kbd>Alt + Shift + P</kbd> lukee näytettävän tikin uudelleen, jos ilmoitus jäi kuulematta esimerkiksi oman käden lukemisen aikana. Pelin aikana <kbd>P</kbd> lukee jo nykyisen tikin, joten tämä on sen vastine katselussa.</li>
+  <li><strong>Ilmoitukset eivät katkea:</strong> jos pelaaja kuuntelee kättä juuri silloin, kun luoja vaihtaa tikkiä, uusi tikki-ilmoitus keskeyttää sen. Siksi myös <kbd>Alt + Shift + P</kbd> tarvitaan.</li>
+  <li><strong>Reunoilla ilmoitetaan reuna</strong>, ei hiljaisuutta: <em>"This is the last trick."</em></li>
+  <li><strong>Näkyvä tila ei ole pelkän värin varassa:</strong> "Led" ja "Wins" tekstinä, voittajakortilla paksu reunus, tikin numero otsikossa.</li>
+</ul>
+
+<h2 id="kadet">Kaikkien käsien kuuleminen</h2>
+
+<h3>Nykytila</h3>
+<p>Pelin aikana <kbd>Alt + A S D F</kbd> lukee oman käden ja <kbd>Alt + Q W E R</kbd> "apukäden" maa kerrallaan (<kbd>Alt + G</kbd> ja <kbd>Alt + T</kbd> lukevat koko käden). Apukäsi riippuu tilanteesta (<code>getAuxiliaryHandPosition()</code>): se on lepääjä, tai pelinviejä, kun käyttäjä on lepääjä ja ohjaa robottipelinviejää. Vastustajien käsiä ei voi kuulla koskaan, koska niitä ei pelin aikana saa nähdä. Pelin lopussa kädet ovat tyhjiä, joten mikään näistä komennoista ei lue silloin mitään hyödyllistä.</p>
+
+<h3>Ehdotus: neljä kättä, neljä näppäinriviä</h3>
+<p>Katselunäkymässä jokaisella neljällä kädellä on oma kiinteä näppäinrivinsä. Kädet määräytyvät suhteessa käyttäjän omaan paikkaan, samoin kuin pöytä piirretään ruudulle. Näppäimistön vasen ja oikea reuna vastaavat vasenta ja oikeaa vastustajaa, mikä tekee komennot helpoiksi muistaa:</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Näppäimet katselunäkymässä (järjestys aina pata, hertta, ruutu, risti, koko käsi)</caption>
+  <thead><tr><th scope="col">Käsi</th><th scope="col">Pata</th><th scope="col">Hertta</th><th scope="col">Ruutu</th><th scope="col">Risti</th><th scope="col">Koko käsi</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Oma käsi (alhaalla)</th><td><kbd>Alt + A</kbd></td><td><kbd>Alt + S</kbd></td><td><kbd>Alt + D</kbd></td><td><kbd>Alt + F</kbd></td><td><kbd>Alt + G</kbd></td></tr>
+    <tr><th scope="row">Partneri (ylhäällä)</th><td><kbd>Alt + Q</kbd></td><td><kbd>Alt + W</kbd></td><td><kbd>Alt + E</kbd></td><td><kbd>Alt + R</kbd></td><td><kbd>Alt + T</kbd></td></tr>
+    <tr><th scope="row">Vasen vastustaja <span class="tag">uusi</span></th><td><kbd>Alt + 1</kbd></td><td><kbd>Alt + 2</kbd></td><td><kbd>Alt + 3</kbd></td><td><kbd>Alt + 4</kbd></td><td><kbd>Alt + 5</kbd></td></tr>
+    <tr><th scope="row">Oikea vastustaja <span class="tag">uusi</span></th><td><kbd>Alt + 7</kbd></td><td><kbd>Alt + 8</kbd></td><td><kbd>Alt + 9</kbd></td><td><kbd>Alt + 0</kbd></td><td><kbd>Alt + 6</kbd></td></tr>
+  </tbody>
+</table>
+</div>
+
+<ul>
+  <li><strong>Koko käsi:</strong> <kbd>Alt + G</kbd> ja <kbd>Alt + T</kbd> ovat oman rivinsä oikealla puolella. Vastaavasti <kbd>Alt + 5</kbd> on rivin 1–4 jatke ja <kbd>Alt + 6</kbd> on heti rivin 7–0 vieressä. Näin jokaisella kädellä on oma "lue kaikki" -näppäin ilman uusia erikoismerkkejä.</li>
+  <li><strong>Katselussa Alt + Q W E R lukee aina partnerin</strong>, ei tilannekohtaista apukättä. Kun kaikki kädet ovat näkyvissä, kiinteä paikka on selkeämpi kuin "lepääjä tai pelinviejä".</li>
+  <li><strong>Mitkä kortit luetaan:</strong> käden kortit näytettävän tikin alussa, eli samat, jotka näkyvät ruudulla. Silloin kuulee, mitä vaihtoehtoja pelaajalla oli, kun tikki alkoi.</li>
+  <li><strong>Ilmoitus nimeää aina käden</strong>, jotta kuulija tietää kenen kortteja kuulee: <em>"West, left opponent: 3 spades: King, 9, 4."</em> ja <em>"East, right opponent: no hearts."</em> Koko käsi: <em>"West, left opponent, before trick 3: 3 spades: King, 9, 4. 2 hearts: … "</em> Nykyinen <code>announceEntireHand()</code> sanoo aina "Your hand", myös lepääjän kädestä. Se korjataan samalla.</li>
+</ul>
+
+<h3>Ristiriidat nykyisten komentojen kanssa ja niiden ratkaisu</h3>
+<ul>
+  <li><strong><kbd>Alt + 1–4</kbd> pelaa pelin aikana maan pienimmän kortin.</strong> Katselunäkymä on auki vain jaon päätyttyä, jolloin kortteja ei voi pelata, joten merkitykset eivät ole koskaan voimassa yhtä aikaa. Katselun näppäinkäsittelijä ajetaan ennen pelinäppäimiä ja lopettaa käsittelyn (<code>return</code>), joten katselussa ei voi vahingossa yrittää pelata korttia. Help-näkymässä uudet komennot listataan omana osionaan "Double Dummy Review", jotta tilannekohtainen merkitys on selvä.</li>
+  <li><strong>AltGr = Ctrl + Alt Windowsissa.</strong> Suomalaisella näppäimistöllä <kbd>AltGr + 7 8 9 0</kbd> kirjoittaa merkit <code>{ [ ] }</code>. Uudet komennot vaativat siksi, että <code>e.altKey</code> on tosi ja <code>e.ctrlKey</code> epätosi. Lisäksi ne ohitetaan, kun kohdistus on tekstikentässä, esim. chatissa.</li>
+  <li><strong>Näppäin tunnistetaan fyysisen paikan mukaan</strong> (<code>e.code === 'Digit1'</code> jne.), ei merkin mukaan (<code>e.key</code>). Silloin komennot toimivat samoin kaikilla näppäimistöasetteluilla ja myös Shiftin kanssa.</li>
+  <li><strong>NVDA ja JAWS</strong> eivät käytä <kbd>Alt + numero</kbd> -yhdistelmiä, eivätkä selaimet Windowsissa myöskään. Tämä tarkistetaan testauksessa kummallakin ruudunlukijalla.</li>
+</ul>
+
+<h3>Harkitut vaihtoehdot</h3>
+<p>Ehdotettu malli on mielestäni paras, koska se noudattaa olemassa olevaa ASDF/QWER-logiikkaa ja kattaa kaikki neljä kättä. Harkitsin myös näitä:</p>
+<ul>
+  <li><strong>Kiinteät ilmansuunnat</strong> (esim. Alt + 1–4 lukee aina lännen): ei toimi, koska pelaaja voi istua millä tahansa paikalla. Suhteellinen "vasen ja oikea" vastaa myös ruudun asettelua.</li>
+  <li><strong>Yksi näppäin vaihtaa luettavaa kättä</strong> (esim. <kbd>Alt + H</kbd> kierrättää käsiä ja ASDF lukee valitun): vähemmän näppäimiä, mutta käyttäjän pitää muistaa, mikä käsi on valittuna. Siitä tulee helposti virheitä.</li>
+  <li><strong>Numeronäppäimet toimimaan pelin jälkeen myös ilman katselunäkymää:</strong> ei tarpeen, koska kädet ovat silloin tyhjiä. Kaikki luettava on katselunäkymässä.</li>
+</ul>
+
+<h2 id="vaiheet">Toteutuksen vaiheet</h2>
+
+<div class="phase">
+  <h3><span class="tag">Vaihe 1</span>Palvelin ja testit</h3>
+  <ul>
+    <li><code>optimalLine()</code> kääreeseen ja uusi moduuli <code>lib/double_dummy_line.js</code></li>
+    <li>socket-viestit <code>startDoubleDummyReview</code>, <code>ddReviewGoTo</code> ja <code>closeDoubleDummyReview</code>, pöydän luojan ja <code>gamePhase === 'end'</code> -tilan tarkistukset, välimuisti</li>
+    <li>katselun tila <code>table.ddReview</code>, automaattisen jaon ajastimen pysäytys ja uudelleenkäynnistys, tilan lähetys uudelleenliittyvälle</li>
+    <li>testit tiedostoon <code>lib/double_dummy_line.test.js</code> ja tiedoston lisäys <code>npm test</code> -komentoon</li>
+  </ul>
+  <p class="done-when">Valmis, kun testijako palauttaa 13 tikkiä, joiden voittajat ja tikkimäärä täsmäävät <code>solveContract()</code>-tulokseen.</p>
+</div>
+
+<div class="phase">
+  <h3><span class="tag">Vaihe 2</span>Katselunäkymä</h3>
+  <ul>
+    <li>painike vain pöydän luojalle; näkymä kaikille; Previous, Next ja Close vain luojalle; muille teksti "controls the review"; kohdistuksen hallinta</li>
+    <li>kaikkien neljän käden näyttäminen tikin alun tilanteessa (<code>ddHandsAt()</code>)</li>
+    <li>ruudunlukijan ilmoitukset ja pikanäppäimet, myös uudet <kbd>Alt + 1–6</kbd> ja <kbd>Alt + 7–0</kbd></li>
+    <li>Help-näkymän ja käyttöohjeen päivitys</li>
+  </ul>
+  <p class="done-when">Valmis, kun pöydän luoja voi käydä koko jakson läpi pelkällä näppäimistöllä NVDA:n kanssa ilman, että kohdistus katoaa, ja toisen selainikkunan pelaaja näkee ja kuulee jokaisen tikinvaihdon.</p>
+</div>
+
+<div class="phase">
+  <h3><span class="tag">Vaihe 3</span>Vertailu omaan peliin (valinnainen)</h3>
+  <ul>
+    <li><code>dd_play</code> antaa jokaiselle oikeasti pelatulle kortille hinnan. Katselunäkymään voi lisätä rivin <em>"In the actual play: South played Hearts 5 here, which cost 1 trick."</em></li>
+    <li>Tikit, joissa tehtiin virhe, voi merkitä ja niihin voi hypätä suoraan (esim. <em>"Next mistake"</em>).</li>
+  </ul>
+  <p class="done-when">Erillinen päätös vaiheiden 1–2 jälkeen. Hyödyllisin oppimisen kannalta, mutta kasvattaa näkymää.</p>
+</div>
+
+<h2 id="paatokset">Avoimet päätökset</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Päätettävät asiat ja suositukset</caption>
+  <thead><tr><th scope="col">Kysymys</th><th scope="col">Vaihtoehdot</th><th scope="col">Suositus</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Mitä tapahtuu, jos pöydän luojan yhteys katkeaa katselun aikana?</td>
+      <td>A) Katselu jää auki samaan tikkiin, ja luoja jatkaa palattuaan.<br>B) Katselu suljetaan kaikilta.<br>C) Ohjaus siirtyy toiselle ihmispelaajalle.</td>
+      <td><strong>A.</strong> Muut voivat sillä välin kuunnella käsiä. Jos luoja poistetaan pöydästä aikakatkaisun takia, katselu suljetaan ja automaattinen jako käynnistyy normaalisti. Vaihtoehto C vaatisi luojan oikeuksien siirtämistä, eikä sitä tehdä nykyisinkään Next Deal -painikkeelle.</td>
+    </tr>
+    <tr>
+      <td>Pikanäppäimet</td>
+      <td><kbd>Alt + N</kbd> / <kbd>Alt + Shift + N</kbd>, tai nuolinäppäimet katselun aikana</td>
+      <td><kbd>Alt + N</kbd> / <kbd>Alt + Shift + N</kbd>. Nuolinäppäimillä on pelissä jo muita tehtäviä.</td>
+    </tr>
+    <tr>
+      <td>Luetaanko kädet tikin alussa vai sen jälkeen?</td>
+      <td>Tikin alussa tai tikin jälkeen</td>
+      <td><strong>Tikin alussa.</strong> Silloin kuulee, mistä korteista pelaaja valitsi. Ruudulla näkyy sama tilanne.</td>
+    </tr>
+    <tr>
+      <td>Koko käden näppäimet vastustajille</td>
+      <td><kbd>Alt + 5</kbd> ja <kbd>Alt + 6</kbd>, tai ei koko käden näppäintä</td>
+      <td><kbd>Alt + 5</kbd> vasemmalle ja <kbd>Alt + 6</kbd> oikealle vastustajalle, samaan tapaan kuin <kbd>Alt + G</kbd> ja <kbd>Alt + T</kbd>.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="riskit">Riskit</h2>
+<ul>
+  <li><strong>Tasapelikortit:</strong> kun usea kortti tuottaa saman tuloksen, <code>dd_optimal_line</code> voi valita esimerkiksi rouvan pienen kortin sijaan. Robotti välttää tämän valitsemalla pienimmän kortin. Näkymässä puhutaan siksi yhdestä optimaalisesta pelistä: <em>"One optimal line"</em>. Jos valinnat näyttävät oudoilta, linja voidaan rakentaa askel kerrallaan <code>bestCard()</code>-funktiolla (52 kutsua, hitaampi).</li>
+  <li><strong>Laskenta-aika:</strong> 0,2 s testijaolla, mutta poikkeuksellisen jakauman jaoissa ratkaisija voi olla selvästi hitaampi ja käyttää paljon muistia. Laskenta tehdään vain pyynnöstä, tulos tallennetaan välimuistiin, ja <code>release_memory()</code> kutsutaan raskaan jaon jälkeen.</li>
+  <li><strong>Kesken jätetty jako:</strong> jos uusi jako aloitetaan kesken laskennan, vastaus hylätään <code>dealEpoch</code>-tarkistuksella samoin kuin robottien siirroissa nyt.</li>
+  <li><strong>Muut pelaajat odottavat luojan tahdissa.</strong> Ruudunlukijan käyttäjä voi tarvita enemmän aikaa yhteen tikkiin kuin luoja antaa. Tätä lievittää se, että kädet ja nykyisen tikin voi kuunnella omaan tahtiin ja ihmispelaajat voivat pyytää chatissa odottamaan. Jos tämä osoittautuu ongelmaksi, myöhemmin voidaan lisätä "Follow the creator" -valinta, jonka pois kytkemällä pelaaja selaa tikkejä itsenäisesti.</li>
+</ul>
+
+<h2 id="testaus">Testaus</h2>
+<ul>
+  <li><strong>Yksikkötestit</strong> (<code>lib/double_dummy_line.test.js</code>): 13 tikkiä, joissa kussakin neljä korttia; voittaja valtilla, ilman valttia ja sangissa; seuraavan tikin johtaja on edellisen voittaja; tikkimäärä täsmää <code>declaring_tricks</code>-arvoon.</li>
+  <li><strong>Palvelintestit:</strong>
+    <ul>
+      <li>muun kuin pöydän luojan <code>startDoubleDummyReview</code>, <code>ddReviewGoTo</code> ja <code>closeDoubleDummyReview</code> hylätään</li>
+      <li>luojan aloitus pelin aikana hylätään, pelin jälkeen se onnistuu, ja toinen aloitus käyttää välimuistia</li>
+      <li><code>ddReviewStarted</code> ja <code>ddReviewTrick</code> menevät kaikille neljälle pelaajalle</li>
+      <li><code>ddReviewGoTo</code> hylkää indeksit −1 ja 13</li>
+      <li>automaattinen jako ei käynnisty katselun aikana, ja se käynnistyy 10 s sulkemisen jälkeen</li>
+      <li>Next Deal katselun aikana lähettää <code>ddReviewClosed</code> ja aloittaa jaon</li>
+      <li>uudelleenliittyvä pelaaja saa katselun samasta tikistä</li>
+    </ul>
+  </li>
+  <li><strong>Yksikkötesti <code>ddHandsAt()</code>-logiikalle:</strong> tikin 1 alussa kädessä on 13 korttia, tikin 13 alussa yksi kortti, ja poistetut kortit ovat juuri aiempien tikkien kortit.</li>
+  <li><strong>Näppäimet:</strong> jokaisella neljällä paikalla istuessa Alt + 1–5 lukee vasemman ja Alt + 6 sekä Alt + 7–0 oikean vastustajan käden. Pelin aikana Alt + 1–4 pelaa yhä pienimmän kortin. AltGr + 7–0 kirjoittaa chatissa yhä sulkeet.</li>
+  <li><strong>Käsin selaimessa:</strong> koko kierto näppäimistöllä NVDA:n ja JAWSin kanssa, tumma tila, kapea näyttö ja 200 %:n zoomaus.</li>
+</ul>
+
+</main>
+
+<footer>
+  <p>Laadittu 6.10.2026. Ratkaisijan toiminta on kokeiltu paikallisesti Node.js:ssä vendoroidulla <code>bridge-solver</code>-WASM-moduulilla.</p>
+</footer>
+</body>
+</html>

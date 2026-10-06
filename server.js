@@ -11,6 +11,7 @@ const path = require('path');
 const cors = require('cors');
 const robot = require('./lib/robot');
 const solver = require('./lib/bridge_solver_wasm');
+const DdReview = require('./public/js/dd-review');
 
 // Initialize Express app and server
 const app = express();
@@ -200,7 +201,19 @@ io.on('connection', (socket) => {
   socket.on('replayDeal', (data) => {
     replayDeal(socket, playerId, data);
   });
-  
+
+  socket.on('startDoubleDummyReview', (data) => {
+    startDoubleDummyReview(socket, playerId, data);
+  });
+
+  socket.on('ddReviewGoTo', (data) => {
+    ddReviewGoTo(socket, playerId, data);
+  });
+
+  socket.on('closeDoubleDummyReview', (data) => {
+    closeDoubleDummyReview(socket, playerId, data);
+  });
+
   // Disconnect handling
   socket.on('disconnect', () => {
     console.log('Client disconnected:', playerId);
@@ -255,6 +268,12 @@ function handleDisconnect(playerId) {
                 
                 // Poista pelaaja lopullisesti
                 removePlayerFromTable(player, currentTable);
+
+                // Double dummy -katselua ohjaa vain pöydän luoja; jos hän
+                // poistuu lopullisesti, katselu suljetaan kaikilta.
+                if (currentTable.ddReview && position === currentTable.creatorPosition) {
+                  endDoubleDummyReview(currentTable);
+                }
                 
                 sendToTablePlayers(currentTable, {
                   type: 'playerRemovedTimeout',
@@ -546,7 +565,12 @@ function getTableInfo(socket, playerId, data) {
                 dummyCards: table.gameState.hands[table.gameState.dummy]
             });
         }
-        
+
+        // Jos double dummy -katselu on auki, palaava pelaaja jatkaa samasta tikistä
+        if (table.ddReview) {
+            socket.emit('ddReviewStarted', ddReviewPayload(table, { rejoined: true }));
+        }
+
         console.log(`Sent game reconnect for ${tableCode} to ${playerId}`);
         return;
     }
@@ -676,6 +700,13 @@ function startGame(socket, playerId, data) {
  * Shared by startGame() and startNextDeal() so both game modes stay in sync.
  */
 function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
+  // A new deal (next, replayed or abandoned-and-restarted) always ends any
+  // double dummy review of the previous one.
+  if (table.ddReview) {
+    table.ddReview = null;
+    sendToTablePlayers(table, { type: 'ddReviewClosed', reason: 'newDeal' });
+  }
+  table.ddLineCache = null;
   table.dealEpoch = (table.dealEpoch || 0) + 1;
   table.gameState = createGameState(table, fixedHands);
   if (fixedHands) table.gameState.isReplay = true;
@@ -1676,13 +1707,21 @@ async function endGame(table) {
 
     console.log(`Game ${table.code} ended: ${resultMessage}`);
 
+    scheduleAutoNextDeal(table);
+}
+
+/**
+ * Automatic new deal after 10 seconds, unless the table has turned this off
+ * (a player can still always start the next deal manually, see
+ * requestNextDeal()). Called when a deal ends and again when a double dummy
+ * review closes, since the review pauses the countdown.
+ */
+function scheduleAutoNextDeal(table) {
     if (table.pendingNextDealTimeout) {
         clearTimeout(table.pendingNextDealTimeout);
         table.pendingNextDealTimeout = null;
     }
 
-    // Automatic new deal after 10 seconds, unless the table has turned this off
-    // (a player can still always start the next deal manually, see requestNextDeal())
     if (table.autoNextDeal) {
         table.pendingNextDealTimeout = setTimeout(() => {
             table.pendingNextDealTimeout = null;
@@ -1938,6 +1977,159 @@ function scoreContractDeal(contract, tricksMade, vulnerable) {
     const insultBonus = redoubled ? 100 : (doubled ? 50 : 0);
 
     return contractPoints + overtrickPoints + madeBonus + slamBonus + insultBonus;
+}
+
+/**
+ * Shared checks for the double dummy review messages: the sender must be
+ * seated at the table and be its creator. Returns the table, or null after
+ * sending an error.
+ */
+function getReviewTableForCreator(socket, playerId, data) {
+    const { tableCode } = data || {};
+    const table = tables.get(tableCode);
+    if (!table) {
+        sendError(socket, 'Table not found');
+        return null;
+    }
+
+    const player = players.get(playerId);
+    if (!player || player.table !== tableCode) {
+        sendError(socket, 'You are not seated at this table');
+        return null;
+    }
+
+    if (table.creatorPosition && player.position !== table.creatorPosition) {
+        sendError(socket, 'Only the table creator can control the double dummy review');
+        return null;
+    }
+
+    return table;
+}
+
+/**
+ * Payload for ddReviewStarted. Holds every player's original hand, so it is
+ * only ever sent once the deal has ended (see startDoubleDummyReview()).
+ */
+function ddReviewPayload(table, extra = {}) {
+    const review = table.ddReview;
+    return {
+        type: 'ddReviewStarted',
+        startedBy: table.creatorPosition || null,
+        index: review.index,
+        contract: review.line.contract,
+        declarer: review.line.declarer,
+        trump: review.line.trump,
+        optimumTricks: review.line.optimumTricks,
+        actualTricks: review.line.actualTricks,
+        originalHands: review.line.originalHands,
+        tricks: review.line.tricks,
+        ...extra
+    };
+}
+
+/**
+ * Creator starts the shared double dummy review of the deal that just
+ * ended. Every player at the table sees the same trick; only the creator can
+ * change it. Pauses the automatic next deal until the review is closed.
+ */
+async function startDoubleDummyReview(socket, playerId, data) {
+    const table = getReviewTableForCreator(socket, playerId, data);
+    if (!table) return;
+
+    const gs = table.gameState;
+    // The review reveals all four original hands, so never during a deal.
+    if (!gs || gs.gamePhase !== 'end') {
+        sendError(socket, 'The double dummy review is available only after the deal has ended');
+        return;
+    }
+    if (!gs.contract || !gs.declarer || !gs.originalHands) {
+        sendError(socket, 'This deal has no contract to review');
+        return;
+    }
+    if (table.ddReview) {
+        socket.emit('ddReviewStarted', ddReviewPayload(table));
+        return;
+    }
+
+    // The review pauses the automatic next deal for the whole table.
+    if (table.pendingNextDealTimeout) {
+        clearTimeout(table.pendingNextDealTimeout);
+        table.pendingNextDealTimeout = null;
+    }
+
+    const epoch = table.dealEpoch;
+    if (!table.ddLineCache || table.ddLineCache.epoch !== epoch) {
+        let result;
+        try {
+            result = await solver.optimalLine({
+                hands: gs.originalHands,
+                trump: gs.trumpSuit || null,
+                declarer: gs.declarer,
+                leader: gs.openingLeader || getNextPlayer(gs.declarer)
+            });
+        } catch (error) {
+            console.error(`Double dummy line failed for table ${table.code}:`, error.message);
+            if (table.dealEpoch === epoch) scheduleAutoNextDeal(table);
+            sendError(socket, 'Double dummy analysis failed. Try again.');
+            return;
+        }
+        if (table.dealEpoch !== epoch) return; // a new deal started while the solver was thinking
+
+        const declarerSide = (gs.declarer === 'north' || gs.declarer === 'south') ? 'ns' : 'ew';
+        table.ddLineCache = {
+            epoch,
+            contract: gs.contract,
+            declarer: gs.declarer,
+            trump: gs.trumpSuit || null,
+            optimumTricks: result.declaringTricks,
+            actualTricks: gs.tricks ? gs.tricks[declarerSide] : null,
+            originalHands: gs.originalHands,
+            tricks: DdReview.buildTricks(result.plays, gs.trumpSuit || null, gs.declarer)
+        };
+    }
+
+    if (table.ddReview) return; // a second request finished first
+    table.ddReview = { line: table.ddLineCache, index: 0 };
+    table.lastActivity = Date.now();
+    sendToTablePlayers(table, ddReviewPayload(table));
+}
+
+function ddReviewGoTo(socket, playerId, data) {
+    const table = getReviewTableForCreator(socket, playerId, data);
+    if (!table) return;
+    if (!table.ddReview) {
+        sendError(socket, 'The double dummy review is not open');
+        return;
+    }
+
+    const index = Number(data && data.index);
+    if (!Number.isInteger(index) || index < 0 || index >= table.ddReview.line.tricks.length) {
+        sendError(socket, 'No such trick');
+        return;
+    }
+
+    table.ddReview.index = index;
+    table.lastActivity = Date.now();
+    sendToTablePlayers(table, { type: 'ddReviewTrick', index });
+}
+
+function closeDoubleDummyReview(socket, playerId, data) {
+    const table = getReviewTableForCreator(socket, playerId, data);
+    if (!table) return;
+    if (!table.ddReview) return;
+    endDoubleDummyReview(table);
+}
+
+/**
+ * Closes the review for everyone and resumes the automatic next deal that
+ * the review paused.
+ */
+function endDoubleDummyReview(table) {
+    table.ddReview = null;
+    sendToTablePlayers(table, { type: 'ddReviewClosed' });
+    if (table.gameState && table.gameState.gamePhase === 'end') {
+        scheduleAutoNextDeal(table);
+    }
 }
 
 /**
