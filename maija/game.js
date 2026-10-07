@@ -4,7 +4,7 @@
 
 const {
     SUITS, RANKS, cardId, rankValue, isMaija, sortCards, plural
-} = require('../public/maija/js/kortit.js');
+} = require('../public/korttipelit/kortit.js');
 
 const HAND_SIZE = 5;
 const MAX_ATTACK = 5;
@@ -118,6 +118,12 @@ class Game {
         this.attacker = (this.dealer + 1) % n;
         this.defender = this.nextActive(this.attacker);
         this.phase = 'attack';      // 'attack' | 'defend' | 'over'
+    }
+
+    // Pöydän aloitustapahtumaan lisättävät tiedot (korttipelit/poydat.js).
+    startInfo() {
+        const starter = this.players[this.attacker];
+        return { trumpCard: this.trumpCard, starterId: starter.id, starterName: starter.name };
     }
 
     get deckEmpty() {

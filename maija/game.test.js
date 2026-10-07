@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { Game, GameError, canBeat, bestDefense } = require('./game.js');
-const { cardId, isMaija } = require('../public/maija/js/kortit.js');
+const { cardId, isMaija } = require('../public/korttipelit/kortit.js');
 
 // Toistettava satunnaislukugeneraattori testejä varten.
 function mulberry32(seed) {

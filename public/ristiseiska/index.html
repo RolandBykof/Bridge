@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musta Maija</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E♠%3C/text%3E%3C/svg%3E">
-    <link rel="stylesheet" href="css/maija.css">
+    <title>Ristiseiska</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E♣%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../maija/css/maija.css">
+    <link rel="stylesheet" href="css/ristiseiska.css">
 </head>
 <body>
     <a class="skip" href="#main">Siirry sisältöön</a>
 
     <header class="site-header">
-        <h1>Musta Maija</h1>
+        <h1>Ristiseiska</h1>
         <nav aria-label="Asetukset ja ohje" class="header-tools">
             <a href="ohje.html" target="_blank" rel="noopener">Ohje ja näppäinkomennot</a>
             <label><input type="checkbox" id="sound-toggle" checked> Äänet</label>
@@ -24,7 +25,7 @@
 
     <main id="main">
         <section id="start-view" aria-labelledby="start-heading">
-            <h2 id="start-heading">Pelaa Musta Maijaa</h2>
+            <h2 id="start-heading">Pelaa ristiseiskaa</h2>
             <p id="start-error" class="error" role="alert"></p>
             <div class="start-grid">
                 <section class="panel" aria-labelledby="create-heading">
@@ -47,7 +48,7 @@
                     </form>
                 </section>
             </div>
-            <p class="back-link"><a href="../">Takaisin Bridgeen</a> · <a href="../ristiseiska/">Ristiseiska</a></p>
+            <p class="back-link"><a href="../">Takaisin Bridgeen</a> · <a href="../maija/">Musta Maija</a></p>
         </section>
 
         <section id="lobby-view" aria-labelledby="lobby-heading" hidden>
@@ -82,17 +83,12 @@
                 <ul id="players" class="players"></ul>
             </section>
 
-            <div class="table-row">
-                <section id="table-area" class="table-area" aria-labelledby="table-heading">
-                    <h3 id="table-heading" class="area-heading">Pöytä</h3>
-                    <div id="table-cards" class="table-cards"></div>
-                </section>
-                <section id="deck-area" class="deck-area" aria-labelledby="deck-heading">
-                    <h3 id="deck-heading" class="area-heading">Valtti</h3>
-                    <div id="trump-card"></div>
-                    <p id="deck-count" class="deck-count"></p>
-                </section>
-            </div>
+            <section id="table-area" class="table-area rs-table" aria-labelledby="table-heading">
+                <h3 id="table-heading" class="area-heading">Pöytä</h3>
+                <!-- Ruudunlukijalle sama tieto kuin Alt+Q–R: mitä kuhunkin maahan voi seuraavaksi lyödä. -->
+                <ul id="table-text" class="sr-only"></ul>
+                <div id="piles" class="piles" aria-hidden="true"></div>
+            </section>
 
             <section id="hand-area" class="hand-area" aria-labelledby="hand-heading">
                 <h3 id="hand-heading" class="area-heading">Oma käsi</h3>
@@ -102,13 +98,13 @@
             <section aria-labelledby="actions-heading" class="actions">
                 <h3 id="actions-heading" class="sr-only">Toiminnot</h3>
                 <button type="button" id="action-button" aria-disabled="true">Odota vuoroasi</button>
-                <button type="button" id="clear-button" class="secondary">Tyhjennä valinnat (Esc)</button>
+                <button type="button" id="clear-button" class="secondary">Poista valinta (Esc)</button>
                 <button type="button" id="abort-button" class="secondary" hidden>Keskeytä peli</button>
             </section>
 
             <section id="result" class="panel result" aria-labelledby="result-heading" hidden>
                 <h3 id="result-heading">Peli päättyi</h3>
-                <p id="result-maija" class="result-maija"></p>
+                <p id="result-loser" class="result-maija"></p>
                 <ol id="result-ranking"></ol>
                 <div id="result-creator-tools" class="creator-tools" hidden>
                     <button type="button" id="new-game-button">Uusi peli</button>
@@ -133,11 +129,11 @@
     </dialog>
 
     <audio id="sound-deal" src="../deal.mp3" preload="auto"></audio>
-    <audio id="sound-kaada" src="kaada.mp3" preload="auto"></audio>
-    <audio id="sound-nosta" src="nosta.mp3" preload="auto"></audio>
+    <audio id="sound-play" src="../maija/kaada.mp3" preload="auto"></audio>
+    <audio id="sound-receive" src="../maija/nosta.mp3" preload="auto"></audio>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="../korttipelit/kortit.js"></script>
-    <script src="js/maija.js"></script>
+    <script src="js/ristiseiska.js"></script>
 </body>
 </html>

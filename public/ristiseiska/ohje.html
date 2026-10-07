@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ohje – Ristiseiska</title>
+    <link rel="stylesheet" href="../maija/css/maija.css">
+    <style>
+        .guide p, .guide li { max-width: 42rem; }
+        .guide table { border-collapse: collapse; width: 100%; background: var(--surface); }
+        .guide th, .guide td { border: 1px solid var(--rule); padding: .5rem .75rem; text-align: left; vertical-align: top; }
+        .guide thead th { background: var(--area-bg); }
+        .table-wrap { overflow-x: auto; }
+        kbd { font-family: Consolas, "Courier New", monospace; border: 1px solid var(--area-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 .3em; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Siirry sisältöön</a>
+    <header class="site-header">
+        <h1>Ristiseiska – ohje</h1>
+        <nav aria-label="Takaisin" class="header-tools"><a href="index.html">Takaisin peliin</a></nav>
+    </header>
+    <main id="main" class="guide">
+        <h2>Säännöt lyhyesti</h2>
+        <ul>
+            <li>Peliä pelataan 52 kortin pakalla, ja siihen tarvitaan 2–8 pelaajaa. Kaikki kortit jaetaan. Jako ei aina mene tasan.</li>
+            <li>Tavoitteena on päästä eroon omista korteista ennen muita.</li>
+            <li>Ristiseiskan haltija aloittaa. Ristiseiska pelataan pöytään automaattisesti, ja vuoro siirtyy seuraavalle.</li>
+            <li>Vuorossa lyödään yksi kortti pöytään:
+                <ul>
+                    <li>Minkä tahansa maan seiskan saa lyödä.</li>
+                    <li>Kuutosen saa lyödä, kun saman maan seiska on pöydässä.</li>
+                    <li>Kahdeksikon saa lyödä, kun saman maan seiska ja kuutonen ovat pöydässä.</li>
+                    <li>Kun kuutonen ja kahdeksikko ovat pöydässä, kuutosen päälle lyödään pieniä kortteja järjestyksessä 5, 4, 3, 2, ässä ja kahdeksikon päälle isoja järjestyksessä 9, 10, jätkä, rouva, kuningas.</li>
+                </ul>
+            </li>
+            <li>Ässän tai kuninkaan jälkeen saa lyödä vielä yhden kortin tai lopettaa vuoron. Jos seuraavakin on ässä tai kuningas, saa taas jatkaa.</li>
+            <li>Jos voi lyödä, on lyötävä.</li>
+            <li>Jos mikään kortti ei sovi pöytään, pyydetään kortti edelliseltä pelaajalta. Hän antaa haluamansa kortin, ja vuoro siirtyy seuraavalle. Saatua korttia ei voi lyödä samalla vuorolla. Annettu kortti näkyy vain antajalle ja saajalle.</li>
+            <li>Jos edellisellä pelaajalla on vain yksi kortti, hänen ei tarvitse antaa sitä, ja pyyntö siirtyy hänen edelliselleen.</li>
+            <li>Peli päättyy, kun kortteja on enää yhdellä pelaajalla. Ensimmäisenä korteistaan eroon päässyt voittaa, ja viimeiseksi jäänyt häviää.</li>
+            <li>Peli ei kerro, mitkä omista korteista ovat lyötävissä. Päättele se itse vertaamalla pöytää ja kättäsi.</li>
+        </ul>
+
+        <h2>Pöytä</h2>
+        <p>Jokaisella maalla on oma sarake. Seiska on keskellä, isojen korttien pino sen yläpuolella ja pienten korttien pino sen alapuolella. Pinosta näkyy päällimmäinen kortti. Keltaiset katkoviivamerkit pinojen ylä- ja alapuolella kertovat, mitkä kortit maahan voi seuraavaksi lyödä. Viimeksi lyöty kortti on korostettu.</p>
+
+        <h2>Pöydät ja robotit</h2>
+        <ul>
+            <li><strong>Luo pöytä</strong> antaa nelinumeroisen pöytäkoodin. Muut liittyvät kohdassa <strong>Liity pöytään</strong>.</li>
+            <li>Vain <strong>pöydän luoja</strong> voi lisätä ja poistaa robotteja sekä aloittaa ja keskeyttää pelin. Pöydässä on enintään kahdeksan pelaajaa ihmiset ja robotit yhteensä.</li>
+            <li><strong>Robottien nopeus</strong> määrää, kauanko robotti odottaa ennen siirtoaan. Odotukseen lisätään edellisen ilmoituksen lukemiseen kuluva aika.</li>
+            <li>Jos lataat sivun uudelleen, palaat samaan pöytään ja samalle paikalle.</li>
+        </ul>
+
+        <h2>Korttien valinta näppäimistöllä</h2>
+        <p>Kortti valitaan painamalla ensin maata ja sitten arvoa. Esimerkiksi <kbd>S</kbd> ja sitten <kbd>2</kbd> valitsee kortin pata 2. Valittuna on kerrallaan yksi kortti. Kun kortti on valittu, paina <kbd>L</kbd>.</p>
+        <div class="table-wrap">
+        <table>
+            <caption class="sr-only">Maat ja arvot</caption>
+            <thead><tr><th scope="col">Näppäin</th><th scope="col">Merkitys</th></tr></thead>
+            <tbody>
+                <tr><td><kbd>S</kbd></td><td>pata</td></tr>
+                <tr><td><kbd>H</kbd></td><td>hertta</td></tr>
+                <tr><td><kbd>D</kbd></td><td>ruutu</td></tr>
+                <tr><td><kbd>C</kbd></td><td>risti</td></tr>
+                <tr><td><kbd>A</kbd> <kbd>K</kbd> <kbd>Q</kbd> <kbd>J</kbd></td><td>ässä, kuningas, rouva, jätkä</td></tr>
+                <tr><td><kbd>T</kbd> tai <kbd>1</kbd></td><td>10</td></tr>
+                <tr><td><kbd>2</kbd>–<kbd>9</kbd></td><td>2–9</td></tr>
+            </tbody>
+        </table>
+        </div>
+
+        <h2>Kaikki näppäinkomennot</h2>
+        <p>Komennot eivät toimi, kun kirjoitat tekstikenttään.</p>
+        <div class="table-wrap">
+        <table>
+            <caption class="sr-only">Näppäinkomennot</caption>
+            <thead><tr><th scope="col">Näppäin</th><th scope="col">Toiminto</th></tr></thead>
+            <tbody>
+                <tr><td>Maa + arvo, esim. <kbd>S</kbd> <kbd>2</kbd></td><td>Valitse kortti. Saman kortin valinta uudelleen poistaa valinnan.</td></tr>
+                <tr><td><kbd>L</kbd></td><td>Valitulla kortilla: lyö se pöytään, tai antovaiheessa anna se pyytäjälle. Ilman valintaa: pyydä kortti edelliseltä pelaajalta. Ässän tai kuninkaan jälkeen L ilman valintaa kahdesti lopettaa vuoron.</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Poista valinta.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>Q</kbd></td><td>Mitä pataan voi seuraavaksi lyödä, esim. "Pata 3, 9".</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>W</kbd></td><td>Mitä herttaan voi seuraavaksi lyödä.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>E</kbd></td><td>Mitä ruutuun voi seuraavaksi lyödä.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>R</kbd></td><td>Mitä ristiin voi seuraavaksi lyödä.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>P</kbd></td><td>Kaikkien maiden seuraavat kortit kerralla.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>A</kbd></td><td>Lue omat padat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Lue omat hertat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>D</kbd></td><td>Lue omat ruudut.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>F</kbd></td><td>Lue omat ristit.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>G</kbd></td><td>Lue koko käsi.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>V</kbd></td><td>Kenen vuoro on.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>X</kbd></td><td>Pelaajien korttimäärät vuorojärjestyksessä.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>C</kbd></td><td>Keneltä pyydät kortin ja kuka pyytää sinulta.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>Y</kbd></td><td>Yhteenveto: pöytäkoodi, jakaja, pelaajien korttimäärät ja pois päässeet.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>I</kbd></td><td>Toista viimeisin ilmoitus.</td></tr>
+            </tbody>
+        </table>
+        </div>
+        <p>Ylärivin <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> ovat pöytä ja niiden alla olevat <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> oma käsi, samassa maajärjestyksessä.</p>
+
+        <h2>Hiiri ja kosketusnäyttö</h2>
+        <p>Valitse kortti napauttamalla sitä. Toimintopainike tekee saman kuin <kbd>L</kbd>, ja sen teksti kertoo, mitä se tekee: <em>Lyö valittu</em>, <em>Pyydä kortti</em>, <em>Anna valittu kortti</em> tai <em>Lopeta vuoro</em>.</p>
+
+        <h2>Asetukset</h2>
+        <p><em>Äänet</em> kytkee pelin äänet päälle ja pois. <em>Puhesynteesi</em> lukee ilmoitukset selaimen suomenkielisellä puheella. Jos käytät ruudunlukijaa, puhesynteesi kannattaa pitää pois päältä.</p>
+    </main>
+</body>
+</html>

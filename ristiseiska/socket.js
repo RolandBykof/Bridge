@@ -1,15 +1,15 @@
 'use strict';
-// Maijan Socket.IO-kerros. Liitetään olemassa olevaan Socket.IO-palvelimeen omaan
-// nimiavaruuteensa (/maija), joten sama palvelin voi ajaa myös Bridgeä:
+// Ristiseiskan Socket.IO-kerros. Liitetään olemassa olevaan Socket.IO-palvelimeen
+// omaan nimiavaruuteensa (/ristiseiska), kuten Musta Maija:
 //
-//   require('./maija/socket').attach(io, { app });
+//   require('./ristiseiska/socket').attach(io, { app });
 
 const { Game, GameError, MIN_PLAYERS, MAX_PLAYERS } = require('./game.js');
 const { Tables, TableError } = require('../korttipelit/poydat.js');
 const robotti = require('./robotti.js');
 
 const ROBOT_BASE_DELAY_MS = { slow: 4500, normal: 2500, fast: 1200 };
-const ROBOTS_ONLY_DELAY_MS = 1000;
+const ROBOTS_ONLY_DELAY_MS = 800;
 const MAINTENANCE_INTERVAL_MS = 60 * 1000;
 
 // Arvio siitä, kauanko ruudunlukijalta kestää lukea tapahtuman ilmoitus
@@ -19,15 +19,16 @@ const MS_PER_CHAR = 45;
 function estimateReadingMs(events) {
     let chars = 0;
     for (const e of events) {
-        if (e.type === 'attack') chars += 45 + e.cards.length * 10;
-        else if (e.type === 'defend') chars += 45 + e.pairs.length * 30 + e.pickedUp.length * 12;
-        else chars += 60;
+        if (e.type === 'play') chars += 25;
+        else if (e.type === 'ask') chars += 55;
+        else if (e.type === 'give') chars += 40;
+        else chars += 50;
     }
-    return Math.min(5000, chars * MS_PER_CHAR);
+    return Math.min(4000, chars * MS_PER_CHAR);
 }
 
 function attach(io, options = {}) {
-    const nsp = io.of(options.namespace || '/maija');
+    const nsp = io.of(options.namespace || '/ristiseiska');
     const tables = new Tables({
         rng: options.rng || Math.random,
         now: options.now || Date.now,
@@ -38,7 +39,7 @@ function attach(io, options = {}) {
     const robotDelay = options.robotDelayMs;   // testeissä kiinteä lyhyt viive
 
     if (options.app) {
-        options.app.get('/maija/health', (req, res) => {
+        options.app.get('/ristiseiska/health', (req, res) => {
             res.json({ status: 'OK', tables: tables.size, uptime: process.uptime() });
         });
     }
@@ -89,11 +90,12 @@ function attach(io, options = {}) {
         maybeTriggerRobot(table, events);
     }
 
-    // ===== Robotit (Bridgen maybeTriggerRobot / runRobotTurn) =====
+    // ===== Robotit =====
 
+    // Vuorossa oleva pelaaja tai antovaiheessa kortin antaja.
     function currentActorId(game) {
         if (!game || game.phase === 'over') return null;
-        return game.players[game.phase === 'attack' ? game.attacker : game.defender].id;
+        return game.players[game.phase === 'give' ? game.giver : game.current].id;
     }
 
     function clearRobotTimer(table) {
@@ -121,30 +123,35 @@ function attach(io, options = {}) {
                 : ROBOTS_ONLY_DELAY_MS;
         }
         const epoch = table.gameEpoch;
-        const phase = game.phase;
+        const moves = game.moves;
         table.robotTimer = setTimeout(() => {
             table.robotTimer = null;
-            runRobotTurn(table, epoch, phase, actorId);
+            runRobotTurn(table, epoch, moves, actorId);
         }, delay);
     }
 
-    function runRobotTurn(table, epoch, phase, actorId) {
+    function robotMove(game, actorId, view, decideTurn, decideGive, rng) {
+        if (game.phase === 'give') return game.give(actorId, decideGive(view, rng));
+        const choice = decideTurn(view, rng);
+        if (choice.action === 'play') return game.play(actorId, choice.cardId);
+        if (choice.action === 'end-turn') return game.endTurn(actorId);
+        return game.ask(actorId);
+    }
+
+    function runRobotTurn(table, epoch, moves, actorId) {
         if (tables.get(table.code) !== table) return;          // pöytä poistettiin
         if (table.gameEpoch !== epoch || !table.game) return;  // peli keskeytettiin tai aloitettiin uusi
         const game = table.game;
-        if (game.phase !== phase || currentActorId(game) !== actorId) return;
+        if (game.moves !== moves || currentActorId(game) !== actorId) return;
 
         const view = game.getView(actorId);
-        const method = phase === 'attack' ? 'attack' : 'defend';
-        const decide = phase === 'attack' ? robotti.decideAttack : robotti.decideDefense;
-        const fallback = phase === 'attack' ? robotti.randomAttack : robotti.randomDefense;
         let events;
         try {
-            events = game[method](actorId, decide(view, table.rng));
+            events = robotMove(game, actorId, view, robotti.decideTurn, robotti.decideGive, table.rng);
         } catch (err) {
             if (!(err instanceof GameError)) throw err;
-            console.error(`Maija: robotin siirto hylättiin pöydässä ${table.code}: ${err.message}`);
-            events = game[method](actorId, fallback(view, table.rng));
+            console.error(`Ristiseiska: robotin siirto hylättiin pöydässä ${table.code}: ${err.message}`);
+            events = robotMove(game, actorId, view, robotti.randomTurn, robotti.randomGive, table.rng);
         }
         table.touch();
         publish(table, events);
@@ -308,17 +315,18 @@ function attach(io, options = {}) {
             }
         });
 
-        function playerAction(method) {
+        // Pelitoiminnot: play { cardId }, give { cardId }, ask, end-turn.
+        function playerAction(handler, needsCard) {
             return (data) => {
                 const ctx = current();
                 if (!ctx || !ctx.table.game) return;
-                const cardIds = data && data.cardIds;
-                if (!Array.isArray(cardIds) || cardIds.length > 52 || !cardIds.every(id => typeof id === 'string')) {
-                    socket.emit('action-error', { text: 'Virheellinen korttivalinta.' });
+                const id = data && data.cardId;
+                if (needsCard && typeof id !== 'string') {
+                    socket.emit('action-error', { text: 'Valitse ensin kortti.' });
                     return;
                 }
                 try {
-                    const events = ctx.table.game[method](ctx.member.id, cardIds);
+                    const events = handler(ctx.table.game, ctx.member.id, id);
                     ctx.table.touch();
                     publish(ctx.table, events);
                 } catch (err) {
@@ -327,8 +335,10 @@ function attach(io, options = {}) {
             };
         }
 
-        socket.on('attack', playerAction('attack'));
-        socket.on('defend', playerAction('defend'));
+        socket.on('play', playerAction((game, id, card) => game.play(id, card), true));
+        socket.on('give', playerAction((game, id, card) => game.give(id, card), true));
+        socket.on('ask', playerAction((game, id) => game.ask(id), false));
+        socket.on('end-turn', playerAction((game, id) => game.endTurn(id), false));
 
         socket.on('disconnect', () => {
             const ctx = current();

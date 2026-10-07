@@ -1,0 +1,21 @@
+Ristiseiska
+Luokka: Eroon korteista
+Pakka: 52 korttia
+Pelaajamäärä: 2, 3, 4, 5, 6, 7, 8
+Ristiseiska on yksi Suomen suosituimpia korttipelejä, joka tunnetaan monilla eri nimillä, kuten seiska, kiusa, pihistys, fan tan tai domino. Se on helppo peli, joka soveltuu oivallisesti koko perheen peliksi.
+Pelistä on paljon erilaisia muunnelmia, eikä tähän ole varmastikaan saatu listattua kaikkia mahdollisia tapoja pelata tätä peliä.
+Löydät pelin säännöt myös 150 korttipeliä -kirjasta.
+Pelin tavoite
+Pelissä pitää saada pelattua omat käsikortit pöytään ennen muita.
+Jako
+Kaikki kortit jaetaan pelaajille. Ei haittaa, jos jako ei mene ihan tasan.
+Pelin kulku
+Pelaaja, jolla on ristiseiska, aloittaa pelin pelaamalla ristiseiskan pöydän keskelle. Sen jälkeen vuoro kiertää myötäpäivään. Pelaajat voivat lyödä vuorollaan tavallisesti yhden kortin seuraavien sääntöjen mukaan:
+1. Seiskan saa lyödä pöytään ristiseiskan viereen.
+2. Pöydässä olevan seiskan viereen saa pelata saman maan kuutosen.
+3. Jos pöydässä on jo seiska ja kuutonen jotain maata, saman maan kahdeksikon saa pelata pöytään seiskan toiselle puolelle (pöytään tulee kolme riviä: seiskat, niiden yläpuolelle kahdeksikot ja alapuolelle kuutoset).
+4. Kun kuutonen ja kahdeksikko ovat pelissä, kuutosen päälle saa pelata pieniä kortteja järjestyksessä (5, 4, 3, 2, A) ja kahdeksikon päälle isoja (9, 10, J, Q, K).
+Vuorolla saa pelata vain yhden kortin. Jos kuitenkin pelaa ässän tai kuninkaan ja sulkee siten jonkun pinon, saa halutessaan pelata uuden kortin. Jos uusi kortti on ässä tai kuningas, peliä saa jatkaa, mutta liikaa ei kannata pelata.
+Pyytäminen. Jos ei pysty lyömään korttia pöytään, joutuu pyytämään kortin edelliseltä pelaajalta. edellinen pelaaja antaa haluamansa kortin. Jos pyydetyllä pelaajalla vain yksi kortti 
+Pelin päättyminen
+Peli päättyy silloin, kun vain yhdellä pelaajista on kortteja jäljellä. Ensimmäisenä korteistaan eroon päässyt on voittaja, viimeiseksi jäänyt häviäjä

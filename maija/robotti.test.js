@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { Game } = require('./game.js');
 const robotti = require('./robotti.js');
-const { cardId, isMaija } = require('../public/maija/js/kortit.js');
+const { cardId, isMaija } = require('../public/korttipelit/kortit.js');
 
 function mulberry32(seed) {
     return function () {

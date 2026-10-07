@@ -1,9 +1,14 @@
 'use strict';
 // Pöydät: jäsenet istumajärjestyksessä, pöydän luoja, robotit ja jakovuoro.
+// Yhteinen Musta Maijalle ja ristiseiskalle. Peli annetaan parametrina:
+//
+//   new Tables({ createGame: (players, { rng, dealerIndex }) => new Game(...),
+//                minPlayers: 2, maxPlayers: 5 })
+//
+// Pelin on tarjottava startInfo(), jonka kentät lisätään aloitustapahtumaan.
 // Ei tiedä mitään yhteyksistä, joten tämän voi testata suoraan.
 
 const crypto = require('crypto');
-const { Game, GameError, MIN_PLAYERS, MAX_PLAYERS } = require('./game.js');
 
 const MAX_NAME_LENGTH = 20;
 const CREATOR_RECONNECT_MS = 5 * 60 * 1000;    // Bridgen RECONNECT_TIMEOUT
@@ -19,10 +24,13 @@ function cleanName(name) {
 }
 
 class Table {
-    constructor(code, { rng = Math.random, now = Date.now } = {}) {
+    constructor(code, { rng = Math.random, now = Date.now, createGame, minPlayers, maxPlayers }) {
         this.code = code;
         this.rng = rng;
         this.now = now;
+        this.createGame = createGame;
+        this.minPlayers = minPlayers;
+        this.maxPlayers = maxPlayers;
         this.members = [];          // istumajärjestyksessä (seat kasvaa liittymisjärjestyksessä)
         this.nextSeat = 0;
         this.robotCounter = 0;
@@ -67,9 +75,9 @@ class Table {
         return this.members.filter(m => m.type === 'human' && m.connected);
     }
 
-    // Seuraavaan peliin pääsevät: robotit ja yhdistetyt ihmiset istumajärjestyksessä, enintään viisi.
+    // Seuraavaan peliin pääsevät: robotit ja yhdistetyt ihmiset istumajärjestyksessä, enintään maxPlayers.
     seated() {
-        return this.members.filter(m => m.type === 'robot' || m.connected).slice(0, MAX_PLAYERS);
+        return this.members.filter(m => m.type === 'robot' || m.connected).slice(0, this.maxPlayers);
     }
 
     isSpectator(member) {
@@ -115,8 +123,8 @@ class Table {
     addRobot(byMember) {
         this.requireCreator(byMember, 'lisätä robotteja');
         if (this.gameRunning()) throw new TableError('Robotteja voi lisätä vain, kun peli ei ole käynnissä.');
-        if (this.seated().length >= MAX_PLAYERS) {
-            throw new TableError(`Pöytä on täynnä, ${MAX_PLAYERS}/${MAX_PLAYERS} pelaajaa.`);
+        if (this.seated().length >= this.maxPlayers) {
+            throw new TableError(`Pöytä on täynnä, ${this.maxPlayers}/${this.maxPlayers} pelaajaa.`);
         }
         let name;
         do {
@@ -158,26 +166,24 @@ class Table {
         this.requireCreator(byMember, 'aloittaa pelin');
         if (this.gameRunning()) throw new TableError('Peli on jo käynnissä.');
         const participants = this.seated();
-        if (participants.length < MIN_PLAYERS) {
-            throw new TableError(`Peliin tarvitaan vähintään ${MIN_PLAYERS} pelaajaa. Voit lisätä robotin.`);
+        if (participants.length < this.minPlayers) {
+            throw new TableError(`Peliin tarvitaan vähintään ${this.minPlayers} pelaajaa. Voit lisätä robotin.`);
         }
         if (!participants.some(m => m.type === 'human')) {
             throw new TableError('Pelissä on oltava vähintään yksi ihminen.');
         }
         const dealerIndex = this.nextDealerIndex(participants);
-        this.game = new Game(participants.map(m => ({ id: m.id, name: m.name })), { rng: this.rng, dealerIndex });
+        this.game = this.createGame(participants.map(m => ({ id: m.id, name: m.name })), { rng: this.rng, dealerIndex });
         this.lastDealerSeat = participants[dealerIndex].seat;
         this.gameEpoch++;
         this.pruneDisconnected();
         this.touch();
         const dealer = participants[dealerIndex];
-        const starter = this.game.players[this.game.attacker];
         return {
             type: 'start',
-            trumpCard: this.game.trumpCard,
             dealerId: dealer.id, dealerName: dealer.name,
-            starterId: starter.id, starterName: starter.name,
-            playerNames: this.game.players.map(p => p.name)
+            playerNames: this.game.players.map(p => p.name),
+            ...this.game.startInfo()
         };
     }
 
@@ -266,9 +272,10 @@ class Table {
 }
 
 class Tables {
-    constructor({ rng = Math.random, now = Date.now } = {}) {
+    constructor({ rng = Math.random, now = Date.now, createGame, minPlayers, maxPlayers }) {
         this.rng = rng;
         this.now = now;
+        this.gameOptions = { createGame, minPlayers, maxPlayers };
         this.tables = new Map();
     }
 
@@ -278,7 +285,7 @@ class Tables {
         do {
             code = String(1000 + Math.floor(this.rng() * 9000));
         } while (this.tables.has(code));
-        const table = new Table(code, { rng: this.rng, now: this.now });
+        const table = new Table(code, { rng: this.rng, now: this.now, ...this.gameOptions });
         this.tables.set(code, table);
         return table;
     }
@@ -301,6 +308,6 @@ class Tables {
 }
 
 module.exports = {
-    Table, Tables, TableError, GameError, cleanName, ROBOT_SPEEDS,
+    Table, Tables, TableError, cleanName, ROBOT_SPEEDS,
     CREATOR_RECONNECT_MS, EMPTY_TABLE_MS, MAX_IDLE_MS
 };

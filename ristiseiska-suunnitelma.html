@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ristiseiska – toteutussuunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  --cell-empty: #ffffff;
+  --cell-played: #1d5a3d;
+  --cell-played-ink: #ffffff;
+  --cell-next: #fff4c2;
+  --cell-next-ink: #4a3b00;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+    --cell-empty: #16201a;
+    --cell-played: #79c9a0;
+    --cell-played-ink: #0f1612;
+    --cell-next: #4a3b00;
+    --cell-next-ink: #fff4c2;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+  --cell-empty: #16201a;
+  --cell-played: #79c9a0;
+  --cell-played-ink: #0f1612;
+  --cell-next: #4a3b00;
+  --cell-next-ink: #fff4c2;
+}
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 48rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 40rem; }
+main { padding: 1.5rem 1rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 .25rem; }
+p, li { max-width: 42rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible { outline: 3px solid var(--suit-red); outline-offset: 3px; }
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 30rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+kbd {
+  font-family: Consolas, "Courier New", monospace; font-size: .95em;
+  border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px;
+  padding: 0 .3em; background: var(--surface); white-space: nowrap;
+}
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.speech {
+  background: var(--surface); border: 1px solid var(--rule); border-left: 6px solid var(--felt);
+  padding: .5rem 1rem; margin: .75rem 0; font-style: italic;
+}
+.speech::before { content: "Ruudunlukija: "; font-style: normal; font-weight: 700; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+.open-q { background: var(--surface); border: 2px dashed var(--suit-red); padding: .5rem 1.25rem 1rem; margin: 1.5rem 0; }
+
+/* Pöydän malli */
+figure.board { margin: 1.5rem 0; background: var(--surface); border: 1px solid var(--rule); padding: 1rem; }
+figure.board figcaption { font-weight: 700; margin-bottom: .75rem; }
+/* Neljä maasaraketta: isot ylhäällä, seiska keskellä, pienet alhaalla. */
+.piles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; max-width: 26rem; }
+/* Kapea näyttö tai suuri zoomaus: 2 × 2, ei koskaan 3 + 1. */
+@media (max-width: 20rem) { .piles { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 1rem; } }
+.pile-col { display: grid; grid-template-rows: auto 1.9rem 3.6rem 3.6rem 3.6rem 1.9rem; gap: .3rem; justify-items: stretch; text-align: center; }
+.pile-col .suit-head { font-weight: 700; font-size: 1.05rem; }
+.pile-col.red .suit-head, .pile-col.red .pcard.played { color: var(--suit-red); }
+.pcard {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-size: 1.6rem; font-weight: 700; line-height: 1;
+  border: 2px solid var(--rule); background: var(--surface); color: var(--ink);
+}
+.pcard.played { background: var(--cell-empty); border-color: var(--ink); }
+.pcard.seven { border-width: 3px; border-color: var(--felt); }
+.pcard.empty { border-style: dotted; color: transparent; }
+.next {
+  display: flex; align-items: center; justify-content: center;
+  border: 2px dashed currentColor; border-radius: 999px; font-size: 1rem; font-weight: 700;
+  background: var(--cell-next); color: var(--cell-next-ink);
+}
+.next.none { visibility: hidden; }
+.board-legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .75rem; font-size: .95rem; color: var(--muted); }
+.board-legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.board-legend .next { display: inline-flex; padding: 0 .5rem; }
+footer { color: var(--muted); max-width: 48rem; margin: 0 auto; padding: 0 1rem 3rem; }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Ristiseiska – toteutussuunnitelma</h1>
+    <p>Ristiseiska samaan tyyliin kuin Musta Maija: oma Socket.IO-nimiavaruus, pöytäkoodi, robotit, näppäinkomennot ja ruudunlukijan ilmoitusjono. Tämä on suunnitelma, ei vielä koodia.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#tiivistelma">Tiivistelmä</a></li>
+    <li><a href="#maija">Miten Maija on toteutettu ja mitä siitä käytetään</a></li>
+    <li><a href="#saannot">Säännöt tässä toteutuksessa</a></li>
+    <li><a href="#poyta">Pöytä</a></li>
+    <li><a href="#qwer">Pöydän tutkiminen: Alt+Q, W, E, R</a></li>
+    <li><a href="#pyytaminen">Kortin pyytäminen edelliseltä pelaajalta</a></li>
+    <li><a href="#lisavuoro">Ässä ja kuningas: lisäkortti</a></li>
+    <li><a href="#nappaimet">Kaikki näppäinkomennot</a></li>
+    <li><a href="#ilmoitukset">Ilmoitukset</a></li>
+    <li><a href="#palvelin">Palvelin: pelilogiikka ja protokolla</a></li>
+    <li><a href="#robotti">Robotti</a></li>
+    <li><a href="#tiedostot">Tiedostot ja yhteinen koodi</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+    <li><a href="#avoimet">Avoimet kysymykset</a></li>
+    <li><a href="#jarjestys">Toteutusjärjestys</a></li>
+  </ol>
+</nav>
+
+<h2 id="tiivistelma">Tiivistelmä</h2>
+<div class="verdict">
+  <p><strong>Ristiseiska tehdään Maijan rinnalle omaksi peliksi</strong> osoitteeseen <code>/ristiseiska/</code> ja Socket.IO-nimiavaruuteen <code>/ristiseiska</code>. Pöydät, odotushuone, robotit, uudelleenyhdistäminen ja ilmoitusjono toimivat täsmälleen kuten Maijassa.</p>
+  <p><strong>Pöytä esitetään neljänä maasarakkeena kuten oikeassa pelissä.</strong> Seiska on keskellä, isojen pino yläpuolella ja pienten pino alapuolella, ja pinosta näkyy päällimmäinen kortti. Ruudunlukijalle jokaisesta maasta kerrotaan vain, mitä siihen voi seuraavaksi lyödä.</p>
+  <p><strong><kbd>Alt+Q</kbd> <kbd>Alt+W</kbd> <kbd>Alt+E</kbd> <kbd>Alt+R</kbd> kertovat pöydän padat, hertat, ruudut ja ristit.</strong> Ne ovat samassa järjestyksessä kuin oman käden <kbd>Alt+A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> suoraan niiden yläpuolella. Ylärivi on siis pöytä ja keskirivi oma käsi. Esimerkki: kun pöydässä on pata 4, 5, 6, 7 ja 8, <kbd>Alt+Q</kbd> sanoo ”Pata 3, 9.”</p>
+  <p><strong>Pyytäminen on oma pelivaihe</strong> (<code>give</code>) samaan tapaan kuin kaataminen Maijassa. Pelaaja, joka ei voi lyödä, painaa <kbd>L</kbd>. Edellinen pelaaja kuulee pyynnön, valitsee annettavan kortin ja painaa <kbd>L</kbd>. Annettu kortti kerrotaan vain antajalle ja saajalle.</p>
+</div>
+
+<h2 id="maija">Miten Maija on toteutettu ja mitä siitä käytetään</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Maijan rakenne ja vastine ristiseiskassa</caption>
+  <thead>
+    <tr><th scope="col">Maijan tiedosto</th><th scope="col">Mitä se tekee</th><th scope="col">Ristiseiskassa</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row"><code>maija/game.js</code></th><td>Puhdas pelilogiikka ilman yhteyksiä ja ajastimia. <code>GameError</code>-viestit näytetään pelaajalle sellaisenaan. <code>getView(viewerId)</code> antaa pelaajakohtaisen näkymän, ja <code>publicEvent</code> piilottaa muilta salaiset tiedot.</td><td>Uusi <code>ristiseiska/game.js</code>, sama malli: metodit <code>play</code>, <code>ask</code>, <code>give</code> ja <code>endTurn</code>.</td></tr>
+    <tr><th scope="row"><code>maija/poydat.js</code></th><td>Pöydät, nelinumeroinen koodi, luoja, robotit, jakovuoron kierto ja ylläpito. Tuo <code>Game</code>-luokan ja pelaajarajat (2–5) suoraan.</td><td>Yleistetään yhteiseksi: pelin luonti ja pelaajarajat annetaan parametreina. Ristiseiskassa on 2–8 pelaajaa.</td></tr>
+    <tr><th scope="row"><code>maija/socket.js</code></th><td>Socket.IO-kerros: odotushuoneen tapahtumat, <code>state</code>- ja <code>game-event</code>-lähetys, robottien ajastus lukuajan arvion mukaan.</td><td>Oma <code>ristiseiska/socket.js</code>. Odotushuoneen osa on sama, pelitoiminnot ja robotin vuoro ovat omat.</td></tr>
+    <tr><th scope="row"><code>maija/robotti.js</code></th><td>Robotti näkee vain oman näkymänsä. Jos päätös hylätään, se tekee satunnaisen sallitun siirron.</td><td>Oma robotti: <code>decidePlay</code>, <code>decideGive</code>, <code>decideContinue</code>.</td></tr>
+    <tr><th scope="row"><code>public/maija/js/kortit.js</code></th><td>Korttien nimet suomeksi. Toimii sekä palvelimella että selaimessa.</td><td>Yhteinen. Lisätään mahdollisuus järjestää ässä alimmaksi.</td></tr>
+    <tr><th scope="row"><code>public/maija/js/maija.js</code></th><td>Ilmoitusjono (<code>respond</code> heti, <code>announce</code> jonoon), korttien valinta <kbd>S</kbd>+<kbd>2</kbd>, toiminto <kbd>L</kbd>, Alt-lukukomennot ja vahvistusikkuna.</td><td>Uusi <code>ristiseiska.js</code> samalla rungolla. Pöydän piirto ja lukukomennot ovat omat.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Maijasta otetaan suoraan nämä toimiviksi todetut periaatteet:</p>
+<ul>
+  <li>Palvelin tarkistaa kaikki siirrot. Selain voi tehdä saman tarkistuksen vain antaakseen nopean selityksen.</li>
+  <li>Oman siirron tulos luetaan heti jonon kärjestä (<code>addUrgent</code>). Muiden siirrot luetaan jonossa järjestyksessä.</li>
+  <li>Painikkeet käyttävät <code>aria-disabled</code>-määritettä eivätkä <code>disabled</code>-määritettä, joten fokus ei katoa vuoron vaihtuessa.</li>
+  <li>Kun pöydässä ei ole yhdistettyjä ihmisiä, robotit odottavat. Robotin viive on perusviive plus arvio siitä, kauanko edellisen ilmoituksen lukeminen kestää.</li>
+  <li>Kortit ovat <code>div</code>-elementtejä, joissa on piiloteksti, eikä niitä tarvitse kiertää Tab-näppäimellä.</li>
+</ul>
+
+<h2 id="saannot">Säännöt tässä toteutuksessa</h2>
+<p>Säännöt ovat tiedostosta <code>Ristiseiska.txt</code>. Kohdat, joita teksti ei ratkaise, on merkitty sanalla <strong>tulkinta</strong>. Ne kootaan vakioiksi tiedoston <code>ristiseiska/game.js</code> alkuun, jotta niitä on helppo muuttaa.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Sääntöpäätökset</caption>
+  <thead><tr><th scope="col">Asia</th><th scope="col">Toteutus</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Pelaajat ja jako</th><td>2–8 pelaajaa. Kaikki 52 korttia jaetaan alkaen jakajaa seuraavasta, joten osa pelaajista voi saada kortin enemmän. Jakaja kiertää kuten Maijassa.</td></tr>
+    <tr><th scope="row">Aloitus</th><td>Ristiseiskan haltija aloittaa. <strong>Tulkinta:</strong> palvelin pelaa ristiseiskan pöytään automaattisesti, koska pelaajalla ei ole siinä valinnanvaraa. Vuoro siirtyy heti seuraavalle.</td></tr>
+    <tr><th scope="row">Vuorojärjestys</th><td>Myötäpäivään eli istumajärjestyksessä. Pois päässeet ohitetaan.</td></tr>
+    <tr><th scope="row">Seiska</th><td>Minkä tahansa maan seiskan saa lyödä, kun ristiseiska on pöydässä.</td></tr>
+    <tr><th scope="row">Kuutonen</th><td>Kuutosen saa lyödä, kun saman maan seiska on pöydässä.</td></tr>
+    <tr><th scope="row">Kahdeksikko</th><td>Kahdeksikon saa lyödä vasta, kun saman maan seiska <em>ja kuutonen</em> ovat pöydässä.</td></tr>
+    <tr><th scope="row">Alapää</th><td>5, 4, 3, 2 ja ässä järjestyksessä kuutosen jälkeen. Alapää avautuu vasta, kun saman maan kuutonen <em>ja kahdeksikko</em> ovat pöydässä. Vitosta ei siis voi lyödä, jos pöydässä on vain 6 ja 7.</td></tr>
+    <tr><th scope="row">Yläpää</th><td>9, 10, J, Q ja K järjestyksessä kahdeksikon jälkeen.</td></tr>
+    <tr><th scope="row">Kortteja vuorossa</th><td>Yksi. Jos kortti on ässä tai kuningas, saa lyödä vielä yhden kortin tai lopettaa vuoron (ks. <a href="#lisavuoro">lisäkortti</a>).</td></tr>
+    <tr><th scope="row">Lyöntipakko</th><td><strong>Tulkinta:</strong> jos voi lyödä, on lyötävä. Pyytää saa vain, jos yhtään korttia ei voi lyödä. Tämä myös takaa, ettei peli voi jumittua. Ks. <a href="#avoimet">avoimet kysymykset</a>.</td></tr>
+    <tr><th scope="row">Pyytäminen</th><td>Jos ei voi lyödä, pyydetään kortti edelliseltä pelissä olevalta pelaajalta. Hän antaa haluamansa kortin. <strong>Tulkinta:</strong> saatua korttia ei voi lyödä samalla vuorolla, vaan vuoro siirtyy seuraavalle. Sääntötekstin kesken jäänyt kohta (pyydetyllä vain yksi kortti) on <a href="#avoimet">avoin kysymys</a>.</td></tr>
+    <tr><th scope="row">Pois pääsy</th><td>Kun pelaajan viimeinen kortti on pöydässä, hän pääsee pois ja saa seuraavan vapaan sijan.</td></tr>
+    <tr><th scope="row">Pelin loppu</th><td>Kun kortteja on enää yhdellä pelaajalla, hän on häviäjä ja peli päättyy.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Ristiseiskassa ässä on matala kortti. Pelilogiikka käyttää omaa järjestystä <code>['A','2',…,'10','J','Q','K']</code>. Siinä seiskan indeksi on 6, eli seiska on täsmälleen 13 paikan keskellä. Käsi järjestetään samalla järjestyksellä, jotta käden ja pöydän luku kulkee samaan suuntaan.</p>
+
+<h2 id="poyta">Pöytä</h2>
+
+<h3>Tietomalli</h3>
+<p>Kunkin maan pöytäkortit ovat aina yhtenäinen jono seiskan ympärillä. Siksi maalle riittää tallentaa alin ja ylin kortti:</p>
+<pre><code>table = {
+  spades:   { low: '4', high: '8' },   // pata 4, 5, 6, 7, 8
+  hearts:   { low: '6', high: '10' },
+  diamonds: { low: '7', high: '7' },
+  clubs:    null                        // maata ei ole aloitettu
+}</code></pre>
+<p>Jaettu sääntömoduuli <code>saannot.js</code> laskee tästä kunkin maan seuraavat kortit. Moduuli on samaa UMD-muotoa kuin <code>kortit.js</code>, joten sitä voi käyttää sekä palvelimella että selaimessa.</p>
+<pre><code>nextCards(table, suit)       // → esim. ['3', '9'] (alapää ensin, sitten yläpää)
+isPlayable(table, card)      // → true/false
+playableCards(table, hand)   // → kädestä lyötävät kortit
+suitStatus(table, suit)      // → { low, high, lowClosed, highClosed, complete }</code></pre>
+<p>Seuraavien korttien säännöt:</p>
+<ul>
+  <li>Maata ei ole aloitettu: seuraava kortti on 7. Ristien kohdalla 7 on aina pelattu ensimmäisenä.</li>
+  <li>Pöydässä on vain 7: seuraava kortti on 6. Kahdeksikko ei vielä käy.</li>
+  <li>Pöydässä on 6 ja 7: seuraava kortti on 8. Vitonen ei vielä käy.</li>
+  <li>Kun 8 on pöydässä, alapään seuraava on <code>low − 1</code>, jos alapää ei ole ässä. Yläpään seuraava on <code>high + 1</code>, jos yläpää ei ole kuningas.</li>
+</ul>
+
+<h3>Näkymä</h3>
+<p>Pöytä piirretään kuten oikeassa pelissä: jokaisella maalla on oma sarake, jossa seiska on keskellä, isojen korttien pino (8–K) sen yläpuolella ja pienten korttien pino (6–A) sen alapuolella. Pinosta näytetään vain päällimmäinen kortti, koska pöydän kortit ovat aina yhtenäinen jono. Kuvan pöydässä pata on 4–8, hertta 6–10, ruutu pelkkä 7 ja risti 5–9. Seuraavaksi pöytään sopivat kortit näkyvät keltaisina katkoviivamerkkeinä pinojen ulkopuolella.</p>
+
+<figure class="board" aria-labelledby="board-caption">
+  <figcaption id="board-caption">Malli pelinäkymän pöydästä</figcaption>
+  <ul class="sr-only">
+    <li>Pata 3, 9.</li>
+    <li>Hertta 5, jätkä.</li>
+    <li>Ruutu 6.</li>
+    <li>Risti 4, 10.</li>
+  </ul>
+  <div class="piles" aria-hidden="true">
+    <div class="pile-col">
+      <span class="suit-head">♠ Pata</span>
+      <span class="next">9</span>
+      <span class="pcard played">8</span>
+      <span class="pcard played seven">7</span>
+      <span class="pcard played">4</span>
+      <span class="next">3</span>
+    </div>
+    <div class="pile-col red">
+      <span class="suit-head">♥ Hertta</span>
+      <span class="next">J</span>
+      <span class="pcard played">10</span>
+      <span class="pcard played seven">7</span>
+      <span class="pcard played">6</span>
+      <span class="next">5</span>
+    </div>
+    <div class="pile-col red">
+      <span class="suit-head">♦ Ruutu</span>
+      <span class="next none"></span>
+      <span class="pcard empty"></span>
+      <span class="pcard played seven">7</span>
+      <span class="pcard empty"></span>
+      <span class="next">6</span>
+    </div>
+    <div class="pile-col">
+      <span class="suit-head">♣ Risti</span>
+      <span class="next">10</span>
+      <span class="pcard played">9</span>
+      <span class="pcard played seven">7</span>
+      <span class="pcard played">5</span>
+      <span class="next">4</span>
+    </div>
+  </div>
+  <div class="board-legend" aria-hidden="true">
+    <span><span class="next">3</span> sopii seuraavaksi pöytään</span>
+    <span>Ylhäällä isojen pino, keskellä seiska, alhaalla pienten pino. Pinosta näkyy päällimmäinen kortti.</span>
+  </div>
+</figure>
+
+<ul>
+  <li><strong>Neljä saraketta, kolme korttia.</strong> Jokaisessa sarakkeessa on enintään kolme korttia ja kaksi merkkiä, joten kortit voivat olla isoja ja arvo isolla fontilla (noin 26 px). Seiska erottuu paksummalla reunalla. Pöydässä oleva kortti, tyhjä pino (pisteviiva) ja seuraava kortti (keltainen katkoviiva) erottuvat myös muodosta, joten tieto ei ole vain värin varassa.</li>
+  <li><strong>Ruudunlukijalle</strong> sarakkeet ovat <code>aria-hidden</code>, ja sen sijaan on neljän kohdan lista samoilla lauseilla kuin <kbd>Alt+Q</kbd>–<kbd>R</kbd>. Selaustilassa pöydän voi siis lukea nuolinäppäimillä, ja lauseet ovat samat kuin pikanäppäimissä.</li>
+  <li><strong>Mobiilissa</strong> neljä saraketta mahtuu 360 pikselin leveyteen niin, että kortti on noin 65 pikseliä leveä. Kun tila ei riitä (kapea näyttö tai suuri zoomaus), sarakkeet rivittyvät automaattisesti kahteen riviin (2 × 2) eivätkä kutistu. Vaakavieritystä ei tarvita.</li>
+  <li><strong>Viimeksi lyöty kortti</strong> korostetaan hetkeksi (esim. 2 sekuntia), ja pöydän otsikko kertoo sen: ”Pöytä – viimeksi Liisa: hertta 10”.</li>
+</ul>
+
+<h3>Muu pelinäkymä</h3>
+<p>Rakenne on sama kuin Maijassa: vuoropalkki, pelaajalista, pöytä, oma käsi, toimintopainikkeet ja tapahtumaloki. Valttialue jää pois.</p>
+<ul>
+  <li><strong>Pelaajalista</strong> istumajärjestyksessä: nimi, korttimäärä, robotti/jakaja. Vuorossa olevalla on ”▶ VUOROSSA – lyö” tai antovaiheessa ”▶ VUOROSSA – antaa kortin”. Pyytäjän kohdalla lukee ”pyysi korttia”.</li>
+  <li><strong>Oma käsi</strong> maittain, ässä alimpana. Lyötäviä kortteja ei merkitä, vaan pelaaja päättelee ne itse pöydästä ja kädestään.</li>
+  <li><strong>Toimintopainike</strong> vaihtaa tekstiä vaiheen mukaan: ”Lyö valittu (L)”, ”Pyydä kortti pelaajalta Mikko (L)”, ”Anna valittu kortti (L)” tai ”Lopeta vuoro (L)”.</li>
+</ul>
+
+<h2 id="qwer">Pöydän tutkiminen: Alt+Q, W, E, R</h2>
+
+<p>Ylärivin näppäimet ovat oman käden näppäinten yläpuolella. Q on siis pöydän pata ja A oman käden pata, W on hertta, E ruutu ja R risti.</p>
+
+<p>Ilmoitus kertoo vain, mitkä kortit maahan voi seuraavaksi lyödä: ensin alapään kortti, sitten yläpään kortti. Pöydässä jo olevia kortteja ei lueta, eikä sitä, onko kortti omassa kädessä. Pelaaja vertaa tietoa itse omaan käteensä (<kbd>Alt+A</kbd>–<kbd>F</kbd>).</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Alt+Q:n (pata) ilmoitukset eri tilanteissa. Muut maat vastaavasti.</caption>
+  <thead><tr><th scope="col">Padat pöydässä</th><th scope="col">Ilmoitus</th></tr></thead>
+  <tbody>
+    <tr><td>ei yhtään</td><td>”Pata 7.”</td></tr>
+    <tr><td>7</td><td>”Pata 6.”</td></tr>
+    <tr><td>6, 7</td><td>”Pata 8.” (vitonen ei vielä käy)</td></tr>
+    <tr><td>6–8</td><td>”Pata 5, 9.”</td></tr>
+    <tr><td>4–8</td><td>”Pata 3, 9.”</td></tr>
+    <tr><td>4–J</td><td>”Pata 3, rouva.”</td></tr>
+    <tr><td>A–9 (alapää suljettu)</td><td>”Pata 10.”</td></tr>
+    <tr><td>A–K</td><td>”Pata valmis.”</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Muut pöytäkomennot</h3>
+<ul>
+  <li><kbd>Alt+P</kbd> (pöytä): kaikkien neljän maan seuraavat kortit yhdellä kertaa. <span class="speech">Pata 3, 9. Hertta 5, jätkä. Ruutu 6. Risti 4, 10.</span> Tämä on nopein tapa kuulla koko pöydän tilanne. Maijassa <kbd>Alt+P</kbd> lukee pöydän, joten merkitys pysyy samana.</li>
+</ul>
+<p>Peli ei kerro missään vaiheessa, mitkä omista korteista ovat lyötävissä. Pelaaja hahmottaa sen itse vertaamalla pöytää ja kättään, kuten oikeassakin pelissä.</p>
+
+<h2 id="pyytaminen">Kortin pyytäminen edelliseltä pelaajalta</h2>
+
+<h3>Kulku</h3>
+<p>Pyytäminen on oma vaihe, koska siinä toimii eri pelaaja kuin vuorossa oleva. Malli on sama kuin Maijan lyönti ja kaato: pelin <code>phase</code> on <code>'play'</code> tai <code>'give'</code>, ja kummassakin vaiheessa on yksi toimija.</p>
+
+<ol class="steps">
+  <li><strong>Liisan vuoro alkaa.</strong> Hän kuulee vain ”Sinun vuorosi.” Tutkittuaan pöydän ja kätensä hän toteaa, ettei voi lyödä mitään. Kun mitään korttia ei ole valittuna, painikkeessa lukee ”Pyydä kortti pelaajalta Mikko (L)”.</li>
+  <li><strong>Liisa painaa <kbd>L</kbd> ilman valittua korttia.</strong> Selain lähettää <code>ask</code>. Palvelin tarkistaa lyöntipakon. Jos Liisalla on lyötävä kortti, palvelin hylkää pyynnön ilmoituksella ”Sinulla on lyötävä kortti.” Ilmoitus ei kerro, mikä kortti on kyseessä. Muuten palvelin asettaa <code>phase = 'give'</code> ja <code>giver</code> = edellinen pelissä oleva pelaaja Liisasta vastapäivään.</li>
+  <li><strong>Kaikki kuulevat pyynnön.</strong>
+    <div class="speech">Liisa ei voi lyödä ja pyytää kortin pelaajalta Mikko.</div>
+    Mikko kuulee vuoroäänen ja:
+    <div class="speech">Liisa pyytää sinulta kortin. Valitse annettava kortti ja paina L.</div></li>
+  <li><strong>Mikko valitsee kortin</strong> tavalliseen tapaan, esimerkiksi <kbd>S</kbd> <kbd>2</kbd>. Antovaiheessa mikä tahansa kortti kelpaa:
+    <div class="speech">Valittu pata 2. Paina L antaaksesi.</div>
+    Antovaiheessa voi olla valittuna vain yksi kortti, ja uusi valinta korvaa edellisen.</li>
+  <li><strong>Mikko painaa <kbd>L</kbd>.</strong> Selain lähettää <code>give { cardId }</code>. Palvelin siirtää kortin Liisalle ja järjestää hänen kätensä. Vuoro siirtyy Liisaa seuraavalle, ja <code>phase = 'play'</code>.</li>
+  <li><strong>Annettu kortti on salainen.</strong> <code>publicEvent</code> poistaa kortin tapahtumasta muilta kuin antajalta ja saajalta, kuten Maijassa nostetut kortit:
+    <div class="speech">Mikolle: Annoit pelaajalle Liisa kortin pata 2.</div>
+    <div class="speech">Liisalle: Sait pelaajalta Mikko kortin pata 2.</div>
+    <div class="speech">Muille: Mikko antoi kortin pelaajalle Liisa.</div>
+    Liisalle soitetaan Maijan nostoääni.</li>
+</ol>
+
+<h3>Erityistilanteet</h3>
+<ul>
+  <li><strong>Edellinen pelaaja on päässyt pois:</strong> hänet ohitetaan, ja pyyntö menee seuraavalle vastapäivään. Funktio <code>previousActive(index)</code> on <code>nextActive</code>-funktion peilikuva.</li>
+  <li><strong>Kaksi pelaajaa:</strong> edellinen ja seuraava ovat sama pelaaja, eikä tämä vaadi erikoiskäsittelyä.</li>
+  <li><strong>Antaja on robotti:</strong> sama ajastus kuin robotin muissakin vuoroissa. <code>currentActorId</code> palauttaa antovaiheessa antajan.</li>
+  <li><strong>Antajan yhteys on katkennut:</strong> peli odottaa kuten Maijassa. Pöydän luoja voi keskeyttää pelin.</li>
+  <li><strong>Antajalla on vain yksi kortti:</strong> sääntöteksti katkeaa tähän kohtaan. Vaihtoehdot ovat <a href="#avoimet">avoimissa kysymyksissä</a>.</li>
+  <li><strong>Pyytämättä jättäminen ei ole mahdollista:</strong> vuoroa ei voi ohittaa muuten kuin pyytämällä. Lyöntipakon ansiosta peli etenee aina, sillä jokaisen aloitetun maan seuraava kortti on jonkun kädessä, ja hänen on lyötävä se vuorollaan.</li>
+</ul>
+
+
+<h2 id="lisavuoro">Ässä ja kuningas: lisäkortti</h2>
+<p>Kun pelaaja lyö ässän tai kuninkaan, vuoro jatkuu. Pelin tila on edelleen <code>'play'</code>, mutta <code>bonus = true</code>. Sallitut toiminnot ovat <code>play</code> ja <code>end-turn</code>, mutta eivät <code>ask</code>. Jos lisäkortti on taas ässä tai kuningas, sama toistuu.</p>
+<div class="speech">Löit pata ässän. Voit jatkaa.</div>
+<ul>
+  <li><kbd>L</kbd> ilman valintaa lisävuorossa: <span class="speech">Paina L uudelleen lopettaaksesi vuoron.</span> Toinen painallus lähettää <code>end-turn</code>. Tämä estää vahingossa menetetyn lisäkortin.</li>
+  <li>Palvelin ei lopeta lisävuoroa itse, vaikka lyötävää ei olisi, koska se paljastaisi tilanteen. Pelaaja päättää lopettamisen itse.</li>
+  <li>Jos ässä tai kuningas oli viimeinen kortti, pelaaja pääsee pois, eikä lisävuoroa tule.</li>
+  <li>Painike: ”Lopeta vuoro (L)”. Vuoropalkki: ”▶ Lisäkortti: lyö vielä yksi tai lopeta vuoro”.</li>
+</ul>
+
+<h2 id="nappaimet">Kaikki näppäinkomennot</h2>
+<p>Komennot ovat Maijan mukaiset aina, kun merkitys on sama. Uusia ovat <kbd>Alt+Q</kbd>, <kbd>W</kbd>, <kbd>E</kbd>, <kbd>R</kbd>.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Toiminnot</caption>
+  <thead><tr><th scope="col">Näppäin</th><th scope="col">Toiminto</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>S</kbd> <kbd>H</kbd> <kbd>D</kbd> <kbd>C</kbd> + arvo</td><td>Valitse kortti, esimerkiksi <kbd>H</kbd> <kbd>J</kbd> on hertta jätkä. Arvot ovat samat kuin Maijassa: <kbd>A</kbd> <kbd>K</kbd> <kbd>Q</kbd> <kbd>J</kbd> <kbd>T</kbd>/<kbd>1</kbd> <kbd>2</kbd>–<kbd>9</kbd>. Valittuna voi olla vain yksi kortti, ja uusi valinta korvaa edellisen: ”Valittu pata 2.” Jos valittu kortti ei sovi pöytään, palvelin hylkää lyönnin: ”Pata 2 ei sovi pöytään.”</td></tr>
+    <tr><td><kbd>L</kbd></td><td>Vaiheen mukaan: lyö valittu, pyydä kortti, anna valittu tai lopeta lisävuoro (kahdella painalluksella).</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Poista valinta.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="table-wrap">
+<table>
+  <caption>Lukukomennot</caption>
+  <thead><tr><th scope="col">Näppäin</th><th scope="col">Lukee</th><th scope="col">Maijassa</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>Alt+Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></td><td>Pöydän pata, hertta, ruutu, risti: vain kortit, jotka maahan voi seuraavaksi lyödä</td><td>uusi</td></tr>
+    <tr><td><kbd>Alt+A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd></td><td>Oman käden pata, hertta, ruutu, risti: ”3 pataa: 2, 8, kuningas.”</td><td>sama</td></tr>
+    <tr><td><kbd>Alt+G</kbd></td><td>Koko käsi</td><td>sama</td></tr>
+    <tr><td><kbd>Alt+P</kbd></td><td>Koko pöytä: kaikkien maiden seuraavat kortit</td><td>pöytä</td></tr>
+    <tr><td><kbd>Alt+V</kbd></td><td>Kenen vuoro ja mitä hän tekee (lyö, antaa kortin, lisävuoro)</td><td>sama</td></tr>
+    <tr><td><kbd>Alt+X</kbd></td><td>Korttimäärät vuorojärjestyksessä: ”Sinulla 6 korttia. Mikko 7, Liisa 2, Robotti 1 5.”</td><td>korttimäärä</td></tr>
+    <tr><td><kbd>Alt+C</kbd></td><td>Pyyntösuunta: ”Pyydät tarvittaessa pelaajalta Mikko. Sinulta pyytää Liisa.”</td><td>vastaa ”enintään”-komentoa</td></tr>
+    <tr><td><kbd>Alt+Y</kbd></td><td>Yhteenveto: pöytäkoodi, jakaja, pelissä olevat ja korttimäärät, pois päässeet</td><td>sama</td></tr>
+    <tr><td><kbd>Alt+I</kbd></td><td>Toista viimeisin ilmoitus</td><td>sama</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Testattava:</strong> <kbd>Alt+E</kbd> avaa Chromessa ja Edgessä selaimen valikon, kuten <kbd>Alt+F</kbd>. Maija käyttää jo <kbd>Alt+F</kbd>:ää ja estää oletustoiminnon (<code>preventDefault</code>). Sama on varmistettava <kbd>Alt+E</kbd>:lle NVDA:lla ja JAWSilla. Jos jokin selain ei salli estoa, varakomento on <kbd>Alt+3</kbd> (Q, W, E, R → <kbd>Alt+1</kbd>–<kbd>4</kbd>).</p>
+
+<h2 id="ilmoitukset">Ilmoitukset</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Pelitapahtumat ja niiden tekstit (sinä / muut)</caption>
+  <thead><tr><th scope="col">Tapahtuma</th><th scope="col">Sinulle</th><th scope="col">Muille</th></tr></thead>
+  <tbody>
+    <tr><td><code>start</code></td><td colspan="2">”Peli alkoi. Pelaajat: … Jakaja: Mikko. Liisalla oli ristiseiska, ja se on pöydässä. Vuorossa Robotti 1.” Jos aloittaja olet sinä: ”Sinulla oli ristiseiska, ja se on pelattu pöytään.”</td></tr>
+    <tr><td><code>play</code></td><td>”Löit hertta 10.”</td><td>”Liisa löi hertta 10.”</td></tr>
+    <tr><td><code>play</code> (ässä tai kuningas)</td><td>”Löit pata ässän. Voit jatkaa.”</td><td>”Liisa löi pata ässän.”</td></tr>
+    <tr><td><code>end-turn</code></td><td>”Lopetit vuoron.”</td><td>”Liisa lopetti vuoronsa.”</td></tr>
+    <tr><td><code>ask</code></td><td>”Pyysit kortin pelaajalta Mikko.” / antajalle: ”Liisa pyytää sinulta kortin…”</td><td>”Liisa ei voi lyödä ja pyytää kortin pelaajalta Mikko.”</td></tr>
+    <tr><td><code>give</code></td><td>”Sait pelaajalta Mikko kortin pata 2.” / ”Annoit pelaajalle Liisa kortin pata 2.”</td><td>”Mikko antoi kortin pelaajalle Liisa.”</td></tr>
+    <tr><td><code>out</code></td><td>”Pääsit pois pelistä sijalle 1!”</td><td>”Liisa pääsi pois pelistä sijalle 1.”</td></tr>
+    <tr><td><code>over</code></td><td colspan="2">”Peli päättyi. Häviäjä: Robotti 2. Sijoitukset: 1. Liisa, 2. Mikko, …”</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Vuoroilmoitus</h3>
+<p>Kun oma vuoro alkaa, kuuluu vuoroääni ja ilmoitus ”Sinun vuorosi.” Ilmoitus ei kerro, mitä voi lyödä tai voiko lyödä ollenkaan.</p>
+<p>Oma siirto ja sitä seuraava vuoroilmoitus luetaan yhtenä ryhmänä kuten Maijan <code>flushOwnMove</code>-funktiossa.</p>
+
+<h2 id="palvelin">Palvelin: pelilogiikka ja protokolla</h2>
+
+<h3><code>ristiseiska/game.js</code></h3>
+<pre><code>class Game {
+  constructor(players, { rng, dealerIndex })  // jakaa, pelaa ♣7 automaattisesti
+  play(playerId, cardId)     // phase 'play'; tarkistaa isPlayable; A/K → bonus
+  ask(playerId)              // phase 'play', ei bonusta, ei lyötävää → phase 'give'
+  give(playerId, cardId)     // phase 'give', vain giver → kortti pyytäjälle, vuoro eteenpäin
+  endTurn(playerId)          // vain bonus-tilassa
+  getView(viewerId)
+  static publicEvent(event, viewerId)
+}</code></pre>
+
+<p>Jokainen metodi palauttaa tapahtumalistan kuten Maijassa, esimerkiksi <code>[play, out, over]</code>. Virheet ovat <code>GameError</code>-olioita, joiden suomenkielinen viesti näytetään sellaisenaan, esimerkiksi ”Pata 10 ei sovi pöytään.” Virheilmoitukset eivät koskaan kerro, mikä kortti olisi sopinut.</p>
+
+<h3>Näkymä (<code>getView</code>)</h3>
+<pre><code>{
+  phase: 'play' | 'give' | 'over',
+  bonus: false,                       // ässän/kuninkaan jälkeinen lisäkortti
+  hand: [...],                        // vain katsojan oma, ässä alimpana
+  players: [{ id, name, cardCount, out, place }],
+  currentId, askerId, giverId,        // giverId/askerId vain give-vaiheessa
+  table: { spades: { low, high } | null, ... },
+  nextCards: { spades: ['3', '9'], ... },   // julkinen, suoraan Alt+Q-komentoon
+  allowedActions: ['play', 'ask', 'end-turn', 'give'],
+  dealerId, lastPlay, finishOrder, loserId
+}</code></pre>
+
+<h3>Socket.IO-tapahtumat</h3>
+<div class="table-wrap">
+<table>
+  <caption>Selaimelta palvelimelle (odotushuoneen tapahtumat ovat samat kuin Maijassa)</caption>
+  <thead><tr><th scope="col">Tapahtuma</th><th scope="col">Data</th><th scope="col">Kutsuu</th></tr></thead>
+  <tbody>
+    <tr><td><code>play</code></td><td><code>{ cardId }</code></td><td><code>game.play</code></td></tr>
+    <tr><td><code>ask</code></td><td><code>{}</code></td><td><code>game.ask</code></td></tr>
+    <tr><td><code>give</code></td><td><code>{ cardId }</code></td><td><code>game.give</code></td></tr>
+    <tr><td><code>end-turn</code></td><td><code>{}</code></td><td><code>game.endTurn</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Palvelimelta selaimelle lähtevät samat <code>state</code>, <code>game-event</code>, <code>action-error</code>, <code>joined</code> ja muut kuin Maijassa.</p>
+
+<h2 id="robotti">Robotti</h2>
+<p>Robotti näkee vain oman näkymänsä. Ensimmäisessä versiossa yksinkertaiset pisteytyssäännöt riittävät:</p>
+<ul>
+  <li><strong><code>decidePlay</code>:</strong> lyötävistä korteista suositaan korttia, joka avaa tien robotin omille korteille. Esimerkiksi pata 9 on hyvä, jos robotilla on pata 10 ja jätkä. Korttia, joka avaa maan vain muille, vältetään. Seiskoja, kuutosia ja kahdeksikkoja pidätetään, jos robotilla ei ole kyseisen maan jatkokortteja. Kahdeksikko on erityisen tehokas pidättäjä, koska ilman sitä koko maan alapää pysyy suljettuna. Tämä on ristiseiskan tavallinen kiusaamiskeino.</li>
+  <li><strong><code>decideGive</code>:</strong> annetaan kortti, jota pyytäjä ei pysty lyömään pian. Valitaan kortti, joka on kauimpana pöydän seuraavista korteista, kuten kakkonen tai kuningas aloittamattomasta maasta. Robotti ei anna omaa ”avainkorttiaan” (7, 6 tai 8), jolla se pidättää muita.</li>
+  <li><strong><code>decideContinue</code>:</strong> lisävuorossa robotti lyö, jos sillä on ässä tai kuningas tai kortti, joka avaa sille itselleen jatkoa. Muuten se lopettaa vuoron, sillä ”liikaa ei kannata pelata”.</li>
+  <li><strong>Varmistus:</strong> jos palvelin hylkää päätöksen, robotti tekee satunnaisen sallitun siirron kuten Maijassa (<code>randomPlay</code>, <code>randomGive</code>).</li>
+</ul>
+
+<h2 id="tiedostot">Tiedostot ja yhteinen koodi</h2>
+
+<pre><code>ristiseiska/
+  game.js            pelilogiikka
+  game.test.js
+  robotti.js
+  robotti.test.js
+  socket.js          attach(io, { app }) → nimiavaruus /ristiseiska
+  socket.test.js
+public/ristiseiska/
+  index.html
+  ohje.html          säännöt ja näppäinkomennot
+  css/ristiseiska.css
+  js/saannot.js      UMD: nextCards, isPlayable, playableCards (palvelin + selain)
+  js/ristiseiska.js
+korttipelit/
+  poydat.js          yleistetty maija/poydat.js
+public/korttipelit/
+  kortit.js          siirretty public/maija/js/kortit.js</code></pre>
+
+<div class="verdict">
+  <p><strong>Suositus:</strong> yhteiseksi tehdään nyt vain se, mikä on pakko. <code>kortit.js</code> tarvitsee ässä alimpana -järjestyksen, ja <code>poydat.js</code> tarvitsee pelikohtaiset pelaajarajat ja pelin luonnin.</p>
+  <ul>
+    <li><code>Tables</code> saa parametrit <code>{ createGame, minPlayers, maxPlayers }</code>. <code>Table.start()</code> kutsuu <code>createGame(participants, { rng, dealerIndex })</code>, ja aloitustapahtuman muodostaa peli itse (<code>game.startEvent()</code>). Maijan nykyiset testit varmistavat, ettei Maija rikkoudu.</li>
+    <li><code>socket.js</code> ja selaimen runko (ilmoitusjono, <code>storage</code>, äänet, odotushuone, vahvistusikkuna) kopioidaan ensin ja muokataan. Kun ristiseiska toimii, toistuva osa voidaan erottaa yhteiseksi <code>public/korttipelit/ilmoitukset.js</code>-tiedostoksi omana muutoksenaan.</li>
+    <li><code>localStorage</code>-avaimet saavat etuliitteen <code>ristiseiska-</code>, jotta Maijan ja ristiseiskan istunnot eivät sekoitu.</li>
+    <li><code>server.js</code>-tiedostoon lisätään rivi <code>require('./ristiseiska/socket').attach(io, { app });</code></li>
+    <li>Maijan aloitussivulle ja Bridgen etusivulle lisätään linkit ristiseiskaan.</li>
+  </ul>
+</div>
+
+<h2 id="testaus">Testaus</h2>
+<ul>
+  <li><strong><code>saannot</code>:</strong> 8 ei käy ennen 6:ta; 5 ei käy ennen 8:aa (pöydässä 6 ja 7 → vain 8 käy); ässä sulkee alapään ja kuningas yläpään; aloittamattoman maan seuraava on 7; valmis maa.</li>
+  <li><strong><code>game.test.js</code>:</strong> kaikki 52 korttia jaetaan 2–8 pelaajalle; ristiseiska on pöydässä heti, ja vuorossa on haltijaa seuraava; lyöntipakko (<code>ask</code> hylätään, jos lyötävää on); <code>give</code> vain antajalta; vuoro siirtyy pyytäjää seuraavalle; pois päässeet ohitetaan sekä vuorossa että pyynnössä; ässä tai kuningas antaa bonuksen, joka päättyy lyöntiin tai <code>endTurn</code>-kutsuun; peli päättyy, kun kortteja on yhdellä.</li>
+  <li><strong>Salaisuus:</strong> <code>publicEvent</code> ei paljasta annettua korttia muille kuin antajalle ja saajalle, eikä <code>getView</code> paljasta muiden käsiä. Näkymässä ei ole lyötävien korttien listaa kenellekään, ja lyöntipakon virheilmoitus ei nimeä korttia.</li>
+  <li><strong>Robotit:</strong> pelkillä roboteilla pelattu satunnainen peli päättyy aina (esim. 1 000 peliä kiinteällä siemenellä), eikä yksikään robotin siirto hylätä.</li>
+  <li><strong>Käsin NVDA:lla ja JAWSilla:</strong> <kbd>Alt+Q</kbd>, <kbd>W</kbd>, <kbd>E</kbd>, <kbd>R</kbd> eivät avaa selaimen valikkoja; ilmoitusjono ei katkaise pyynnön ilmoitusta; fokus säilyy painikkeessa vaiheen vaihtuessa.</li>
+</ul>
+
+<h2 id="avoimet">Avoimet kysymykset</h2>
+<p>Nämä kannattaa lukita ennen koodausta. Ehdotettu oletus on mainittu ensimmäisenä.</p>
+
+<div class="open-q">
+  <h3>1. Pyydetyllä on vain yksi kortti</h3>
+  <p>Sääntöteksti katkeaa kohtaan ”Jos pyydetyllä pelaajalla vain yksi kortti”. Vaihtoehdot:</p>
+  <ol type="a">
+    <li><strong>Ehdotus:</strong> hänen ei tarvitse antaa, ja pyyntö siirtyy seuraavalle vastapäivään. Jos kukaan ei voi antaa, vuoro vain siirtyy.</li>
+    <li>Hänen ei tarvitse antaa, ja pyytäjä jää ilman korttia. Vuoro siirtyy.</li>
+    <li>Hän antaa viimeisen korttinsa ja pääsee sillä pois pelistä.</li>
+  </ol>
+</div>
+
+<div class="open-q">
+  <h3>2. Lyöntipakko</h3>
+  <p><strong>Ehdotus:</strong> jos voi lyödä, on lyötävä. Vaihtoehtoisesti voi pyytää, vaikka lyötävää olisi (kiusaamisen muunnelma). Silloin peli voi kuitenkin jumittua, ja robottien olisi tunnistettava kierre kuten Maijan <code>noBeatRounds</code>.</p>
+</div>
+
+<div class="open-q">
+  <h3>3. Saadun kortin lyöminen</h3>
+  <p><strong>Ehdotus:</strong> vuoro siirtyy heti antamisen jälkeen. Vaihtoehtoisesti pyytäjä saa lyödä saamansa kortin heti, jos se sopii pöytään.</p>
+</div>
+
+
+<h2 id="jarjestys">Toteutusjärjestys</h2>
+
+<div class="phase">
+  <h3>Vaihe 1: Säännöt ja pelilogiikka</h3>
+  <p><code>saannot.js</code>, <code>ristiseiska/game.js</code> ja niiden testit. <code>kortit.js</code>-tiedostoon lisätään ässä alimpana -järjestys.</p>
+  <p class="done-when">Valmis, kun pelin voi pelata testeissä alusta loppuun, myös pyynnöt ja lisävuorot.</p>
+</div>
+<div class="phase">
+  <h3>Vaihe 2: Yhteiset pöydät</h3>
+  <p><code>poydat.js</code> yleistetään, ja Maija siirretään käyttämään sitä.</p>
+  <p class="done-when">Valmis, kun Maijan kaikki testit menevät läpi muuttamattomina.</p>
+</div>
+<div class="phase">
+  <h3>Vaihe 3: Robotti ja Socket.IO</h3>
+  <p><code>robotti.js</code>, <code>socket.js</code> ja liitos <code>server.js</code>-tiedostoon.</p>
+  <p class="done-when">Valmis, kun 1 000 pelkkien robottien peliä päättyy ilman hylättyjä siirtoja.</p>
+</div>
+<div class="phase">
+  <h3>Vaihe 4: Selainohjelma</h3>
+  <p>Aloitussivu ja odotushuone kopioidaan Maijasta. Sen jälkeen tehdään pöytäruudukko, oma käsi, toimintopainike, näppäimet ja ilmoitukset.</p>
+  <p class="done-when">Valmis, kun peli on pelattavissa pelkällä näppäimistöllä ja ruudunlukijalla robotteja vastaan.</p>
+</div>
+<div class="phase">
+  <h3>Vaihe 5: Ohje ja linkit</h3>
+  <p><code>ohje.html</code> (säännöt ja näppäinkomennot), linkit Maijasta ja Bridgen etusivulta sekä NVDA- ja JAWS-testaus.</p>
+</div>
+
+</main>
+
+<footer>
+  <p>Suunnitelma perustuu tiedostoihin <code>maija/game.js</code>, <code>maija/poydat.js</code>, <code>maija/socket.js</code>, <code>public/maija/js/maija.js</code> ja <code>Ristiseiska.txt</code>. Laadittu 7.10.2026.</p>
+</footer>
+</body>
+</html>

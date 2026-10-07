@@ -1,0 +1,76 @@
+/* Ristiseiska. Perustyylit (painikkeet, pelaajat, käsi, kortit, loki) tulevat
+   Maijan tiedostosta ../maija/css/maija.css. Tässä vain pöydän sarakkeet. */
+
+.rs-table { margin-bottom: 10px; }
+
+/* Neljä maasaraketta: isojen pino ylhäällä, seiska keskellä, pienten pino alhaalla.
+   Seuraavaksi pöytään sopivat kortit ovat keltaisia katkoviivamerkkejä pinojen ulkopuolella. */
+.piles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .5rem;
+    max-width: 30rem;
+    margin: 0 auto;
+}
+/* Kapea näyttö tai suuri zoomaus: 2 × 2, ei koskaan 3 + 1. */
+@media (max-width: 20rem) {
+    .piles { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 1rem; }
+}
+
+.pile-col {
+    display: grid;
+    grid-template-rows: auto 2rem 4rem 4rem 4rem 2rem;
+    gap: .3rem;
+    text-align: center;
+}
+.suit-head { font-weight: 800; font-size: 1.05rem; }
+
+.pcard {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .15em;
+    border: 2px solid #000000;
+    border-radius: 6px;
+    background: #ffffff;
+    font-size: 1.6rem;
+    font-weight: 900;
+    line-height: 1;
+}
+.pcard .pcard-suit { font-size: .75em; }
+.pcard.seven { border-width: 4px; }
+.pcard.empty {
+    border: 2px dotted var(--area-border);
+    background: transparent;
+}
+.pcard.is-last { box-shadow: 0 0 0 4px var(--accent); }
+
+.next-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed #4a3b00;
+    border-radius: 999px;
+    background: #fff4c2;
+    color: #4a3b00;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+.next-chip.none { visibility: hidden; }
+/* Aloittamattoman maan seiskan paikka: seuraava kortti keskellä. */
+.pcard.next-seven {
+    border: 2px dashed #4a3b00;
+    background: #fff4c2;
+    color: #4a3b00;
+}
+
+.hand .card-display { min-width: 48px; }
+
+@media (prefers-color-scheme: dark) {
+    .next-chip, .pcard.next-seven { background: #4a3b00; color: #fff4c2; border-color: #fff4c2; }
+}
+
+@media (forced-colors: active) {
+    .pcard, .next-chip { border-color: CanvasText; }
+    .pcard.is-last { outline: 3px solid Highlight; }
+}

@@ -1,5 +1,5 @@
-// Korttien perustiedot ja suomenkieliset nimet. Käytössä sekä palvelimella
-// (game.js, require) että selaimessa (window.Kortit).
+// Korttien perustiedot ja suomenkieliset nimet. Yhteinen Musta Maijalle ja
+// ristiseiskalle, sekä palvelimella (require) että selaimessa (window.Kortit).
 (function (root, factory) {
     if (typeof module === 'object' && module.exports) {
         module.exports = factory();
@@ -68,10 +68,11 @@
         return parts.join(', ');
     }
 
-    function sortCards(cards) {
+    // ranks: arvojärjestys pienimmästä suurimpaan. Ristiseiskassa ässä on alin.
+    function sortCards(cards, ranks = RANKS) {
         return cards.sort((a, b) => {
             if (a.suit !== b.suit) return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
-            return rankValue(a.rank) - rankValue(b.rank);
+            return ranks.indexOf(a.rank) - ranks.indexOf(b.rank);
         });
     }
 

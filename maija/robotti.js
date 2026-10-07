@@ -3,7 +3,7 @@
 // pelaajanäkymänsä (game.getView(robotinId)), ei muiden käsiä.
 
 const { bestDefense } = require('./game.js');
-const { SUITS, cardId, rankValue, isMaija } = require('../public/maija/js/kortit.js');
+const { SUITS, cardId, rankValue, isMaija } = require('../public/korttipelit/kortit.js');
 
 // Kun näin monta kaatoa peräkkäin ei ole kaatanut mitään, robotit alkavat
 // pelata satunnaisesti, jotta peli ei jää ikuiseen kierteeseen.
