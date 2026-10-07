@@ -341,6 +341,23 @@
                 }
             },
 
+            // Reply to the user's own action (own card played, suit prompt,
+            // errors): spoken right away instead of waiting behind the queue.
+            // Cuts off the announcement being read, but keeps the queued ones.
+            addUrgent(message) {
+                uiState.lastAnnouncement = message;
+                if (this.currentTimeout) {
+                    clearTimeout(this.currentTimeout);
+                    this.currentTimeout = null;
+                }
+                this.queue.unshift({
+                    message: message,
+                    timestamp: Date.now(),
+                    estimatedDuration: Math.max(400, Math.min(6000, message.length * 60))
+                });
+                this.processNext();
+            },
+
             processNext() {
                 if (this.queue.length === 0) {
                     this.processing = false;
@@ -402,9 +419,14 @@
             announcementQueue.add(message);
         }
 
+        function announceUrgent(message) {
+            announcementQueue.addUrgent(message);
+        }
+
+        // Errors answer the user's own action, so they skip the queue.
         function showErrorWithAnnouncement(message) {
             showError(message);
-            announceToScreenReader(message);
+            announceUrgent(message);
         }
 
         // SOCKET CONNECTION
@@ -1023,6 +1045,12 @@ function attemptToPlayCard(suit, card, fromPosition) {
         suit: suit,
         card: card
     });
+
+    // Own card is spoken at once, not after the server round trip and the
+    // queued announcements. The server's cardPlayed echo of this same card
+    // is then not announced again (see socket.on('cardPlayed')).
+    uiState.ownCardAnnounced = { position: actualPosition, suit: suit, card: card };
+    announceUrgent(`${positionName(actualPosition)} ${getSuitName(suit)} ${card}`);
 }
 
         /**
@@ -3049,7 +3077,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                             if (e.key === 'Escape' && uiState.pendingCardSuit) {
                                 e.preventDefault();
                                 uiState.pendingCardSuit = null;
-                                announceToScreenReader('Card selection cancelled.');
+                                announceUrgent('Card selection cancelled.');
                                 return;
                             }
 
@@ -3057,11 +3085,11 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                             if (suitName) {
                                 e.preventDefault();
                                 if (!canPlayFromPosition(gameState.currentPlayer)) {
-                                    announceToScreenReader("It's not your turn to play.");
+                                    announceUrgent("It's not your turn to play.");
                                     return;
                                 }
                                 uiState.pendingCardSuit = suitName;
-                                announceToScreenReader(`${getSuitName(suitName)}. Press card value: A, K, Q, J, T for 10, or 2 to 9.`);
+                                announceUrgent(`${getSuitName(suitName)}. Press card value: A, K, Q, J, T for 10, or 2 to 9.`);
                                 return;
                             }
 
@@ -3574,7 +3602,12 @@ socket.on('cardPlayed', (data) => {
     updateCurrentTrickDisplay();
     updateRobotThinkingIndicator();
 
-    announceToScreenReader(`${positionName(data.position)} ${getSuitName(data.suit)} ${data.card}`);
+    const own = uiState.ownCardAnnounced;
+    if (own && own.position === data.position && own.suit === data.suit && own.card === data.card) {
+        uiState.ownCardAnnounced = null;   // already spoken when the key was pressed
+    } else {
+        announceToScreenReader(`${positionName(data.position)} ${getSuitName(data.suit)} ${data.card}`);
+    }
 });
 
 socket.on('trickComplete', (data) => {
