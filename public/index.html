@@ -1986,6 +1986,8 @@ function updateContractDisplay() {
             let text = `Trick ${trick.number} of ${s.tricks.length}. ${cards.join(', ')}. ` +
                 `${positionName(trick.winner)} wins. ` +
                 `Declarer side ${trick.declarerTricks}, defenders ${trick.defenderTricks}.`;
+            const leadNote = ddActualLeadNote();
+            if (s.index === 0 && leadNote) text += ` ${leadNote}`;
             if (s.index === s.tricks.length - 1) {
                 text += ` Double dummy result: declarer side ${s.optimumTricks} tricks.`;
                 if (s.actualTricks !== null && s.actualTricks !== undefined) {
@@ -1993,6 +1995,18 @@ function updateContractDisplay() {
                 }
             }
             return text;
+        }
+
+        /**
+         * When the lead made at the table was not one of the best, the
+         * review starts with a better one; this says what the actual lead
+         * cost. Empty when the review starts with the actual lead.
+         */
+        function ddActualLeadNote() {
+            const lead = ddReviewState && ddReviewState.actualLead;
+            if (!lead || !lead.cost) return '';
+            const tricks = lead.cost === 1 ? '1 trick' : `${lead.cost} tricks`;
+            return `The actual lead, ${positionName(lead.player)} ${getCardName(lead.suit, lead.card)}, cost the defence ${tricks}.`;
         }
 
         function renderDdReview() {
@@ -2020,6 +2034,9 @@ function updateContractDisplay() {
             let summary = `${positionName(trick.winner)} wins. Declarer side ${trick.declarerTricks}, defenders ${trick.defenderTricks}.`;
             if (s.index === last) {
                 summary += ` Double dummy result: ${s.optimumTricks} tricks.`;
+            }
+            if (s.index === 0 && ddActualLeadNote()) {
+                summary += ` ${ddActualLeadNote()}`;
             }
             document.getElementById('dd-review-content').innerHTML =
                 `<p class="dd-review-sub">Contract ${formatContract(s.contract, true)} by ${declarerName}. One optimal line.</p>` +
@@ -3756,6 +3773,7 @@ socket.on('trickComplete', (data) => {
                     trump: data.trump,
                     optimumTricks: data.optimumTricks,
                     actualTricks: data.actualTricks,
+                    actualLead: data.actualLead || null,
                     startedBy: data.startedBy
                 };
                 if (ddReviewState.tricks.length === 0) {

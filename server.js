@@ -2023,6 +2023,7 @@ function ddReviewPayload(table, extra = {}) {
         trump: review.line.trump,
         optimumTricks: review.line.optimumTricks,
         actualTricks: review.line.actualTricks,
+        actualLead: review.line.actualLead || null,
         originalHands: review.line.originalHands,
         tricks: review.line.tricks,
         ...extra
@@ -2067,7 +2068,11 @@ async function startDoubleDummyReview(socket, playerId, data) {
                 hands: gs.originalHands,
                 trump: gs.trumpSuit || null,
                 declarer: gs.declarer,
-                leader: gs.openingLeader || getNextPlayer(gs.declarer)
+                leader: gs.openingLeader || getNextPlayer(gs.declarer),
+                auction: table.biddingState ? table.biddingState.bidHistory : [],
+                // The review starts with the lead made at the table when it
+                // was one of the best, so the two never differ needlessly.
+                actualLead: gs.playedCards && gs.playedCards[0] || null
             });
         } catch (error) {
             console.error(`Double dummy line failed for table ${table.code}:`, error.message);
@@ -2086,7 +2091,15 @@ async function startDoubleDummyReview(socket, playerId, data) {
             optimumTricks: result.declaringTricks,
             actualTricks: gs.tricks ? gs.tricks[declarerSide] : null,
             originalHands: gs.originalHands,
-            tricks: DdReview.buildTricks(result.plays, gs.trumpSuit || null, gs.declarer)
+            tricks: DdReview.buildTricks(result.plays, gs.trumpSuit || null, gs.declarer),
+            // Lead made at the table and the tricks it cost the defence
+            // (0 when the review starts with it).
+            actualLead: result.actualLeadCost === null ? null : {
+                player: gs.playedCards[0].player,
+                suit: gs.playedCards[0].suit,
+                card: gs.playedCards[0].card,
+                cost: result.actualLeadCost
+            }
         };
     }
 
