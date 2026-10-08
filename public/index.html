@@ -302,6 +302,9 @@
             // non-extreme card by keyboard -- mirrors BridgeChamp's
             // content.js suit-then-rank input model.
             pendingCardSuit: null,
+            // Last double dummy trick the creator stepped to and announced
+            // locally, until the server's echo of it arrives.
+            ddPendingIndex: null,
         };
 
         // Second-key values for the card-play shortcut below. Letters for the
@@ -1020,7 +1023,7 @@ function attemptToPlayCard(suit, card, fromPosition) {
     
     const hand = gameState.hands[actualPosition];
     if (!hand || !hand[suit] || !hand[suit].includes(card)) {
-        showErrorWithAnnouncement(`You don't have ${getSuitName(suit)} ${card}`);
+        showErrorWithAnnouncement(`You don't have ${getCardName(suit, card)}`);
         return;
     }
     
@@ -1050,7 +1053,7 @@ function attemptToPlayCard(suit, card, fromPosition) {
     // queued announcements. The server's cardPlayed echo of this same card
     // is then not announced again (see socket.on('cardPlayed')).
     uiState.ownCardAnnounced = { position: actualPosition, suit: suit, card: card };
-    announceUrgent(`${positionName(actualPosition)} ${getSuitName(suit)} ${card}`);
+    announceUrgent(`${positionName(actualPosition)} ${getCardName(suit, card)}`);
 }
 
         /**
@@ -1165,9 +1168,9 @@ function renderHand(position, hand, targetElement) {
     // Player name header
     const rolesText = roles.length > 0 ? ` – ${roles.join(', ')}` : '';
     let html = `<div class="hand-header">${positionName(position)}${rolesText}${turnTagHtml(position)}</div>`;
-    
+
     const suitNames = { spades: 'Spades', hearts: 'Hearts', diamonds: 'Diamonds', clubs: 'Clubs' };
-    
+
     if (isSidePosition) {
         // SIVUALUE: Kortit neljään riviin, maa kerrallaan
         // Järjestys: Padat, Hertat, Ristit, Ruudut
@@ -1931,25 +1934,32 @@ function updateContractDisplay() {
         }
 
         /**
-         * Previous/Next. Sends the target trick number rather than "next",
-         * so a doubled key press can't skip a trick while the server's
-         * answer is still on its way.
+         * Previous/Next. Sends the target trick number rather than "next".
+         * The trick changes and is spoken at once, like an own played card,
+         * instead of after the server round trip and the queued
+         * announcements, so rapid presses don't leave the speech lagging.
+         * The server's ddReviewTrick echoes of these presses are then
+         * skipped (see socket.on('ddReviewTrick')).
          */
         function ddReviewStep(delta) {
             if (!ddReviewState) return;
             if (!isTableCreator()) {
-                announceToScreenReader('Only the table creator can change tricks.');
+                announceUrgent('Only the table creator can change tricks.');
                 return;
             }
             const target = ddReviewState.index + delta;
             if (target < 0) {
-                announceToScreenReader('This is the first trick.');
+                announceUrgent('This is the first trick.');
                 return;
             }
             if (target >= ddReviewState.tricks.length) {
-                announceToScreenReader('This is the last trick.');
+                announceUrgent('This is the last trick.');
                 return;
             }
+            ddReviewState.index = target;
+            uiState.ddPendingIndex = target;
+            renderDdReview();
+            announceUrgent(ddTrickAnnouncement());
             socket.emit('ddReviewGoTo', { tableCode: tableCode, index: target });
         }
 
@@ -1971,8 +1981,8 @@ function updateContractDisplay() {
             const s = ddReviewState;
             const trick = s.tricks[s.index];
             const cards = trick.cards.map((c, i) => i === 0
-                ? `${positionName(c.player)} leads ${getSuitName(c.suit)} ${c.card}`
-                : `${positionName(c.player)} ${getSuitName(c.suit)} ${c.card}`);
+                ? `${positionName(c.player)} leads ${getCardName(c.suit, c.card)}`
+                : `${positionName(c.player)} ${getCardName(c.suit, c.card)}`);
             let text = `Trick ${trick.number} of ${s.tricks.length}. ${cards.join(', ')}. ` +
                 `${positionName(trick.winner)} wins. ` +
                 `Declarer side ${trick.declarerTricks}, defenders ${trick.defenderTricks}.`;
@@ -2046,7 +2056,7 @@ function updateContractDisplay() {
 
             if (e.altKey && e.shiftKey && e.code === 'KeyP') {
                 e.preventDefault();
-                announceToScreenReader(ddTrickAnnouncement());
+                announceUrgent(ddTrickAnnouncement());
                 return true;
             }
 
@@ -2082,6 +2092,17 @@ function updateContractDisplay() {
         function getSuitName(suit) {
             const names = { spades: 'Spades', hearts: 'Hearts', diamonds: 'Diamonds', clubs: 'Clubs' };
             return names[suit] || suit;
+        }
+
+        // Spoken name of a card rank: 'A' -> 'Ace'. Number cards stay as is.
+        function getCardRankName(rank) {
+            const names = { A: 'Ace', K: 'King', Q: 'Queen', J: 'Jack', T: '10' };
+            return names[rank] || rank;
+        }
+
+        // Spoken name of a card, e.g. "Spades Ace".
+        function getCardName(suit, rank) {
+            return `${getSuitName(suit)} ${getCardRankName(rank)}`;
         }
 
         function getSuitSymbol(suit) {
@@ -2514,7 +2535,7 @@ function getSuitNameWithCount(suit, count) {
                 return;
             }
 
-            const message = `${label}${cards.length} ${getSuitNameWithCount(suit, cards.length)}: ${cards.join(', ')}`;
+            const message = `${label}${cards.length} ${getSuitNameWithCount(suit, cards.length)}: ${cards.map(getCardRankName).join(', ')}`;
             announceToScreenReader(message);
         }
 
@@ -2547,7 +2568,7 @@ function announceEntireHand(position) {
         const suitName = getSuitNameWithCount(suit, count);
         
         if (count > 0) {
-            suitMessages.push(`${count} ${suitName}: ${cards.join(', ')}`);
+            suitMessages.push(`${count} ${suitName}: ${cards.map(getCardRankName).join(', ')}`);
         } else {
             suitMessages.push(`0 ${suitName}`);
         }
@@ -2622,8 +2643,7 @@ function announceMiniPoints() {
                 let parts = [];
                 for (const card of gameState.currentTrick) {
                     let who = positionName(card.player);
-                    let suitName = getSuitName(card.suit);
-                    parts.push(`${who} ${suitName} ${card.card}`.trim());
+                    parts.push(`${who} ${getCardName(card.suit, card.card)}`.trim());
                 }
                 const message = parts.join(', ');
                 announceToScreenReader(message);
@@ -3606,7 +3626,7 @@ socket.on('cardPlayed', (data) => {
     if (own && own.position === data.position && own.suit === data.suit && own.card === data.card) {
         uiState.ownCardAnnounced = null;   // already spoken when the key was pressed
     } else {
-        announceToScreenReader(`${positionName(data.position)} ${getSuitName(data.suit)} ${data.card}`);
+        announceToScreenReader(`${positionName(data.position)} ${getCardName(data.suit, data.card)}`);
     }
 });
 
@@ -3726,6 +3746,7 @@ socket.on('trickComplete', (data) => {
 
             socket.on('ddReviewStarted', (data) => {
                 const wasOpen = !!ddReviewState;
+                uiState.ddPendingIndex = null;
                 ddReviewState = {
                     index: data.index || 0,
                     tricks: data.tricks || [],
@@ -3763,6 +3784,12 @@ socket.on('trickComplete', (data) => {
 
             socket.on('ddReviewTrick', (data) => {
                 if (!ddReviewState) return;
+                // Echo of the creator's own presses: already shown and
+                // spoken. Earlier echoes would only step the view back.
+                if (uiState.ddPendingIndex !== null) {
+                    if (data.index === uiState.ddPendingIndex) uiState.ddPendingIndex = null;
+                    return;
+                }
                 ddReviewState.index = data.index;
                 renderDdReview();
                 announceToScreenReader(ddTrickAnnouncement());
@@ -3773,6 +3800,7 @@ socket.on('trickComplete', (data) => {
                 const area = document.getElementById('dd-review-area');
                 const focusWasInside = area && area.contains(document.activeElement);
                 ddReviewState = null;
+                uiState.ddPendingIndex = null;
                 renderDdReview();
                 renderAllHands();
                 updateNextDealButtonState();

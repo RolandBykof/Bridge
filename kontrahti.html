@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pelinvientiharjoitus – toteutussuunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1.25rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 46rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 38rem; }
+main { padding: 1.5rem 1.25rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 .25rem; }
+p, li { max-width: 40rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--suit-red); outline-offset: 3px;
+}
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 32rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Pelinvientiharjoitus – toteutussuunnitelma</h1>
+    <p>Suunnitelma pelimuodosta, jossa jako luodaan valmiiksi valitulle sopimukselle, tarjousvaihe ohitetaan ja pelaaja harjoittelee pelinvientiä robottipuolustajia vastaan.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#suositus">Suositus lyhyesti</a></li>
+    <li><a href="#olemassa">Mitä projektissa on jo valmiina</a></li>
+    <li><a href="#generaattori">Miten jakogeneraattori toimii</a></li>
+    <li><a href="#ratkaisija">Ratkaisijan rooli ja rajoitukset</a></li>
+    <li><a href="#harjoitukset">Harjoitustyypit</a></li>
+    <li><a href="#vaiheet">Toteutuksen vaiheet</a></li>
+    <li><a href="#protokolla">Protokollamuutokset</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+    <li><a href="#ulkoiset">Ulkoiset työkalut ja jatkokehitys</a></li>
+    <li><a href="#avoimet">Avoimet kysymykset</a></li>
+  </ol>
+</nav>
+
+<h2 id="suositus">Suositus lyhyesti</h2>
+
+<div class="verdict">
+  <p><strong>Lisätään kolmas pelimuoto, <code>declarerPractice</code>, joka valitaan pöydän luonnissa samoin kuin minibridge.</strong> Pöydän luoja valitsee harjoitustyypin, esimerkiksi ”3 sangea” tai ”4 pataa”. Palvelin hakee jaon, asettaa sopimuksen ja pelinviejän suoraan ja siirtyy pelivaiheeseen samalla tavalla kuin minibridgen <code>applyMiniContract</code>.</p>
+  <p><strong>Jaot luodaan etukäteen skriptillä valmiiksi jakopankiksi</strong> (JSON-tiedostot). Palvelin vain arpoo pankista jaon. Tuplanukkeratkaisija on synkroninen WebAssembly-kutsu ja varaa Node.js:n tapahtumasilmukan laskennan ajaksi, joten satojen jakojen ratkaiseminen pelin aikana hidastaisi kaikkia pöytiä.</p>
+  <p><strong>Pelaaja on aina pelinviejä.</strong> Jako kierretään niin, että pelinviejän paikka osuu pöydän luojan paikalle. Lepääjä ja puolustajat ovat robotteja tai ihmisiä.</p>
+</div>
+
+<h3>Perustelut</h3>
+<ol>
+  <li><strong>Infrastruktuuri on jo olemassa.</strong> Valmiit kädet, tarjouksen ohittaminen ja suoraan pelivaiheeseen siirtyminen toimivat jo uusinnassa ja minibridgessä. Uusi koodi on pääosin jakojen tuottamista.</li>
+  <li><strong>Jakopankki on ennustettava.</strong> Jaon aloitus on aina nopea, jaot voi tarkistaa ennen käyttöä, ja hyviä jakoja voi kuratoida tai kommentoida käsin.</li>
+  <li><strong>Pelimuoto pöydän ominaisuutena</strong> toimii samoin perustein kuin minibridgessä: automaattinen seuraava jako, uusinta ja uudelleenyhdistäminen tietävät tilan ilman lisäkyselyä.</li>
+</ol>
+
+<h2 id="olemassa">Mitä projektissa on jo valmiina</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Uudelleenkäytettävät osat</caption>
+  <thead>
+    <tr><th scope="col">Osa</th><th scope="col">Sijainti</th><th scope="col">Käyttö tässä</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Valmiit kädet jaolle</td><td><code>beginDeal(table, eventType, extra, fixedHands)</code>, server.js:704; <code>createGameState(table, fixedHands)</code>, server.js:2300</td><td>Pankista haettu jako syötetään sellaisenaan.</td></tr>
+    <tr><td>Sopimuksen asettaminen ilman tarjousta</td><td><code>applyMiniContract</code>, server.js:888, ja <code>moveToPlayPhase</code>, server.js:1199</td><td>Sama malli: täytetään <code>biddingState</code> ja kutsutaan <code>moveToPlayPhase</code>.</td></tr>
+    <tr><td>Tarjousten esto</td><td><code>makeBid</code>, server.js:950</td><td>Laajennetaan koskemaan myös harjoitustilaa.</td></tr>
+    <tr><td>Tuplanukkeratkaisija</td><td>lib/bridge_solver_wasm.js: <code>solveContract</code>, <code>optimalLine</code>, <code>bestCard</code></td><td>Jakojen suodatus generaattorissa ja tuloksen vertailu jaon jälkeen.</td></tr>
+    <tr><td>Robottipuolustus</td><td><code>decideRobotCard</code>, lib/robot.js:207</td><td>Puolustajat ja tarvittaessa lepääjä ilman muutoksia.</td></tr>
+    <tr><td>Tulos ja tuplanukkevertailu</td><td><code>endGame</code>, server.js:1602</td><td>Kertoo jo, montako tikkiä parhaalla pelillä olisi saatu.</td></tr>
+    <tr><td>Tuplanukkekatselu</td><td>public/js/dd-review.js</td><td>Jaon jälkeen pelaaja näkee, missä kohtaa tikki menetettiin.</td></tr>
+    <tr><td>Jaon uusinta</td><td><code>replayDeal</code>, server.js:1838</td><td>Saman jaon voi pelata uudelleen. Vaatii sopimuksen uudelleenasettamisen (vaihe 5).</td></tr>
+    <tr><td>GIB:n jakaja</td><td><code>dealCards(constraints)</code>, lib/gib_client_module.js:49</td><td>Mahdollinen vaihtoehtoinen jakolähde. Ei käytössä ensimmäisessä versiossa.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="generaattori">Miten jakogeneraattori toimii</h2>
+<p>Generaattori käyttää ”arvo ja hylkää” -menetelmää kahdessa suodatusvaiheessa:</p>
+<ol class="steps">
+  <li><strong>Arvonta.</strong> Arvotaan satunnainen jako nykyisellä Fisher–Yates-sekoituksella.</li>
+  <li><strong>Käsiehdot (nopea).</strong> Tarkistetaan pisteet ja maajakaumat. Ehdot kuvataan pelinviejän näkökulmasta: <code>declarer</code>, <code>dummy</code>, <code>side</code> (pelinviejä ja lepääjä yhteensä), <code>lho</code> (pelinviejän vasen eli avaaja), <code>rho</code> ja <code>defenders</code>. Tämä vaihe käsittelee tuhansia jakoja sekunnissa.</li>
+  <li><strong>Ratkaisijan tarkistus (hidas).</strong> Ehdot läpäisseet jaot ratkaistaan. Jako hyväksytään, jos tikkimäärä parhaalla pelillä osuu harjoitustyypin rajoihin, esimerkiksi ”sopimus menee kotiin täsmälleen”.</li>
+  <li><strong>Tallennus.</strong> Hyväksytty jako tallennetaan pankkiin. Jaossa pelinviejä on aina etelä. Palvelin kiertää jaon pelaajan paikalle pelin alussa.</li>
+</ol>
+
+<h3>Harjoitustyypin kuvaus</h3>
+<pre><code>// lib/practice/specs.js
+module.exports = [
+  {
+    id: 'major-game',
+    label: '4 hearts or 4 spades',
+    contracts: ['4S', '4H'],              // arvotaan jaolle
+    constraints: {
+      side:     { hcp: [23, 29], trumpLength: [8, 9] },
+      declarer: { trumpLength: [4, 6] },
+      dummy:    { trumpLength: [3, 5] }
+    },
+    dd: { min: 'contract', max: 'contract' }  // menee kotiin täsmälleen
+  },
+  {
+    id: 'notrump-game',
+    label: '3 no trump',
+    contracts: ['3N'],
+    constraints: {
+      side:     { hcp: [24, 28], maxSuitLength: 6, noFit: true },
+      declarer: { balanced: true, hcp: [12, 19] }
+    },
+    dd: { min: 'contract', max: 'contract' }
+  }
+];</code></pre>
+<p><code>trumpLength</code> tarkoittaa sopimuksen valttimaan pituutta, joten sama kuvaus toimii sekä padoille että herttoille. <code>dd.min</code> ja <code>dd.max</code> voivat olla myös suhteellisia, esimerkiksi <code>'contract+1'</code>.</p>
+
+<h3>Jakopankin muoto</h3>
+<pre><code>// data/practice/major-game.json
+{
+  "spec": "major-game",
+  "generated": "2026-10-07",
+  "deals": [
+    {
+      "id": "major-game-0001",
+      "pbn": "S:AQ953.K42.A7.J82 76.AJ9.KQT84.Q93 KJ84.873.J5.AK54 T2.QT65.9632.T76",
+      "contract": "4S",
+      "declarer": "south",
+      "ddTricks": 10,
+      "note": null
+    }
+  ]
+}</code></pre>
+<p>Esimerkki näyttää vain tiedostomuodon. Tikkimäärä on keksitty, ei ratkaisijan tulos. Käsien esitysmuoto on PBN-jakorivi, sama jota ratkaisija jo käyttää (<code>formatDealString</code>). Silloin tiedostoja voi lukea ja muokata käsin, ja myöhempi PBN-tuonti on pieni lisäys. <code>note</code>-kenttään voi kirjoittaa vihjeen tai selityksen, esimerkiksi ”Poista valtit ennen ruutujen kehittämistä.”</p>
+
+<h3>Generointiskripti</h3>
+<pre><code>node scripts/generate-practice-deals.js --spec major-game --count 100
+node scripts/generate-practice-deals.js --all --count 50</code></pre>
+<p>Skripti tulostaa edistymisen: montako jakoa arvottiin, montako läpäisi käsiehdot, montako ratkaisijan ja kuinka kauan se kesti. Jos hyväksymisosuus on hyvin pieni, ehdot ovat liian tiukat. Skripti lopettaa aikarajaan eikä jää jumiin.</p>
+
+<h2 id="ratkaisija">Ratkaisijan rooli ja rajoitukset</h2>
+
+<h3>Pelinviejäkohtainen tikkimäärä</h3>
+<p>Nykyinen <code>solveContract</code> lukee tuloksen ratkaisijan <code>dd_table</code>-taulukosta parivaljakon tasolla (rivi NS tai EW). Oikeassa bridgessä tikkimäärä voi kuitenkin riippua siitä, kumpi parista pelaa, koska avaaja vaihtuu. Kommentin mukaan tämä ratkaisijaversio antaa parin molemmille jäsenille saman luvun.</p>
+<p>Generaattorissa tarvitaan nimenomaan etelän pelaama tulos lännen avatessa. Siksi generaattori käyttää <code>optimalLine({ hands, trump, declarer: 'south', leader: 'west' })</code>-funktiota ja sen <code>declaringTricks</code>-arvoa. Ensimmäisessä vaiheessa tarkistetaan testillä muutamalla tunnetulla jaolla, eroavatko nämä kaksi tulosta.</p>
+
+<h3>Tuplanukke ei ole sama kuin todellinen peli</h3>
+<p>Tuplanukkeratkaisija olettaa, että kaikki näkevät kaikki kortit. Tästä seuraa kaksi asiaa, jotka käyttäjän on hyvä tietää:</p>
+<ul>
+  <li><strong>”Menee kotiin” voi vaatia arvausta.</strong> Jos sopimus onnistuu vain, kun maahinta tehdään oikeaan suuntaan, ratkaisija tietää suunnan mutta pelaaja ei. Jakopankkiin päätyy siis myös jakoja, joissa oikea pelitapa epäonnistuu huonon onnen takia.</li>
+  <li><strong>Robottipuolustajat pelaavat tuplanukkena.</strong> <code>decideRobotCard</code> käyttää ratkaisijaa, joten puolustajat ”näkevät” pelinviejän kortit eivätkä koskaan erehdy. Puolustus on siis tavallista ankarampaa.</li>
+</ul>
+<p>Ensimmäisessä versiossa tämä hyväksytään, ja ohjeteksti kertoo sen. <a href="#ulkoiset">Jatkokehityksessä</a> on kuvattu yksinkertaisen yhden nuken tarkistuksen idea.</p>
+
+<h3>Kiinnostavuussuodatin</h3>
+<p>Pelkkä ”menee täsmälleen kotiin” tuottaa myös jakoja, joissa tikit voi vain kotiuttaa järjestyksessä. Siksi generaattori laskee lisäksi pelinviejän puolen <strong>varmat tikit</strong>: kärkivoitot maittain, joita ei tarvitse kehittää. Jako hyväksytään vain, jos varmojen tikkien määrä jää vaaditusta tikkimäärästä vähintään yhden tikin verran. Silloin pelinviejän on kehitettävä tikki maahinnalla, maan kehittämisellä, ruffauksella tai muulla tekniikalla.</p>
+
+<h2 id="harjoitukset">Harjoitustyypit</h2>
+<p>Ensimmäiseen versioon ehdotetaan kuutta tyyppiä. Lisää voi tehdä myöhemmin pelkällä kuvauksella ilman koodimuutoksia.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Ehdotetut harjoitustyypit</caption>
+  <thead>
+    <tr><th scope="col">Tunniste</th><th scope="col">Sopimus</th><th scope="col">Pääehdot</th><th scope="col">Tuplanukkeehto</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>partscore</code></td><td>2 tai 3 maata, 1 sangea</td><td>Puolella 20–24 pistettä</td><td>Täsmälleen kotiin</td></tr>
+    <tr><td><code>notrump-game</code></td><td>3 sangea</td><td>Puolella 24–28 pistettä, ei 8 kortin ylämaan sopua</td><td>Täsmälleen kotiin</td></tr>
+    <tr><td><code>major-game</code></td><td>4 herttaa tai 4 pataa</td><td>Puolella 23–29 pistettä, 8–9 valttia</td><td>Täsmälleen kotiin</td></tr>
+    <tr><td><code>minor-game</code></td><td>5 ristiä tai 5 ruutua</td><td>Puolella 26–31 pistettä, vähintään 9 valttia</td><td>Täsmälleen kotiin</td></tr>
+    <tr><td><code>slam</code></td><td>6 maata tai 6 sangea</td><td>Puolella 31–36 pistettä</td><td>Täsmälleen kotiin</td></tr>
+    <tr><td><code>mixed</code></td><td>Jokin edellisistä</td><td>Arvotaan tyyppi ja sitten jako</td><td>Kuten valitulla tyypillä</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Vaaranalaisuutta ja kahdennuksia ei käytetä. Tulos kerrotaan tikkeinä ja vertailuna tuplanukkeeseen, ei pisteinä.</p>
+
+<h2 id="vaiheet">Toteutuksen vaiheet</h2>
+<p>Vaiheet 1–3 ovat erillisiä moduuleja ja testejä, joten ne eivät vaikuta nykyiseen peliin. Vasta vaihe 4 kytkee harjoitustilan palvelimeen.</p>
+
+<section class="phase" aria-labelledby="v1">
+<h3 id="v1">Vaihe 1: käsiehtojen arviointi</h3>
+<p>Uusi moduuli <code>lib/practice/constraints.js</code>, jossa on vain puhtaita funktioita:</p>
+<ul>
+  <li><code>countHcp(hand)</code> (siirretään server.js:stä yhteiseksi), <code>suitLengths(hand)</code>, <code>isBalanced(hand)</code></li>
+  <li><code>sideOf(hands, role)</code>: yhdistää pelinviejän ja lepääjän kädet</li>
+  <li><code>matchesConstraints(hands, spec, contract)</code>: palauttaa <code>true</code> tai <code>false</code></li>
+  <li><code>topTricks(hands, contract)</code>: varmojen tikkien laskenta kiinnostavuussuodatinta varten</li>
+</ul>
+<p class="done-when">Valmis, kun yksikkötestit kattavat pisteet, tasajakoisuuden (4333, 4432, 5332), valttien pituuden ja varmat tikit muutamalla käsin kirjoitetulla jaolla.</p>
+</section>
+
+<section class="phase" aria-labelledby="v2">
+<h3 id="v2">Vaihe 2: generaattori ja ratkaisijatarkistus</h3>
+<p>Moduuli <code>lib/practice/generator.js</code>:</p>
+<pre><code>async function generateDeals(spec, { count, timeLimitMs, onProgress }) {
+  const results = [];
+  const start = Date.now();
+  while (results.length &lt; count &amp;&amp; Date.now() - start &lt; timeLimitMs) {
+    const contract = pick(spec.contracts);
+    const hands = dealCards();                 // etelä = pelinviejä
+    if (!matchesConstraints(hands, spec, contract)) continue;
+    if (topTricks(hands, contract) &gt;= required(contract)) continue;
+
+    const { declaringTricks } = await solver.optimalLine({
+      hands, trump: trumpOf(contract), declarer: 'south', leader: 'west'
+    });
+    if (!withinDd(declaringTricks, spec.dd, contract)) continue;
+
+    results.push({ hands, contract, ddTricks: declaringTricks });
+    onProgress?.(results.length);
+  }
+  return results;
+}</code></pre>
+<p><code>dealCards()</code> siirretään server.js:stä omaan moduuliinsa, jotta generaattori ja palvelin käyttävät samaa koodia. Lisätään myös <code>parseDealString</code>, joka on <code>formatDealString</code>in vastapari.</p>
+<p>Ratkaisun alussa testi tarkistaa, antavatko <code>optimalLine</code> ja <code>solveContract</code> saman tikkimäärän, ja kirjaa havainnon koodin kommenttiin.</p>
+<p class="done-when">Valmis, kun generaattori tuottaa jokaiselle harjoitustyypille vähintään 20 jakoa kohtuullisessa ajassa ja testit varmistavat, että jokainen jako täyttää ehtonsa.</p>
+</section>
+
+<section class="phase" aria-labelledby="v3">
+<h3 id="v3">Vaihe 3: generointiskripti ja jakopankki</h3>
+<ul>
+  <li><code>scripts/generate-practice-deals.js</code> lukee kuvaukset, ajaa generaattorin ja kirjoittaa <code>data/practice/&lt;id&gt;.json</code>. Olemassa olevaan tiedostoon lisätään uudet jaot, kaksoiskappaleet ohitetaan.</li>
+  <li><code>package.json</code>-skripti: <code>"practice:generate": "node scripts/generate-practice-deals.js --all"</code></li>
+  <li>Moduuli <code>lib/practice/bank.js</code> lataa pankin palvelimen käynnistyessä ja tarjoaa <code>pickDeal(specId, excludeIds)</code>-funktion. Saman pöydän aiemmin pelatut jaot jätetään pois, kunnes pankki on käyty läpi.</li>
+  <li>Generoitu pankki tallennetaan versionhallintaan, jolloin Azure-julkaisu ei tarvitse generointia.</li>
+</ul>
+<p class="done-when">Valmis, kun pankissa on jokaiselle tyypille vähintään 50 jakoa ja <code>pickDeal</code> palauttaa niitä toistamatta.</p>
+</section>
+
+<section class="phase" aria-labelledby="v4">
+<h3 id="v4">Vaihe 4: pöydän tietomalli ja jaon aloitus</h3>
+<p><code>createTable</code> hyväksyy kolmannen arvon:</p>
+<pre><code>const MODES = ['bridge', 'minibridge', 'declarerPractice'];
+const mode = MODES.includes(gameMode) ? gameMode : 'bridge';
+// ...
+practice: mode === 'declarerPractice'
+  ? { specId: validSpecId(practiceType) || 'mixed', playedIds: [], current: null,
+      stats: { played: 0, made: 0 } }
+  : null,</code></pre>
+<p><code>beginDeal</code>iin lisätään haara ennen <code>createGameState</code>-kutsua:</p>
+<pre><code>if (table.gameMode === 'declarerPractice' &amp;&amp; !fixedHands) {
+  const entry = bank.pickDeal(table.practice.specId, table.practice.playedIds);
+  const declarer = table.creatorPosition || 'south';
+  fixedHands = rotateHands(parseDealString(entry.pbn), 'south', declarer);
+  table.practice.current = { ...entry, declarer };
+  table.practice.playedIds.push(entry.id);
+}</code></pre>
+<p>Lähetysten jälkeen kutsutaan uutta <code>applyPracticeContract(table)</code>-funktiota, joka toimii kuten <code>applyMiniContract</code>: se täyttää <code>biddingState</code>-kentät (contract, declarer, dummy, trumpSuit, biddingComplete) ja kutsuu <code>moveToPlayPhase</code>. Jakaja asetetaan pelinviejäksi, jolloin näytettävä jakotieto on johdonmukainen.</p>
+<p>Huomio: <code>fixedHands</code> asettaa nyt aina <code>isReplay = true</code> (server.js:714). Harjoitustilassa ensimmäinen pelikerta ei ole uusinta, joten ehto muutetaan tarkistamaan erillinen parametri.</p>
+<p>Lisäksi <code>makeBid</code> estää tarjoukset myös harjoitustilassa.</p>
+<p class="done-when">Valmis, kun harjoituspöytä aloittaa jaon suoraan pelivaiheesta, pelaaja on pelinviejä ja tavallinen bridge sekä minibridge toimivat ennallaan.</p>
+</section>
+
+<section class="phase" aria-labelledby="v5">
+<h3 id="v5">Vaihe 5: tulos, tilastot ja uusinta</h3>
+<ul>
+  <li><code>endGame</code>: harjoitustilassa ei lasketa pisteitä. <code>gameOver</code>-viestiin lisätään <code>practice: { made, ddTricks, actualTricks, note, stats }</code>. Tuplanukkevertailu on valmiina, joten erillistä ratkaisukutsua ei tarvita, koska tulos on jo pankissa.</li>
+  <li>Tilastot: <code>stats.played</code> ja <code>stats.made</code> kasvavat, mutta ei uusinnoissa.</li>
+  <li><code>replayDeal</code>: harjoitustilassa sopimus asetetaan uudelleen <code>table.practice.current</code>-tiedoista. Muuten uusinta jäisi tarjousvaiheeseen, jota harjoitustila ei salli.</li>
+  <li>Jaon jälkeen tuplanukkekatselu on käytettävissä nykyiseen tapaan.</li>
+</ul>
+</section>
+
+<section class="phase" aria-labelledby="v6">
+<h3 id="v6">Vaihe 6: uudelleenyhdistäminen</h3>
+<p><code>gameReconnect</code>-viestiin lisätään <code>gameMode</code> ja <code>practice</code> ilman <code>pbn</code>-kenttää, jotta puolustajien kortit eivät vuoda asiakkaalle. Muu pelitila palautuu nykyisellä koodilla, koska peli on tavallisessa pelivaiheessa.</p>
+</section>
+
+<section class="phase" aria-labelledby="v7">
+<h3 id="v7">Vaihe 7: asiakas – pöydän luonti</h3>
+<p>Nykyiseen ”Game type” -valintaryhmään lisätään kolmas vaihtoehto ja sen alle harjoitustyypin valinta, joka näkyy vain tämän vaihtoehdon ollessa valittuna:</p>
+<pre><code>&lt;label&gt;&lt;input type="radio" name="game-mode" value="declarerPractice"&gt;
+  Declarer practice (contract given, you play the hand)&lt;/label&gt;
+
+&lt;div id="practice-options" hidden&gt;
+  &lt;label for="practice-type"&gt;Practice contract:&lt;/label&gt;
+  &lt;select id="practice-type"&gt;
+    &lt;option value="mixed"&gt;Mixed&lt;/option&gt;
+    &lt;option value="partscore"&gt;Partscore&lt;/option&gt;
+    &lt;option value="notrump-game"&gt;3 no trump&lt;/option&gt;
+    &lt;option value="major-game"&gt;4 hearts or 4 spades&lt;/option&gt;
+    &lt;option value="minor-game"&gt;5 clubs or 5 diamonds&lt;/option&gt;
+    &lt;option value="slam"&gt;Slam&lt;/option&gt;
+  &lt;/select&gt;
+&lt;/div&gt;</code></pre>
+<p>Natiivi <code>select</code> toimii ruudunlukijoilla ilman lisätyötä. Pöytälistassa ja odotushuoneessa pelimuoto luetaan muodossa ”Declarer practice: 3 no trump”. Aloituspainikkeen teksti on ”Start practice”.</p>
+<p>Koska harjoittelija pelaa yleensä yksin, luonnissa tarjotaan mahdollisuutta täyttää muut paikat roboteilla, jos nykyinen robottien lisäys sen sallii.</p>
+</section>
+
+<section class="phase" aria-labelledby="v8">
+<h3 id="v8">Vaihe 8: asiakas – pelinäkymä ja ilmoitukset</h3>
+<ul>
+  <li><code>gameStarted</code>- ja <code>newDealStarted</code>-käsittelijät: harjoitustilassa ei näytetä tarjousaluetta. Palvelin lähettää heti perään <code>biddingComplete</code>-viestin, joten pelinäkymä avautuu nykyisellä koodilla.</li>
+  <li>Jaon alussa yksi ilmoitus: ”Practice deal 3. Contract 4 spades by South. West leads.” Kun lepääjä näkyy, nykyinen ilmoitus lepääjän korteista toimii sellaisenaan.</li>
+  <li>Pikanäppäin jaon aikana, esimerkiksi <kbd>I</kbd>: toistaa sopimuksen, vaaditut tikit ja tähän mennessä saadut tikit: ”4 spades. You need 10 tricks. You have 3, defenders 1.” Tarkista ensin, ettei näppäin ole varattu.</li>
+  <li><code>gameOver</code>: ”Made! 10 tricks, double dummy 10. Practice so far: 4 of 6 made.” Jos pankissa on <code>note</code>, se luetaan tuloksen perään.</li>
+  <li>Ohjeeseen (<code>updateHelpContent</code>) osio ”Declarer practice”, jossa kerrotaan myös, että robottipuolustajat näkevät kaikki kortit.</li>
+</ul>
+</section>
+
+<section class="phase" aria-labelledby="v9">
+<h3 id="v9">Vaihe 9: protokolla Flutter-asiakasta varten</h3>
+<p>Puuttuva tai tuntematon <code>gameMode</code> tulkitaan bridgeksi, joten Flutter-asiakas toimii ennallaan. Ennen kuin harjoitustilan tuki on tehty, Flutter-asiakkaan pitää näyttää pelimuoto ja estää liittyminen harjoituspöytään samoin kuin minibridgessä.</p>
+</section>
+
+<h2 id="protokolla">Protokollamuutokset</h2>
+<div class="table-wrap">
+<table>
+  <caption>Uudet ja muuttuvat Socket.IO-tapahtumat</caption>
+  <thead>
+    <tr><th scope="col">Tapahtuma</th><th scope="col">Suunta</th><th scope="col">Muutos</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>createTable</code></td><td>Asiakas → palvelin</td><td><code>gameMode: 'declarerPractice'</code> ja uusi kenttä <code>practiceType</code></td></tr>
+    <tr><td><code>tableInfo</code>, <code>activeTablesList</code></td><td>Palvelin → asiakas</td><td><code>gameMode</code> ja <code>practiceType</code></td></tr>
+    <tr><td><code>gameStarted</code>, <code>newDealStarted</code></td><td>Palvelin → asiakas</td><td><code>gameMode</code>, <code>practice: { specId, contract, declarer }</code></td></tr>
+    <tr><td><code>biddingComplete</code></td><td>Palvelin → asiakas</td><td>Ennallaan, lähetetään heti jaon alussa</td></tr>
+    <tr><td><code>makeBid</code></td><td>Asiakas → palvelin</td><td>Virhe harjoitustilassa</td></tr>
+    <tr><td><code>gameOver</code></td><td>Palvelin → asiakas</td><td><code>practice: { made, ddTricks, actualTricks, note, stats }</code></td></tr>
+    <tr><td><code>gameReconnect</code></td><td>Palvelin → asiakas</td><td><code>gameMode</code>, <code>practice</code> ilman käsiä</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="testaus">Testaus</h2>
+<ol>
+  <li>Yksikkötestit: käsiehdot, varmat tikit, <code>parseDealString</code> ja <code>formatDealString</code> toistensa vastapareina sekä käsien kiertäminen paikalta toiselle.</li>
+  <li>Generaattori: jokainen tuotettu jako täyttää kuvauksensa ehdot ja tuplanukkeehdon.</li>
+  <li>Pankki: jokaisessa jaossa on 52 eri korttia ja 13 korttia kädessä, ja <code>ddTricks</code> vastaa ratkaisijan tulosta.</li>
+  <li>Harjoituspöytä: pelaaja on pelinviejä jokaisella paikalla (etelä, länsi, pohjoinen, itä).</li>
+  <li>Robotti avaa pelinviejän vasemmalta puolelta, ja lepääjän kortit paljastuvat ensimmäisen kortin jälkeen.</li>
+  <li>Tarjousviesti harjoituspöydässä palauttaa virheen.</li>
+  <li>Uusinta palaa samaan sopimukseen eikä kasvata tilastoja.</li>
+  <li>Automaattinen seuraava jako hakee uuden jaon eikä toista pelattuja.</li>
+  <li>Uudelleenyhdistäminen kesken jaon: sopimus ja oma käsi palautuvat, puolustajien kortit eivät vuoda.</li>
+  <li>Tavallinen bridge ja minibridge toimivat kuten ennen.</li>
+  <li>NVDA- ja JAWS-läpikäynti: harjoitustyypin valinta, jaon alun ilmoitus kerran, tilannenäppäin ja tulosilmoitus.</li>
+</ol>
+
+<h2 id="ulkoiset">Ulkoiset työkalut ja jatkokehitys</h2>
+
+<h3>Valmiit jakogeneraattorit</h3>
+<p>Näillä voi tuottaa jakoja PBN-tiedostoina, jos oma generaattori ei riitä:</p>
+<ul>
+  <li><strong>Dealer</strong> (Hans van Staveren): klassinen komentorivityökalu, jolle ehdot kirjoitetaan omalla skriptikielellä. Samaa kieltä käytetään BBO:n opetuspöydissä.</li>
+  <li><strong>Deal</strong> (Thomas Andrews): Tcl-pohjainen ja hyvin joustava.</li>
+  <li><strong>redeal</strong>: Python-kirjasto, jossa on sisäänrakennettu tuplanukkeanalyysi.</li>
+  <li><strong>BridgeComposer</strong>: Windows-ohjelma jakojen tekemiseen ja muokkaamiseen käsin.</li>
+  <li><strong>GIB:n u_dealer</strong>: jo projektissa, <code>gib_client_module.js</code>. Riippuu ulkoisesta palvelusta, joten ei sovellu ainoaksi lähteeksi.</li>
+</ul>
+
+<h3>Jatkokehitysideat</h3>
+<ul>
+  <li><strong>PBN-tuonti.</strong> Lukee tiedoston <code>[Deal]</code>-, <code>[Contract]</code>- ja <code>[Declarer]</code>-tunnisteet pankin muotoon. Näin voisi käyttää kirjoista tai kursseilta kerättyjä teemajakoja, esimerkiksi ”maahinnat” tai ”kiristys”.</li>
+  <li><strong>Yksinkertainen yhden nuken tarkistus.</strong> Generaattori arpoo puolustajien kortit uudelleen 20–50 kertaa niin, että pelinviejän ja lepääjän kortit pysyvät samoina, ja laskee, kuinka usein sopimus menee kotiin tuplanukkena. Jos osuus on suuri, sopimus on hyvä myös todellisessa pelissä. Jako, jossa osuus on keskitasoa, on opettavainen. Laskenta on raskas, joten se kuuluu generointiskriptiin.</li>
+  <li><strong>Kuvitteellinen tarjoussarja.</strong> Pankkiin voisi tallentaa uskottavan tarjoussarjan, jotta pelinviejä tietää, mitä vastustajat ovat ”kertoneet”.</li>
+  <li><strong>Lähtö ohjattuna.</strong> Harjoitustyyppi voisi määrätä avauslähdön, esimerkiksi ”puolustajat lähtevät valttimaasta”.</li>
+  <li><strong>Puolustusharjoitus.</strong> Sama pankki toimii myös puolustusharjoitteluun, kun pelaaja istuu avaajan paikalla ja robotti vie pelin.</li>
+</ul>
+
+<h2 id="avoimet">Avoimet kysymykset</h2>
+<ol>
+  <li>Kuinka kauan yksi tuplanukkeratkaisu kestää palvelimella? Tämä mitataan vaiheessa 2. Jos ratkaisu on hyvin nopea, harvinaisille tyypeille voisi generoida jakoja myös pelin aikana.</li>
+  <li>Saako lepääjänä istua ihminen, esimerkiksi opettaja, joka seuraa harjoittelijan peliä? Nykyinen <code>getEffectiveController</code> antaa pelinviejän pelata lepääjän kortit, joten tämä toimii jo.</li>
+  <li>Halutaanko tilastot pöytäkohtaisina (nykyinen malli) vai pelaajakohtaisina? Pelaajakohtainen tallennus vaatisi pysyvän tietovaraston, jota palvelimella ei nyt ole.</li>
+</ol>
+
+</main>
+<footer>
+  <p>Suunnitelma perustuu tiedostoihin server.js, lib/bridge_solver_wasm.js, lib/robot.js ja lib/gib_client_module.js sekä minibridge-suunnitelmaan.</p>
+</footer>
+</body>
+</html>
