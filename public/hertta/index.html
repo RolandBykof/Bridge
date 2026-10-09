@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hearts</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E♥%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="../maija/css/maija.css">
+    <link rel="stylesheet" href="css/hertta.css">
+</head>
+<body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="site-header">
+        <h1>Hearts <span lang="fi">(Hertta)</span></h1>
+        <nav aria-label="Settings and help" class="header-tools">
+            <a href="ohje.html" target="_blank" rel="noopener">Help and keyboard commands</a>
+            <label><input type="checkbox" id="sound-toggle" checked> Sounds</label>
+            <label><input type="checkbox" id="speech-toggle"> Speech synthesis</label>
+        </nav>
+    </header>
+
+    <!-- Ilmoitukset ruudunlukijalle. Jono huolehtii siitä, etteivät ilmoitukset ylikirjoita toisiaan. -->
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <main id="main">
+        <section id="start-view" aria-labelledby="start-heading">
+            <h2 id="start-heading">Play Hearts</h2>
+            <p id="start-error" class="error" role="alert"></p>
+            <div class="start-grid">
+                <section class="panel" aria-labelledby="create-heading">
+                    <h3 id="create-heading">Create a table</h3>
+                    <p>You get a table code to give to others. You can also play against robots.</p>
+                    <form id="create-form" class="stack-form">
+                        <label for="create-name">Your name</label>
+                        <input type="text" id="create-name" maxlength="20" autocomplete="nickname" required>
+                        <button type="submit">Create table</button>
+                    </form>
+                </section>
+                <section class="panel" aria-labelledby="join-heading">
+                    <h3 id="join-heading">Join a table</h3>
+                    <form id="join-form" class="stack-form">
+                        <label for="join-code">Table code (4 digits)</label>
+                        <input type="text" id="join-code" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+                        <label for="join-name">Your name</label>
+                        <input type="text" id="join-name" maxlength="20" autocomplete="nickname" required>
+                        <button type="submit">Join table</button>
+                    </form>
+                </section>
+            </div>
+            <p class="back-link"><a href="../">Back to Bridge</a></p>
+        </section>
+
+        <section id="lobby-view" aria-labelledby="lobby-heading" hidden>
+            <h2 id="lobby-heading">Lobby</h2>
+            <div class="panel">
+                <p class="table-code">Table code: <strong id="lobby-code"></strong>
+                    <button type="button" id="copy-link-button" class="secondary">Copy link</button></p>
+                <p id="lobby-info"></p>
+                <h3 id="members-heading">At the table</h3>
+                <ul id="lobby-members" class="member-list" aria-labelledby="members-heading"></ul>
+                <div id="creator-tools" class="creator-tools" hidden>
+                    <button type="button" id="add-robot-button" class="secondary">Add robot</button>
+                    <label for="robot-speed">Robot speed</label>
+                    <select id="robot-speed">
+                        <option value="slow">Slow</option>
+                        <option value="normal">Normal</option>
+                        <option value="fast">Fast</option>
+                    </select>
+                    <button type="button" id="start-button">Start game</button>
+                </div>
+                <p><button type="button" id="leave-button" class="secondary">Leave table</button></p>
+            </div>
+        </section>
+
+        <section id="game-view" aria-labelledby="game-heading" hidden>
+            <h2 id="game-heading" class="sr-only">Game</h2>
+
+            <div id="turn-bar" class="turn-bar"></div>
+
+            <section aria-labelledby="players-heading">
+                <h3 id="players-heading" class="sr-only">Players</h3>
+                <ul id="players" class="players"></ul>
+            </section>
+
+            <section id="table-area" class="table-area ht-table" aria-labelledby="table-heading">
+                <h3 id="table-heading" class="area-heading">Trick</h3>
+                <p id="round-info" class="round-info"></p>
+                <div id="trick" class="table-cards"></div>
+            </section>
+
+            <section id="hand-area" class="hand-area" aria-labelledby="hand-heading">
+                <h3 id="hand-heading" class="area-heading">Your hand</h3>
+                <div id="hand" class="hand"></div>
+            </section>
+
+            <section aria-labelledby="actions-heading" class="actions">
+                <h3 id="actions-heading" class="sr-only">Actions</h3>
+                <button type="button" id="action-button" aria-disabled="true">Wait for your turn</button>
+                <button type="button" id="clear-button" class="secondary">Clear selection (Esc)</button>
+                <button type="button" id="abort-button" class="secondary" hidden>Abort game</button>
+            </section>
+
+            <section id="result" class="panel result" aria-labelledby="result-heading" hidden>
+                <h3 id="result-heading">Round over</h3>
+                <p id="result-winner" class="result-maija"></p>
+                <div class="table-wrap">
+                    <table id="score-table" class="score-table">
+                        <caption class="sr-only">Points per round</caption>
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div id="result-tools" class="creator-tools">
+                    <button type="button" id="next-round-button">Next round</button>
+                    <button type="button" id="new-game-button" hidden>New game</button>
+                    <button type="button" id="to-lobby-button" class="secondary" hidden>Back to lobby (robots)</button>
+                </div>
+                <p id="result-wait"></p>
+            </section>
+        </section>
+
+        <section id="log-section" aria-labelledby="log-heading" hidden>
+            <h2 id="log-heading">Events</h2>
+            <ol id="log" class="log"></ol>
+        </section>
+    </main>
+
+    <dialog id="confirm-dialog" aria-labelledby="confirm-text">
+        <p id="confirm-text"></p>
+        <div class="dialog-buttons">
+            <button type="button" id="confirm-yes">Yes</button>
+            <button type="button" id="confirm-no" class="secondary">Cancel</button>
+        </div>
+    </dialog>
+
+    <audio id="sound-deal" src="../deal.mp3" preload="auto"></audio>
+    <audio id="sound-play" src="../hit.mp3" preload="auto"></audio>
+    <audio id="sound-trick" src="../maija/kaada.mp3" preload="auto"></audio>
+    <audio id="sound-receive" src="../maija/nosta.mp3" preload="auto"></audio>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="../korttipelit/kortit.js"></script>
+    <script src="js/saannot.js"></script>
+    <script src="js/hertta.js"></script>
+</body>
+</html>

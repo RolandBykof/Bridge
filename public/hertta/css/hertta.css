@@ -1,0 +1,51 @@
+/* Hertta. Perustyylit (painikkeet, pelaajat, käsi, kortit, loki) tulevat
+   Maijan tiedostosta ../maija/css/maija.css. Tässä vain tikki ja pistetaulukko. */
+
+.ht-table { margin-bottom: 10px; min-height: 0; }
+
+.round-info {
+    margin: 0 0 8px;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+/* Tikin kortit pelijärjestyksessä, pelaajan nimi kortin yläpuolella. */
+.ht-table .table-cards { min-height: 90px; align-items: flex-start; }
+.played-card.is-winner { box-shadow: 0 0 0 4px var(--accent); }
+.played-card.is-last-trick { opacity: .85; }
+.played-card .card-display { min-width: 48px; }
+
+/* Annettaviksi valitut kortit (odotetaan muita) ja vaihdossa saadut kortit
+   ensimmäisen tikin ajan. Merkitty myös muuten kuin värillä: katkoviiva ja tähti. */
+.card-display.is-passing { border-style: dashed; opacity: .7; }
+.card-display.is-received::before {
+    content: "★";
+    position: absolute;
+    top: -.9em;
+    font-size: .85rem;
+    color: var(--accent);
+}
+
+.hand .card-display { min-width: 48px; }
+
+.table-wrap { overflow-x: auto; }
+.score-table {
+    border-collapse: collapse;
+    width: 100%;
+    background: var(--surface);
+    margin: .5rem 0;
+}
+.score-table th, .score-table td {
+    border: 1px solid var(--rule);
+    padding: .35rem .6rem;
+    text-align: right;
+}
+.score-table th[scope="row"], .score-table thead th:first-child { text-align: left; }
+.score-table thead th { background: var(--area-bg); }
+.score-table .total { font-weight: 800; }
+.score-table tr.is-winner th, .score-table tr.is-winner td { background: var(--current-bg); }
+
+@media (forced-colors: active) {
+    .played-card.is-winner { outline: 3px solid Highlight; }
+}

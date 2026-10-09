@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help – Hearts</title>
+    <link rel="stylesheet" href="../maija/css/maija.css">
+    <style>
+        .guide p, .guide li { max-width: 42rem; }
+        .guide table { border-collapse: collapse; width: 100%; background: var(--surface); }
+        .guide th, .guide td { border: 1px solid var(--rule); padding: .5rem .75rem; text-align: left; vertical-align: top; }
+        .guide thead th { background: var(--area-bg); }
+        .table-wrap { overflow-x: auto; }
+        kbd { font-family: Consolas, "Courier New", monospace; border: 1px solid var(--area-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 .3em; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+        <h1>Hearts – help</h1>
+        <nav aria-label="Back" class="header-tools"><a href="index.html">Back to the game</a></nav>
+    </header>
+    <main id="main" class="guide">
+        <h2>For screen reader users</h2>
+        <p>The game works best with your screen reader's <strong>focus mode</strong> (forms mode) on. Then the game's single-key commands, such as <kbd>H</kbd> and <kbd>8</kbd> or <kbd>L</kbd>, go to the game and not to the screen reader. In NVDA, toggle focus mode with <kbd>Insert</kbd>+<kbd>Space</kbd>; in JAWS, use <kbd>Insert</kbd>+<kbd>Z</kbd>.</p>
+
+        <h2>Rules in brief</h2>
+        <ul>
+            <li>Hearts is played by exactly four players with a 52-card deck. Each player gets 13 cards.</li>
+            <li>At the start of each round, every player chooses three cards to pass: in the first round to the player on the left, in the second round to the right, in the third round across the table, and in the fourth round no cards are passed. Then the cycle starts again. Cards are exchanged once everyone has chosen. Only you see the cards you pass and receive.</li>
+            <li>The player holding the 2 of clubs starts. The 2 of clubs is played automatically.</li>
+            <li>Tricks of four cards are played. You must follow suit. If you cannot, you may play any card. The highest card of the suit led wins the trick, and the winner leads the next trick.</li>
+            <li>Hearts may not be led until hearts are broken, that is, until someone has played a heart on a trick. If you have only hearts, you may lead one.</li>
+            <li>On the first trick you may not play a heart or the queen of spades, even if you have no clubs (unless you have nothing else).</li>
+            <li>Points: each heart is 1 point, the queen of spades is 13 points and the 10 of diamonds is minus 10 points.</li>
+            <li>After each round the points are added up. The game ends when someone has 100 points or more after a round. The player with the <strong>fewest</strong> points wins.</li>
+            <li>The game does not tell you which of your cards are playable. If you try an illegal card, the game tells you why.</li>
+        </ul>
+
+        <h2>Tables and robots</h2>
+        <ul>
+            <li><strong>Create table</strong> gives a four-digit table code. Others join with <strong>Join table</strong>.</li>
+            <li>Only the <strong>table creator</strong> can add and remove robots and start or abort the game. The game needs exactly four players, humans and robots together.</li>
+            <li><strong>Robot speed</strong> sets how long a robot waits before playing. The time needed to read the previous announcement is added to the wait.</li>
+            <li>After a round, any player can start the next round.</li>
+            <li>If you reload the page, you return to the same table and seat.</li>
+        </ul>
+
+        <h2>Selecting cards with the keyboard</h2>
+        <p>Select a card by pressing the suit and then the rank. For example, <kbd>S</kbd> and then <kbd>Q</kbd> selects the queen of spades. When playing, one card is selected at a time. When passing, select three cards. Then press <kbd>L</kbd>.</p>
+        <div class="table-wrap">
+        <table>
+            <caption class="sr-only">Suits and ranks</caption>
+            <thead><tr><th scope="col">Key</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+                <tr><td><kbd>S</kbd></td><td>spades</td></tr>
+                <tr><td><kbd>H</kbd></td><td>hearts</td></tr>
+                <tr><td><kbd>D</kbd></td><td>diamonds</td></tr>
+                <tr><td><kbd>C</kbd></td><td>clubs</td></tr>
+                <tr><td><kbd>A</kbd> <kbd>K</kbd> <kbd>Q</kbd> <kbd>J</kbd></td><td>ace, king, queen, jack</td></tr>
+                <tr><td><kbd>T</kbd> or <kbd>1</kbd></td><td>10</td></tr>
+                <tr><td><kbd>2</kbd>–<kbd>9</kbd></td><td>2–9</td></tr>
+            </tbody>
+        </table>
+        </div>
+
+        <h2>All keyboard commands</h2>
+        <p>The commands do not work while you are typing in a text field.</p>
+        <div class="table-wrap">
+        <table>
+            <caption class="sr-only">Keyboard commands</caption>
+            <thead><tr><th scope="col">Key</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+                <tr><td>Suit + rank, e.g. <kbd>S</kbd> <kbd>Q</kbd></td><td>Select a card. Selecting the same card again deselects it.</td></tr>
+                <tr><td><kbd>L</kbd></td><td>Play the selected card, pass the three selected cards, or start the next round.</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Clear the selection.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>P</kbd></td><td>Current trick and who is to play.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>O</kbd></td><td>Last trick, who won it and its points.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>Q</kbd></td><td>Spades played so far this round.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>W</kbd></td><td>Hearts played so far this round.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>E</kbd></td><td>Diamonds played so far this round.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>R</kbd></td><td>Clubs played so far this round.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>A</kbd></td><td>Read your spades.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Read your hearts.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>D</kbd></td><td>Read your diamonds.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>F</kbd></td><td>Read your clubs.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>G</kbd></td><td>Read your whole hand.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>V</kbd></td><td>Whose turn it is.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>X</kbd></td><td>Scores: total and this round.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>C</kbd></td><td>Passing: who you pass to and receive from, and the cards you passed and received.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>Y</kbd></td><td>Summary: table code, round, trick, hearts broken, dealer, and whether the queen of spades and the 10 of diamonds have been played.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>I</kbd></td><td>Repeat the last announcement.</td></tr>
+            </tbody>
+        </table>
+        </div>
+        <p>The top row keys <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> are the played cards and the keys below them, <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd>, are your own hand, in the same suit order.</p>
+
+        <h2>Mouse and touch screen</h2>
+        <p>Select a card by tapping it. The action button does the same as <kbd>L</kbd>, and its text tells what it does: <em>Pass 3 cards</em>, <em>Play selected</em> or <em>Next round</em>. In your hand, cards you have chosen to pass are shown with a dashed border, and cards you received are marked with a star until the first trick is over.</p>
+
+        <h2>Settings</h2>
+        <p><em>Sounds</em> turns the game sounds on and off. <em>Speech synthesis</em> reads announcements with the browser's English voice. If you use a screen reader, keep speech synthesis off.</p>
+    </main>
+</body>
+</html>

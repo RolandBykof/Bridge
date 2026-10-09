@@ -25,6 +25,8 @@ const io = socketIO(server);
 require('./maija/socket').attach(io, { app });
 // Ristiseiska: nimiavaruus /ristiseiska ja sivu /ristiseiska/ (kansiot ristiseiska/ ja public/ristiseiska/).
 require('./ristiseiska/socket').attach(io, { app });
+// Hertta (englanniksi): nimiavaruus /hertta ja sivu /hertta/ (kansiot hertta/ ja public/hertta/).
+require('./hertta/socket').attach(io, { app });
 
 // Server state
 const tables = new Map(); // Active tables by code

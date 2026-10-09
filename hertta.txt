@@ -1,0 +1,6 @@
+Alkuvalmistelutmuokkaamuokkaa wikitekstiä
+Neljä pelaajaa. Kaikki kortit jaetaan tasan pelaajien kesken. Jokainen pelaaja valitsee kädestään kolme korttia, jotka annetaan ensimmäisellä kierroksella vasemmalla puolella istuvalle pelaajalle, toisella kierroksella oikealla puolella olevalle pelaajalle, kolmannella kierroksella vastapäätä istuvalle pelaajalle ja neljännellä kierroksella kortteja ei vaihdeta lainkaan. Pelin aloittaa pelaaja, jolla on ristikakkonen lyömällä sen pöytään.[1]
+Pelin kulkumuokkaamuokkaa wikitekstiä
+Pelissä pelataan neljän kortin tikkejä. Maata on tunnustettava ja isoimman kortin lyöjä voittaa tikin ja aloittaa seuraavan tikin. Jos ei ole annettua maata, voi lyödä minkä kortin tahansa. Hertalla ei saa aloittaa ennen kuin se on rikottu eli joku pelaajista on lyönyt hertan vapaavalintaisena korttina (discard, paitsi jos pelaajalla on vain herttaa. Ensimmäiseen tikkiin ei saa lyödä herttaa tai patarouvaa, vaikka kädessä ei olisikaan ristiä.[1]
+Kun kaikki kortit on pelattu, lasketaan, kuinka monta pistettä kukin pelaaja sai, ja aloitetaan seuraava kierros
+pisteet jokainen hertta = 1 piste pata rouva = 13 pistettä ruutu 10 = -10 pistettä. Pelin voittaa se, jolla on vähiten pisteitä, kun jollekinpeli päättyy kun joku saa vähintään 100 pistettä. Pelin voittaa se, jolla on vähiten pisteitä.

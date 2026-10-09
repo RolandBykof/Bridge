@@ -1,6 +1,6 @@
 'use strict';
 // Pöydät: jäsenet istumajärjestyksessä, pöydän luoja, robotit ja jakovuoro.
-// Yhteinen Musta Maijalle ja ristiseiskalle. Peli annetaan parametrina:
+// Yhteinen Musta Maijalle, ristiseiskalle ja hertalle. Peli annetaan parametrina:
 //
 //   new Tables({ createGame: (players, { rng, dealerIndex }) => new Game(...),
 //                minPlayers: 2, maxPlayers: 5 })
@@ -19,13 +19,62 @@ const ROBOT_SPEEDS = ['slow', 'normal', 'fast'];
 // Virhe, jonka viesti näytetään käyttäjälle sellaisenaan.
 class TableError extends Error {}
 
+// Käyttäjälle näytettävät tekstit. Hertta on englanniksi (lang: 'en'), muut suomeksi.
+const TEXTS = {
+    fi: {
+        enterName: 'Kirjoita nimesi.',
+        nameTaken: name => `Nimi ${name} on jo käytössä tässä pöydässä. Valitse toinen nimi.`,
+        creatorOnly: action => `Vain pöydän luoja voi ${action}.`,
+        actions: {
+            addRobot: 'lisätä robotteja', removeRobot: 'poistaa robotteja',
+            setSpeed: 'muuttaa robottien nopeutta', start: 'aloittaa pelin',
+            abort: 'keskeyttää pelin', toLobby: 'palata odotushuoneeseen'
+        },
+        addRobotRunning: 'Robotteja voi lisätä vain, kun peli ei ole käynnissä.',
+        tableFull: max => `Pöytä on täynnä, ${max}/${max} pelaajaa.`,
+        robotName: n => `Robotti ${n}`,
+        removeRobotRunning: 'Robotin voi poistaa vain, kun peli ei ole käynnissä.',
+        robotNotFound: 'Robottia ei löydy.',
+        unknownSpeed: 'Tuntematon nopeus.',
+        alreadyRunning: 'Peli on jo käynnissä.',
+        tooFewPlayers: min => `Peliin tarvitaan vähintään ${min} pelaajaa. Voit lisätä robotin.`,
+        needHuman: 'Pelissä on oltava vähintään yksi ihminen.',
+        notRunning: 'Peli ei ole käynnissä.',
+        stillRunning: 'Peli on vielä käynnissä.',
+        cannotLeave: 'Et voi poistua kesken pelin. Pöydän luoja voi keskeyttää pelin.'
+    },
+    en: {
+        enterName: 'Enter your name.',
+        nameTaken: name => `The name ${name} is already taken at this table. Choose another name.`,
+        creatorOnly: action => `Only the table creator can ${action}.`,
+        actions: {
+            addRobot: 'add robots', removeRobot: 'remove robots',
+            setSpeed: 'change the robot speed', start: 'start the game',
+            abort: 'abort the game', toLobby: 'return to the lobby'
+        },
+        addRobotRunning: 'Robots can only be added when no game is running.',
+        tableFull: max => `The table is full, ${max}/${max} players.`,
+        robotName: n => `Robot ${n}`,
+        removeRobotRunning: 'Robots can only be removed when no game is running.',
+        robotNotFound: 'Robot not found.',
+        unknownSpeed: 'Unknown speed.',
+        alreadyRunning: 'A game is already running.',
+        tooFewPlayers: min => `The game needs ${min} players. You can add a robot.`,
+        needHuman: 'At least one human must play.',
+        notRunning: 'No game is running.',
+        stillRunning: 'The game is still running.',
+        cannotLeave: 'You cannot leave during a game. The table creator can abort the game.'
+    }
+};
+
 function cleanName(name) {
     return typeof name === 'string' ? name.replace(/\s+/g, ' ').trim().slice(0, MAX_NAME_LENGTH) : '';
 }
 
 class Table {
-    constructor(code, { rng = Math.random, now = Date.now, createGame, minPlayers, maxPlayers }) {
+    constructor(code, { rng = Math.random, now = Date.now, createGame, minPlayers, maxPlayers, lang = 'fi' }) {
         this.code = code;
+        this.texts = TEXTS[lang] || TEXTS.fi;
         this.rng = rng;
         this.now = now;
         this.createGame = createGame;
@@ -87,9 +136,9 @@ class Table {
 
     addHuman(rawName, socketId) {
         const name = cleanName(rawName);
-        if (!name) throw new TableError('Kirjoita nimesi.');
+        if (!name) throw new TableError(this.texts.enterName);
         if (this.members.some(m => m.name.toLowerCase() === name.toLowerCase())) {
-            throw new TableError(`Nimi ${name} on jo käytössä tässä pöydässä. Valitse toinen nimi.`);
+            throw new TableError(this.texts.nameTaken(name));
         }
         const member = {
             id: crypto.randomUUID(),
@@ -116,19 +165,20 @@ class Table {
         this.touch();
     }
 
+    // action: avain TEXTS.*.actions-taulussa.
     requireCreator(member, action) {
-        if (!this.isCreator(member)) throw new TableError(`Vain pöydän luoja voi ${action}.`);
+        if (!this.isCreator(member)) throw new TableError(this.texts.creatorOnly(this.texts.actions[action]));
     }
 
     addRobot(byMember) {
-        this.requireCreator(byMember, 'lisätä robotteja');
-        if (this.gameRunning()) throw new TableError('Robotteja voi lisätä vain, kun peli ei ole käynnissä.');
+        this.requireCreator(byMember, 'addRobot');
+        if (this.gameRunning()) throw new TableError(this.texts.addRobotRunning);
         if (this.seated().length >= this.maxPlayers) {
-            throw new TableError(`Pöytä on täynnä, ${this.maxPlayers}/${this.maxPlayers} pelaajaa.`);
+            throw new TableError(this.texts.tableFull(this.maxPlayers));
         }
         let name;
         do {
-            name = `Robotti ${++this.robotCounter}`;
+            name = this.texts.robotName(++this.robotCounter);
         } while (this.members.some(m => m.name === name));
         const robot = {
             id: crypto.randomUUID(), token: null, name, type: 'robot',
@@ -140,18 +190,18 @@ class Table {
     }
 
     removeRobot(byMember, robotId) {
-        this.requireCreator(byMember, 'poistaa robotteja');
-        if (this.gameRunning()) throw new TableError('Robotin voi poistaa vain, kun peli ei ole käynnissä.');
+        this.requireCreator(byMember, 'removeRobot');
+        if (this.gameRunning()) throw new TableError(this.texts.removeRobotRunning);
         const robot = this.member(robotId);
-        if (!robot || robot.type !== 'robot') throw new TableError('Robottia ei löydy.');
+        if (!robot || robot.type !== 'robot') throw new TableError(this.texts.robotNotFound);
         this.members = this.members.filter(m => m !== robot);
         this.touch();
         return robot;
     }
 
     setRobotSpeed(byMember, speed) {
-        this.requireCreator(byMember, 'muuttaa robottien nopeutta');
-        if (!ROBOT_SPEEDS.includes(speed)) throw new TableError('Tuntematon nopeus.');
+        this.requireCreator(byMember, 'setSpeed');
+        if (!ROBOT_SPEEDS.includes(speed)) throw new TableError(this.texts.unknownSpeed);
         this.robotSpeed = speed;
     }
 
@@ -163,14 +213,14 @@ class Table {
     }
 
     start(byMember) {
-        this.requireCreator(byMember, 'aloittaa pelin');
-        if (this.gameRunning()) throw new TableError('Peli on jo käynnissä.');
+        this.requireCreator(byMember, 'start');
+        if (this.gameRunning()) throw new TableError(this.texts.alreadyRunning);
         const participants = this.seated();
         if (participants.length < this.minPlayers) {
-            throw new TableError(`Peliin tarvitaan vähintään ${this.minPlayers} pelaajaa. Voit lisätä robotin.`);
+            throw new TableError(this.texts.tooFewPlayers(this.minPlayers));
         }
         if (!participants.some(m => m.type === 'human')) {
-            throw new TableError('Pelissä on oltava vähintään yksi ihminen.');
+            throw new TableError(this.texts.needHuman);
         }
         const dealerIndex = this.nextDealerIndex(participants);
         this.game = this.createGame(participants.map(m => ({ id: m.id, name: m.name })), { rng: this.rng, dealerIndex });
@@ -188,8 +238,8 @@ class Table {
     }
 
     abort(byMember) {
-        this.requireCreator(byMember, 'keskeyttää pelin');
-        if (!this.gameRunning()) throw new TableError('Peli ei ole käynnissä.');
+        this.requireCreator(byMember, 'abort');
+        if (!this.gameRunning()) throw new TableError(this.texts.notRunning);
         this.game = null;
         this.gameEpoch++;
         this.pruneDisconnected();
@@ -199,8 +249,8 @@ class Table {
 
     // Pelin päätyttyä takaisin odotushuoneeseen, jossa robotteja voi lisätä ja poistaa.
     toLobby(byMember) {
-        this.requireCreator(byMember, 'palata odotushuoneeseen');
-        if (this.gameRunning()) throw new TableError('Peli on vielä käynnissä.');
+        this.requireCreator(byMember, 'toLobby');
+        if (this.gameRunning()) throw new TableError(this.texts.stillRunning);
         this.game = null;
         this.gameEpoch++;
         this.pruneDisconnected();
@@ -225,7 +275,7 @@ class Table {
     // Poistuminen pöydästä omasta tahdosta. Kesken pelin ei voi poistua pelaajana.
     leave(member) {
         if (this.gameRunning() && this.inGame(member)) {
-            throw new TableError('Et voi poistua kesken pelin. Pöydän luoja voi keskeyttää pelin.');
+            throw new TableError(this.texts.cannotLeave);
         }
         this.members = this.members.filter(m => m !== member);
         const events = [{ type: 'left', name: member.name, playerId: member.id, waiting: false }];
@@ -272,10 +322,10 @@ class Table {
 }
 
 class Tables {
-    constructor({ rng = Math.random, now = Date.now, createGame, minPlayers, maxPlayers }) {
+    constructor({ rng = Math.random, now = Date.now, createGame, minPlayers, maxPlayers, lang = 'fi' }) {
         this.rng = rng;
         this.now = now;
-        this.gameOptions = { createGame, minPlayers, maxPlayers };
+        this.gameOptions = { createGame, minPlayers, maxPlayers, lang };
         this.tables = new Map();
     }
 
