@@ -448,7 +448,7 @@
 
         element.append(suit, rank, label);
         if (selectable) {
-            element.addEventListener('click', () => toggleCard(card.suit, card.rank));
+            element.addEventListener('click', () => toggleCard(card.suit, card.rank, { playNow: true }));
         }
         return element;
     }
@@ -853,9 +853,9 @@
     // ===== Toiminnot =====
 
     // Pelatessa valittuna on enintään yksi kortti, vaihdossa enintään kolme.
-    // Saman kortin valinta uudelleen poistaa sen. Näppäimistöllä kirjoitettu
-    // kortti (esim. S ja 4) pelataan heti; vain vaihdossa valitaan ja painetaan L.
-    function toggleCard(suit, rank, { fromKeyboard = false } = {}) {
+    // Saman kortin valinta uudelleen poistaa sen. Kirjoitettu (esim. S ja 4) tai
+    // napsautettu kortti pelataan heti; vain vaihdossa valitaan ja painetaan L.
+    function toggleCard(suit, rank, { playNow = false } = {}) {
         const g = game();
         if (!g || g.hand === null) return;
         const card = myHand().find(c => c.suit === suit && c.rank === rank);
@@ -866,7 +866,7 @@
         }
         const id = cardId(card);
         const passing = inPassPhase(g) && g.allowedActions.includes('pass');
-        if (fromKeyboard && !passing) {
+        if (playNow && !passing) {
             if (!g.allowedActions.includes('play')) {
                 respond(notYourTurnText(g));
                 return;
@@ -1211,7 +1211,7 @@
             e.preventDefault();
             const suit = ui.pendingSuit;
             ui.pendingSuit = null;
-            toggleCard(suit, RANK_KEYS[key], { fromKeyboard: true });
+            toggleCard(suit, RANK_KEYS[key], { playNow: true });
         }
     }
 
