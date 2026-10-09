@@ -915,7 +915,8 @@
 
     function readSuit(suit) {
         if (!requireHand()) return;
-        const cards = myHand().filter(c => c.suit === suit);
+        // Luetaan ylhäältä alas kuten Bridgessä: kuningas ensin, ässä (alin) viimeisenä.
+        const cards = myHand().filter(c => c.suit === suit).reverse();
         if (cards.length === 0) {
             respond(`${SUIT_NONE[suit]}.`);
             return;
@@ -934,7 +935,7 @@
         }
         const parts = SUITS
             .map(suit => {
-                const ofSuit = cards.filter(c => c.suit === suit);
+                const ofSuit = cards.filter(c => c.suit === suit).reverse();   // ylhäältä alas
                 if (ofSuit.length === 0) return null;
                 return `${capitalize(SUIT_NAMES[suit])}: ${ofSuit.map(c => rankName(c.rank)).join(', ')}`;
             })

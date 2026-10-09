@@ -383,8 +383,6 @@
             playSound('deal');
         } else if (e.type === 'play') {
             playSound('play');
-        } else if (e.type === 'trick') {
-            playSound('trick');
         } else if (e.type === 'exchange') {
             playSound('receive');
         } else if (e.type === 'table-closed') {
@@ -989,7 +987,8 @@
     function readSuit(suit) {
         const g = requireHand();
         if (!g) return;
-        const cards = myHand().filter(c => c.suit === suit);
+        // Luetaan ylhäältä alas, isoin ensin, kuten Bridgessä.
+        const cards = myHand().filter(c => c.suit === suit).reverse();
         if (cards.length === 0) {
             respond(`No ${suit}.`);
             return;
@@ -1013,7 +1012,7 @@
         }
         const parts = SUITS
             .map(suit => {
-                const ofSuit = cards.filter(c => c.suit === suit);
+                const ofSuit = cards.filter(c => c.suit === suit).reverse();   // isoin ensin
                 if (ofSuit.length === 0) return null;
                 return `${capitalize(suit)}: ${ofSuit.map(c => rankWord(c.rank)).join(', ')}`;
             })
@@ -1034,7 +1033,12 @@
         }
         const next = g.currentId === myId() ? 'you' : nameOf(g.currentId);
         if (g.trick.length === 0) {
-            respond(`Trick ${g.tricksPlayed + 1}: no cards yet. To lead: ${next}.`);
+            // Tikki tyhjenee heti neljännen kortin jälkeen, joten kerrotaan myös edellinen.
+            const last = g.lastTrick;
+            const lastText = last
+                ? ` Last trick: ${trickEntriesText(last.cards)}, won by ${last.winnerId === myId() ? 'you' : nameOf(last.winnerId)}.`
+                : '';
+            respond(`Trick ${g.tricksPlayed + 1}: no cards yet. To lead: ${next}.${lastText}`);
             return;
         }
         respond(`Trick ${g.tricksPlayed + 1}: ${trickEntriesText(g.trick)}. To play: ${next}.`);
@@ -1052,11 +1056,11 @@
         respond(`Last trick: ${trickEntriesText(last.cards)}. Won by ${winner}, ${pointsText(last.points)}.`);
     }
 
-    // Kierroksella jo pelatut kortit maittain, pienimmästä suurimpaan.
+    // Kierroksella jo pelatut kortit maittain, ylhäältä alas (isoin ensin).
     function readPlayedSuit(suit) {
         const g = requireGame();
         if (!g) return;
-        const cards = g.played.filter(c => c.suit === suit).sort((a, b) => rankValue(a.rank) - rankValue(b.rank));
+        const cards = g.played.filter(c => c.suit === suit).sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
         if (cards.length === 0) {
             respond(`No ${suit} played yet this round.`);
             return;
@@ -1064,12 +1068,14 @@
         respond(`${capitalize(suit)} played: ${cards.map(c => rankWord(c.rank)).join(', ')}.`);
     }
 
+    // Kunkin pelaajan pisteet: kokonaispisteet ja kuluvan kierroksen pisteet
+    // (Bridgen Alt+P, mutta pelaajakohtaisesti eikä pareittain).
     function readScores() {
         const g = requireGame();
         if (!g) return;
         const parts = g.players
-            .map(p => `${p.id === myId() ? 'you' : p.name} ${p.score}, this round ${p.roundPoints}`);
-        respond(`Scores: ${parts.join('; ')}.`);
+            .map(p => `${p.id === myId() ? 'You' : p.name} ${pointsText(p.score)}, ${p.roundPoints} this round`);
+        respond(`${parts.join('. ')}.`);
     }
 
     function readTurn() {
@@ -1132,7 +1138,7 @@
     function handleAltKey(e) {
         const actions = {
             KeyG: readHand,
-            KeyP: readTrick,
+            KeyP: readScores,           // kuten Bridgessä; pöydän kortit lukee pelkkä P
             KeyO: readLastTrick,
             KeyX: readScores,
             KeyV: readTurn,
@@ -1159,8 +1165,15 @@
 
     function handlePlainKey(e) {
         const g = game();
-        if (!g || g.hand === null) return;
         const key = e.key.toLowerCase();
+        // P lukee pöydän kortit kuten Bridgessä (myös katsojalle).
+        if (g && key === 'p') {
+            e.preventDefault();
+            ui.pendingSuit = null;
+            readTrick();
+            return;
+        }
+        if (!g || g.hand === null) return;
 
         if (key === 'escape') {
             e.preventDefault();
