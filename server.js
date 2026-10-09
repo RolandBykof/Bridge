@@ -12,6 +12,9 @@ const cors = require('cors');
 const robot = require('./lib/robot');
 const solver = require('./lib/bridge_solver_wasm');
 const DdReview = require('./public/js/dd-review');
+const { dealCards, countHcp } = require('./lib/deal');
+const Practice = require('./lib/practice/table');
+const practiceBank = require('./lib/practice/bank').createBank();
 
 // Initialize Express app and server
 const app = express();
@@ -34,7 +37,6 @@ const MAX_IDLE_TIME = 3600000; // 1 hour in milliseconds
 const RECONNECT_TIMEOUT = 300000; // 5 minuuttia
 
 // Minibridge
-const HCP = { A: 4, K: 3, Q: 2, J: 1 };
 const MINI_GAME_LEVEL = { N: 3, S: 4, H: 4, D: 5, C: 5 };
 const MINI_TRUMP = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs', N: null };
 
@@ -74,11 +76,20 @@ io.on('connection', (socket) => {
     sendActiveTables(socket);
   });
   
-  socket.on('createTable', ({ playerName, position, tableName, gameMode }) => {
+  socket.on('createTable', ({ playerName, position, tableName, gameMode, practiceType }) => {
     console.log(`Creating table for ${playerName} at position ${position}`);
 
+    // An unknown or missing game mode is plain bridge, so older clients
+    // keep working unchanged.
+    const MODES = ['bridge', 'minibridge', Practice.MODE];
+    const mode = MODES.includes(gameMode) ? gameMode : 'bridge';
+    const practice = mode === Practice.MODE ? Practice.createPracticeState(practiceType) : null;
+    if (practice && practiceBank.count(practice.specId) === 0) {
+      sendError(socket, 'No practice deals are available for this practice type');
+      return;
+    }
+
     const tableCode = createTableCode();
-    const mode = gameMode === 'minibridge' ? 'minibridge' : 'bridge';
 
     const table = {
         code: tableCode,
@@ -99,6 +110,9 @@ io.on('connection', (socket) => {
         dealNumber: 0,
         currentDealer: 'south',
         gameMode: mode,
+        // Declarer practice (lib/practice/table.js): practice type, the deals
+        // already played at this table, the current deal and the results.
+        practice,
         miniState: null,
         miniScore: { ns: 0, ew: 0 },
         // Cumulative standard duplicate-bridge score across deals at this table
@@ -547,7 +561,9 @@ function getTableInfo(socket, playerId, data) {
             miniState: table.miniState || null,
             miniScore: table.miniScore || { ns: 0, ew: 0 },
             bridgeScore: table.bridgeScore || { ns: 0, ew: 0 },
-            autoNextDeal: !!table.autoNextDeal
+            autoNextDeal: !!table.autoNextDeal,
+            // Contract and statistics only -- never the deal itself.
+            practice: Practice.practicePublic(table.practice)
         });
 
         // Lähetä pelaajan kortit
@@ -709,9 +725,21 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
     sendToTablePlayers(table, { type: 'ddReviewClosed', reason: 'newDeal' });
   }
   table.ddLineCache = null;
+
+  // Hands given by the caller mean a replay. A practice deal from the bank
+  // also comes as fixed hands, but its first playing is not a replay.
+  const isReplay = !!fixedHands;
+  const isPractice = table.gameMode === Practice.MODE;
+  if (isPractice) {
+    const declarer = table.creatorPosition || 'south';
+    if (!fixedHands) fixedHands = Practice.pickPracticeDeal(table.practice, practiceBank, declarer);
+    // Declarer deals, so the deal information stays consistent.
+    table.currentDealer = table.practice.current.declarer;
+  }
+
   table.dealEpoch = (table.dealEpoch || 0) + 1;
   table.gameState = createGameState(table, fixedHands);
-  if (fixedHands) table.gameState.isReplay = true;
+  if (isReplay) table.gameState.isReplay = true;
   table.biddingState = createBiddingState(table);
 
   if (table.gameMode === 'minibridge') {
@@ -779,6 +807,11 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
     payload.miniState = table.miniState;
   }
 
+  if (isPractice) {
+    payload.gameMode = table.gameMode;
+    payload.practice = Practice.practicePublic(table.practice);
+  }
+
   Object.assign(payload, extraPayload);
 
   sendToTablePlayers(table, payload);
@@ -808,15 +841,27 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
     revealRobotDeclarerHandIfNeeded(table);
   }
 
+  // Practice: no bidding, the contract is set and play starts at once.
+  // moveToPlayPhase() triggers the robot on lead itself.
+  if (isPractice) {
+    applyPracticeContract(table);
+    return;
+  }
+
   maybeTriggerRobot(table);
 }
 
 /**
- * Count high card points (honor points) in a hand
+ * Sets the current practice deal's contract, like applyMiniContract() does
+ * for minibridge, and moves to the play phase. Used for the first playing
+ * and for a replay of the deal alike.
  */
-function countHcp(hand) {
-  return Object.values(hand).flat()
-    .reduce((sum, v) => sum + (HCP[v] || 0), 0);
+function applyPracticeContract(table) {
+  Object.assign(table.biddingState, Practice.practiceContract(table.practice.current), {
+    biddingComplete: true
+  });
+  table.lastActivity = Date.now();
+  moveToPlayPhase(table);
 }
 
 /**
@@ -949,6 +994,11 @@ function makeBid(socket, playerId, data) {
 
   if (table.gameMode === 'minibridge') {
     sendError(socket, 'Bidding is not used in minibridge');
+    return;
+  }
+
+  if (table.gameMode === Practice.MODE) {
+    sendError(socket, 'Bidding is not used in declarer practice');
     return;
   }
 
@@ -1608,6 +1658,8 @@ async function endGame(table) {
     let doubleDummyTricks = null;
     let actualTricks = null;
     let dealVulnerability = null;
+    let practiceResult = null;
+    const isPractice = table.gameMode === Practice.MODE && table.practice && table.practice.current;
 
     if (table.gameState.contract) {
         const level = parseInt(table.gameState.contract.charAt(0));
@@ -1620,13 +1672,22 @@ async function endGame(table) {
         // Double dummy comparison (vaihe 11): how many tricks perfect play on
         // both sides would have made with this contract's trump. Shown to
         // everyone at the table, robots or not -- purely informational.
-        try {
-            doubleDummyTricks = await solver.solveContract(table.gameState.originalHands, table.gameState.trumpSuit, table.gameState.declarer);
-        } catch (error) {
-            console.error(`Double dummy comparison failed for table ${table.code}:`, error.message);
+        // A practice deal has it in the bank already.
+        if (isPractice) {
+            doubleDummyTricks = table.practice.current.ddTricks;
+        } else {
+            try {
+                doubleDummyTricks = await solver.solveContract(table.gameState.originalHands, table.gameState.trumpSuit, table.gameState.declarer);
+            } catch (error) {
+                console.error(`Double dummy comparison failed for table ${table.code}:`, error.message);
+            }
         }
 
-        if (table.gameMode === 'minibridge') {
+        if (isPractice) {
+            // No scoring in practice: the result is made or not, and the
+            // table's statistics.
+            practiceResult = Practice.recordPracticeResult(table.practice, madeTricks, !!table.gameState.isReplay);
+        } else if (table.gameMode === 'minibridge') {
             dealScore = scoreMiniDeal(table.gameState.contract, madeTricks);
             // A replayed deal shows its own result but never touches the
             // cumulative score -- the original playing of the deal already
@@ -1689,7 +1750,9 @@ async function endGame(table) {
         isReplay: !!table.gameState.isReplay
     };
 
-    if (table.gameMode === 'minibridge') {
+    if (practiceResult) {
+        gameOverPayload.practice = practiceResult;
+    } else if (table.gameMode === 'minibridge') {
         gameOverPayload.dealScore = dealScore;
         gameOverPayload.totalScore = table.miniScore;
     } else if (table.gameState.contract) {
@@ -2228,7 +2291,8 @@ function sendActiveTables(socket) {
         code,
         players: playerCount,
         created: table.created,
-        gameMode: table.gameMode || 'bridge'
+        gameMode: table.gameMode || 'bridge',
+        practiceType: table.practice ? table.practice.specId : null
       };
     });
   
@@ -2362,51 +2426,6 @@ function createBiddingState(table) {
 }
 
 /**
- * Deal cards randomly
- */
-function dealCards() {
-  const deck = [];
-  const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
-  const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-  
-  for (const suit of suits) {
-    for (const value of values) {
-      deck.push({ suit, value });
-    }
-  }
-  
-  // Shuffle deck
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  
-  // Deal cards
-  const hands = {
-    north: { spades: [], hearts: [], diamonds: [], clubs: [] },
-    east: { spades: [], hearts: [], diamonds: [], clubs: [] },
-    south: { spades: [], hearts: [], diamonds: [], clubs: [] },
-    west: { spades: [], hearts: [], diamonds: [], clubs: [] }
-  };
-  
-  const positions = ['north', 'east', 'south', 'west'];
-  for (let i = 0; i < deck.length; i++) {
-    const position = positions[Math.floor(i / 13)];
-    const card = deck[i];
-    hands[position][card.suit].push(card.value);
-  }
-  
-  // Sort cards
-  for (const position of positions) {
-    for (const suit of suits) {
-      hands[position][suit].sort((a, b) => values.indexOf(b) - values.indexOf(a));
-    }
-  }
-  
-  return hands;
-}
-
-/**
  * Filter table for client
  */
 function filterTable(table) {
@@ -2416,6 +2435,8 @@ function filterTable(table) {
     state: table.state,
     created: table.created,
     gameMode: table.gameMode || 'bridge',
+    practiceType: table.practice ? table.practice.specId : null,
+    practiceLabel: table.practice ? Practice.practiceTypeLabel(table.practice.specId) : null,
     creatorPosition: table.creatorPosition || null
   };
 }

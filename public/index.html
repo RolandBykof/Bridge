@@ -70,6 +70,20 @@
                     <legend>Game type:</legend>
                     <label><input type="radio" name="game-mode" value="bridge" checked> Bridge</label>
                     <label><input type="radio" name="game-mode" value="minibridge"> Minibridge (no bidding, for beginners)</label>
+                    <label><input type="radio" name="game-mode" value="declarerPractice"> Declarer practice (contract given, you play the hand)</label>
+
+                    <div id="practice-options" hidden>
+                        <label for="practice-type">Practice contract:</label>
+                        <select id="practice-type" aria-describedby="practice-hint">
+                            <option value="mixed">Mixed</option>
+                            <option value="partscore">Partscore: 2 or 3 of a suit, 1 no trump</option>
+                            <option value="notrump-game">3 no trump</option>
+                            <option value="major-game">4 hearts or 4 spades</option>
+                            <option value="minor-game">5 clubs or 5 diamonds</option>
+                            <option value="slam">Small slam</option>
+                        </select>
+                        <p id="practice-hint">You are always declarer, in the position chosen above. Empty seats are filled with robots when you start.</p>
+                    </div>
                 </fieldset>
 
                 <button type="submit" onclick="createTable()" id="create-table-button">Create</button>
@@ -269,6 +283,9 @@
         let gameState = null;
         let biddingState = null;
         let gameMode = 'bridge';
+        // Declarer practice: { specId, label, stats, current: { contract, declarer, label } },
+        // as the server sends it (never the deal itself).
+        let practiceInfo = null;
         let miniState = null;
         let miniScore = { ns: 0, ew: 0 };
         // Cumulative standard-bridge score across deals at this table, mirroring
@@ -452,6 +469,184 @@
             return socket;
         }
 
+        // TABLE SESSION (survives page refresh)
+        // sessionStorage is per browser tab, so a refresh (F5) can rejoin the
+        // same table automatically. It may be missing or throw (private
+        // window, blocked site data), so every access is wrapped.
+        const TABLE_SESSION_KEY = 'bridgeTableSession';
+        let pendingRestore = null;
+
+        function isAtTable() {
+            return currentView === 'waiting-room' || currentView === 'game';
+        }
+
+        function saveTableSession() {
+            if (!tableCode || !myName) return;
+            try {
+                sessionStorage.setItem(TABLE_SESSION_KEY, JSON.stringify({
+                    tableCode: tableCode,
+                    playerName: myName,
+                    position: myPosition
+                }));
+            } catch (e) {}
+        }
+
+        function loadTableSession() {
+            try {
+                const saved = JSON.parse(sessionStorage.getItem(TABLE_SESSION_KEY));
+                if (saved && saved.tableCode && saved.playerName) return saved;
+            } catch (e) {}
+            return null;
+        }
+
+        function clearTableSession() {
+            try {
+                sessionStorage.removeItem(TABLE_SESSION_KEY);
+            } catch (e) {}
+        }
+
+        function restoreTableSession(saved) {
+            pendingRestore = saved;
+            tableCode = saved.tableCode;
+            myName = saved.playerName;
+            myPosition = saved.position || null;
+            saveTableSession();
+
+            announceToScreenReader(`Rejoining table ${saved.tableCode}...`);
+            if (!socket || !socket.connected) connectToServer();
+            socket.emit('getTableInfo', { tableCode: saved.tableCode, playerName: saved.playerName });
+        }
+
+        // A game in progress is restored through 'gameReconnect'; this handles
+        // the 'tableInfo' answer, i.e. a table still in its waiting room or a
+        // game where our seat is no longer held.
+        function handleRestoreTableInfo(data) {
+            const table = data.table;
+            const code = pendingRestore.tableCode;
+
+            if (table.state === 'playing') {
+                failTableRestore(`Could not rejoin table ${code}: the game continued without you.`);
+                return;
+            }
+
+            gameMode = normalizeGameMode(table.gameMode);
+            setPracticeFromTable(table);
+
+            if (data.playerPosition) {
+                pendingRestore = null;
+                myPosition = data.playerPosition;
+                showWaitingRoom();
+                updateWaitingRoomPositions(table);
+                announceToScreenReader(`Rejoined table ${code} as ${positionName(myPosition)}.`);
+                return;
+            }
+
+            // Refreshing in the waiting room frees the seat on the server,
+            // so take it again if nobody else has.
+            const savedPosition = pendingRestore.position;
+            if (savedPosition && !table.players[savedPosition]) {
+                selectedJoinPosition = savedPosition;
+                myPosition = savedPosition;
+                socket.emit('selectPosition', { tableCode: code, position: savedPosition, playerName: myName });
+                return;
+            }
+
+            const availablePositions = Object.keys(table.players).filter(pos => !table.players[pos]);
+            if (availablePositions.length === 0) {
+                failTableRestore(`Could not rejoin table ${code}: the table is full.`);
+                return;
+            }
+            pendingRestore = null;
+            clearTableSession();
+            myPosition = null;
+            showPositionSelection(code, availablePositions, table);
+            announceToScreenReader('Your previous seat was taken. Choose a new position.');
+        }
+
+        function failTableRestore(message) {
+            pendingRestore = null;
+            clearTableSession();
+            showStartMenu();
+            showErrorWithAnnouncement(message);
+        }
+
+        // GAME MODES
+        // 'bridge', 'minibridge' or 'declarerPractice'. Anything else from
+        // the server is treated as bridge, like the server itself does.
+        const PRACTICE_MODE = 'declarerPractice';
+
+        function normalizeGameMode(mode) {
+            return mode === 'minibridge' || mode === PRACTICE_MODE ? mode : 'bridge';
+        }
+
+        function isPracticeMode() {
+            return gameMode === PRACTICE_MODE;
+        }
+
+        /** Keeps practiceInfo in step with table info (tableInfo, tableCreated, ...). */
+        function setPracticeFromTable(table) {
+            if (!table || normalizeGameMode(table.gameMode) !== PRACTICE_MODE) {
+                practiceInfo = null;
+                return;
+            }
+            practiceInfo = {
+                stats: { played: 0, made: 0 },
+                current: null,
+                ...(practiceInfo || {}),
+                specId: table.practiceType || 'mixed',
+                label: table.practiceLabel || 'Mixed'
+            };
+        }
+
+        function practiceTypeName() {
+            return (practiceInfo && practiceInfo.label) || 'Mixed';
+        }
+
+        /** "Bridge", "Minibridge" or "Declarer practice: 3 no trump". */
+        function gameModeLabel() {
+            if (gameMode === 'minibridge') return 'Minibridge';
+            if (isPracticeMode()) return `Declarer practice: ${practiceTypeName()}`;
+            return 'Bridge';
+        }
+
+        /** Words before the table code in the waiting room heading and title. */
+        function tableHeadingLabel() {
+            if (gameMode === 'minibridge') return 'Minibridge table';
+            if (isPracticeMode()) return `Declarer practice: ${practiceTypeName()}. Table`;
+            return 'Table';
+        }
+
+        function requiredTricks(contract) {
+            return parseInt(contract.charAt(0), 10) + 6;
+        }
+
+        /**
+         * Alt+B in practice: the contract, the tricks needed and the tricks
+         * so far, from the declarer's point of view.
+         */
+        function announcePracticeStatus() {
+            if (!gameState || !gameState.contract || !gameState.declarer) {
+                announceToScreenReader('No practice contract yet.');
+                return;
+            }
+            const side = (gameState.declarer === 'north' || gameState.declarer === 'south') ? 'ns' : 'ew';
+            const tricks = gameState.tricks || { ns: 0, ew: 0 };
+            const ours = tricks[side];
+            const theirs = tricks[side === 'ns' ? 'ew' : 'ns'];
+            const need = requiredTricks(gameState.contract);
+            const contractText = `${formatContract(gameState.contract)} by ${positionName(gameState.declarer)}.`;
+            if (isEffectiveDeclarer()) {
+                announceToScreenReader(`${contractText} You need ${need} tricks. You have ${ours}, defenders ${theirs}.`);
+            } else {
+                announceToScreenReader(`${contractText} Declarer needs ${need} tricks. Declarer has ${ours}, defenders ${theirs}.`);
+            }
+        }
+
+        function practiceStatsText(stats) {
+            if (!stats || !stats.played) return 'No practice deals finished yet.';
+            return `Practice so far: ${stats.made} of ${stats.played} made.`;
+        }
+
         // VIEW MANAGEMENT
         function showView(viewName) {
             const views = ['start-menu-view', 'create-table-view', 'join-table-view', 
@@ -468,6 +663,7 @@
             if (viewElement) {
                 viewElement.style.display = 'block';
                 currentView = viewName.replace('-view', '');
+                if (isAtTable()) saveTableSession();
                 updateTitle();
                 updateHelpContent();
                 updateStatus();
@@ -482,7 +678,7 @@
                 'create-table': 'Create Table',
                 'join-table': 'Join Table',
                 'position-selection': 'Select Position',
-                'waiting-room': `${gameMode === 'minibridge' ? 'Minibridge table' : 'Table'} ${tableCode}`,
+                'waiting-room': `${tableHeadingLabel()} ${tableCode}`,
                 'game': `Game ${tableCode}`
             };
             mainTitle.textContent = titles[currentView] || 'AccessibleBridge';
@@ -550,8 +746,7 @@
             showView('waiting-room-view');
             document.getElementById('waiting-table-code-title').textContent = tableCode;
             document.getElementById('share-table-code').textContent = tableCode;
-            document.getElementById('waiting-room-heading-label').textContent =
-                gameMode === 'minibridge' ? 'Minibridge table' : 'Table';
+            document.getElementById('waiting-room-heading-label').textContent = tableHeadingLabel();
         }
 
         function showGameView() {
@@ -651,7 +846,8 @@
             const name = document.getElementById('create-name-input').value.trim();
             const tableName = document.getElementById('table-name-input').value.trim();
             const gameModeInput = document.querySelector('input[name="game-mode"]:checked');
-            const selectedGameMode = gameModeInput && gameModeInput.value === 'minibridge' ? 'minibridge' : 'bridge';
+            const selectedGameMode = normalizeGameMode(gameModeInput && gameModeInput.value);
+            const practiceType = document.getElementById('practice-type').value;
 
             if (!name || name.length < 2) {
                 showErrorWithAnnouncement('Name required (2+ characters)');
@@ -674,7 +870,8 @@
                     playerName: name,
                     position: selectedCreatePosition,
                     tableName: tableName || null,
-                    gameMode: selectedGameMode
+                    gameMode: selectedGameMode,
+                    practiceType: selectedGameMode === PRACTICE_MODE ? practiceType : undefined
                 });
             } else {
                 showErrorWithAnnouncement('Connection failed');
@@ -732,9 +929,9 @@
             
             document.getElementById('join-table-code-display').textContent = code;
 
-            gameMode = tableInfo.gameMode === 'minibridge' ? 'minibridge' : 'bridge';
-            document.getElementById('join-table-gamemode').textContent =
-                `Game type: ${gameMode === 'minibridge' ? 'Minibridge' : 'Bridge'}`;
+            gameMode = normalizeGameMode(tableInfo.gameMode);
+            setPracticeFromTable(tableInfo);
+            document.getElementById('join-table-gamemode').textContent = `Game type: ${gameModeLabel()}`;
 
             const playerCount = Object.values(tableInfo.players || {}).filter(p => p !== null).length;
             document.getElementById('join-table-status').textContent =
@@ -782,9 +979,9 @@
         // WAITING ROOM
         function updateWaitingRoomPositions(table) {
             if (table.gameMode) {
-                gameMode = table.gameMode === 'minibridge' ? 'minibridge' : 'bridge';
-                document.getElementById('waiting-room-heading-label').textContent =
-                    gameMode === 'minibridge' ? 'Minibridge table' : 'Table';
+                gameMode = normalizeGameMode(table.gameMode);
+                setPracticeFromTable(table);
+                document.getElementById('waiting-room-heading-label').textContent = tableHeadingLabel();
             }
             if (table.creatorPosition) {
                 tableCreatorPosition = table.creatorPosition;
@@ -822,7 +1019,8 @@
             const startButton = document.getElementById('start-game-button');
             startButton.style.display = isCreator ? '' : 'none';
             startButton.disabled = playerCount < 1;
-            const startLabel = gameMode === 'minibridge' ? 'Start minibridge' : 'Start bridge';
+            const startLabel = gameMode === 'minibridge' ? 'Start minibridge'
+                : isPracticeMode() ? 'Start practice' : 'Start bridge';
             const emptySeats = 4 - playerCount;
             startButton.textContent = emptySeats === 0 ? startLabel : `${startLabel} (fills ${emptySeats} seat${emptySeats > 1 ? 's' : ''} with robots)`;
 
@@ -1449,6 +1647,8 @@ function trickStatusHtml() {
                 document.getElementById('ew-score').textContent = 'EW 0/13';
             }
 
+            // Practice has no scoring; its results are announced with Alt+P.
+            if (isPracticeMode()) return;
             const totals = gameMode === 'minibridge' ? miniScore : bridgeScore;
             document.getElementById('ns-score').textContent += ` (Total ${totals.ns})`;
             document.getElementById('ew-score').textContent += ` (Total ${totals.ew})`;
@@ -1775,7 +1975,7 @@ function updateContractDisplay() {
          * vulnerability entirely -- announcing it there would be misleading.
          */
         function vulnerabilityAnnouncement(code) {
-            if (gameMode === 'minibridge' || !code) return null;
+            if (gameMode === 'minibridge' || isPracticeMode() || !code) return null;
             switch (code) {
                 case 'NS': return 'North-South vulnerable.';
                 case 'EW': return 'East-West vulnerable.';
@@ -1796,8 +1996,10 @@ function updateContractDisplay() {
             announcementQueue.clear();
             const dealInfoArea = document.getElementById('deal-info-area');
             if (dealInfoArea) {
-                const dealLabel = dealIsReplay ? `Replaying deal ${dealNumber}` : `Deal ${dealNumber}`;
-                let dealAriaLabel = `${dealLabel}. Dealer ${positionName(currentDealer)}.`;
+                const dealWord = isPracticeMode() ? 'practice deal' : 'deal';
+                const dealLabel = dealIsReplay ? `Replaying ${dealWord} ${dealNumber}` : `${dealWord.charAt(0).toUpperCase()}${dealWord.slice(1)} ${dealNumber}`;
+                // In practice the declarer deals, so the dealer adds nothing.
+                let dealAriaLabel = isPracticeMode() ? `${dealLabel}.` : `${dealLabel}. Dealer ${positionName(currentDealer)}.`;
                 const vulnText = vulnerabilityAnnouncement(gameState && gameState.vulnerable);
                 if (vulnText) dealAriaLabel += ` ${vulnText}`;
                 dealInfoArea.setAttribute('aria-label', dealAriaLabel);
@@ -1811,6 +2013,11 @@ function updateContractDisplay() {
                 if (biddingArea) biddingArea.style.display = 'none';
                 renderMiniContractUI();
                 announceMiniDealStart();
+            } else if (isPracticeMode()) {
+                // No bidding: the server sends biddingComplete right away,
+                // and its handler announces the contract.
+                if (biddingArea) biddingArea.style.display = 'none';
+                if (miniArea) miniArea.style.display = 'none';
             } else {
                 if (miniArea) miniArea.style.display = 'none';
                 if (biddingArea) biddingArea.style.display = 'block';
@@ -2190,12 +2397,14 @@ function formatContract(contract, asHtml = false) {
         }
 
         function resetState() {
+            clearTableSession();
             tableCode = null;
             gameState = null;
             ddReviewState = null;
             renderDdReview();
             biddingState = null;
             gameMode = 'bridge';
+            practiceInfo = null;
             miniState = null;
             miniScore = { ns: 0, ew: 0 };
             bridgeScore = { ns: 0, ew: 0 };
@@ -2299,6 +2508,13 @@ function formatContract(contract, asHtml = false) {
                 { key: '5 + D/C', desc: 'Declarer chooses the game 5 Diamonds/Clubs' },
                 { key: '', desc: 'Only the declarer can choose the contract; other combinations are announced as invalid.' },
 
+                { key: '', desc: '--- Game: Declarer Practice ---' },
+                { key: '', desc: 'No bidding. The contract is given and you are always declarer, in the position you chose when creating the table. The left-hand opponent leads at once.' },
+                { key: '', desc: 'Every practice deal can be made with the best play. The robot defenders see all the cards and never make a mistake, and some deals need a lucky guess, for example which way to take a finesse.' },
+                { key: 'Alt + B', desc: 'Announce the contract, the tricks you need and the tricks so far' },
+                { key: 'Alt + P', desc: 'Announce how many practice deals you have made so far' },
+                { key: '', desc: 'After the deal, Replay This Deal plays the same deal again (replays are not counted in the results) and Show Double Dummy shows the best play.' },
+
                 { key: '', desc: '--- Game: Card Viewing (Your Hand) ---' },
                 { key: 'Alt + A', desc: 'Announce your spades' },
                 { key: 'Alt + S', desc: 'Announce your hearts' },
@@ -2315,10 +2531,10 @@ function formatContract(contract, asHtml = false) {
                 
                 { key: '', desc: '--- Game: Information Commands ---' },
                 { key: 'Alt + C', desc: 'Announce each team\'s trick count' },
-                { key: 'Alt + B', desc: 'Bridge: announce all bids made. Minibridge: announce each player\'s HCP points in turn' },
+                { key: 'Alt + B', desc: 'Bridge: announce all bids made. Minibridge: announce each player\'s HCP points in turn. Declarer practice: contract and tricks needed' },
                 { key: 'Alt + X', desc: 'Announce game state, contract and vulnerability (bridge only)' },
                 { key: 'Alt + V', desc: 'Announce current player' },
-                { key: 'Alt + P', desc: 'Announce the running point total across all deals (bridge or minibridge scoring)' },
+                { key: 'Alt + P', desc: 'Announce the running point total across all deals (bridge or minibridge scoring), or the practice results' },
 
                 { key: '', desc: '--- Game: Quick Card Play (Highest) ---' },
                 { key: 'Ctrl + 1', desc: 'Play highest spade' },
@@ -2745,6 +2961,10 @@ function announceMiniPoints() {
                 announceToScreenReader("No score available yet.");
                 return;
             }
+            if (isPracticeMode()) {
+                announceToScreenReader(practiceStatsText(practiceInfo && practiceInfo.stats));
+                return;
+            }
             const totals = gameMode === 'minibridge' ? miniScore : bridgeScore;
             announceToScreenReader(`North-South total: ${totals.ns} points. East-West total: ${totals.ew} points.`);
         }
@@ -3012,8 +3232,11 @@ if (e.altKey && e.key.toLowerCase() === 'c') {
 if (e.altKey && e.key.toLowerCase() === 'b') {
     e.preventDefault();
     // Bridge: lue kaikki tehdyt tarjoukset. Minibridge: lue pelaajien HCP-pisteet.
+    // Pelinvientiharjoitus: sopimus, tarvittavat ja saadut tikit.
     if (gameMode === 'minibridge') {
         announceMiniPoints();
+    } else if (isPracticeMode()) {
+        announcePracticeStatus();
     } else {
         announceBiddingHistory();
     }
@@ -3258,7 +3481,8 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
 
             socket.on('tableCreated', (data) => {
                 tableCode = data.tableCode;
-                gameMode = (data.table && data.table.gameMode === 'minibridge') ? 'minibridge' : 'bridge';
+                gameMode = normalizeGameMode(data.table && data.table.gameMode);
+                setPracticeFromTable(data.table);
                 resetCreateTableUI();
                 announceToScreenReader(`Table ${tableCode} created!`);
                 showWaitingRoom();
@@ -3396,6 +3620,10 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                     showErrorWithAnnouncement('Invalid server response');
                     return;
                 }
+                if (pendingRestore && data.table) {
+                    handleRestoreTableInfo(data);
+                    return;
+                }
                 if (data && data.table) {
                     if (data.table.state === 'playing') {
                         console.warn('Received tableInfo for playing game - ignoring');
@@ -3434,14 +3662,16 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
 
             socket.on('gameReconnect', (data) => {
                 console.log('Game reconnect received:', data);
-                
+                pendingRestore = null;
+
                 tableCode = data.table.code;
                 myPosition = data.playerPosition;
                 gameState = data.gameState || {};
                 biddingState = data.biddingState || {};
                 dealNumber = data.dealNumber || 1;
                 currentDealer = data.dealer || 'south';
-                gameMode = data.gameMode === 'minibridge' ? 'minibridge' : 'bridge';
+                gameMode = normalizeGameMode(data.gameMode);
+                practiceInfo = data.practice || null;
                 miniState = data.miniState || null;
                 miniScore = data.miniScore || { ns: 0, ew: 0 };
                 bridgeScore = data.bridgeScore || { ns: 0, ew: 0 };
@@ -3509,7 +3739,8 @@ updateWaitingRoomPositions(data.table);
                 biddingState = data.biddingState || {};
                 dealNumber = data.dealNumber || 1;
                 currentDealer = data.dealer || 'south';
-                if (data.gameMode) gameMode = data.gameMode;
+                if (data.gameMode) gameMode = normalizeGameMode(data.gameMode);
+                if (data.practice) practiceInfo = data.practice;
                 miniState = data.miniState || null;
                 if (data.players) tablePlayers = data.players;
                 if (data.creatorPosition) tableCreatorPosition = data.creatorPosition;
@@ -3595,8 +3826,14 @@ updateWaitingRoomPositions(data.table);
                 renderAllHands();
                 
                 const contractMessage = `Contract: ${formatContract(data.contract)} by ${positionName(data.declarer)}. ${positionName(data.currentPlayer)} leads.`;
-                
-                if (data.declarer === myPosition) {
+
+                if (isPracticeMode()) {
+                    // The one announcement of a practice deal's start; the
+                    // deal number was read when focus moved to the deal info.
+                    const need = requiredTricks(data.contract);
+                    const needText = isEffectiveDeclarer() ? `You need ${need} tricks.` : `Declarer needs ${need} tricks.`;
+                    announceToScreenReader(`Contract ${formatContract(data.contract)} by ${positionName(data.declarer)}. ${needText} ${positionName(data.currentPlayer)} leads.`);
+                } else if (data.declarer === myPosition) {
                     announceToScreenReader(contractMessage + ' You control dummy.');
                 } else {
                     announceToScreenReader(contractMessage);
@@ -3681,7 +3918,16 @@ socket.on('trickComplete', (data) => {
 
                 let message = (data.isReplay ? '(Replay) ' : '') + data.message;
 
-                if (data.dealScore !== undefined && data.dealScore !== null) {
+                if (data.practice) {
+                    // "Made! 10 tricks, double dummy 10. Practice so far: 4 of 6 made."
+                    const p = data.practice;
+                    if (practiceInfo) practiceInfo.stats = p.stats;
+                    message = `${data.isReplay ? '(Replay) ' : ''}${p.made ? 'Made!' : 'Not made.'} ` +
+                        `${formatContract(p.contract)}, ${p.actualTricks} tricks, double dummy ${p.ddTricks}.`;
+                    if (data.isReplay) message += ' Replays do not count in the practice results.';
+                    message += ` ${practiceStatsText(p.stats)}`;
+                    if (p.note) message += ` Tip: ${p.note}`;
+                } else if (data.dealScore !== undefined && data.dealScore !== null) {
                     message += ` Deal score: ${Math.abs(data.dealScore)} points ${data.dealScore >= 0 ? 'for the declaring side' : 'for the defenders'}.`;
                     if (data.isReplay) {
                         message += ' This replay does not count toward the total score.';
@@ -3696,7 +3942,7 @@ socket.on('trickComplete', (data) => {
                     }
                 }
 
-                if (data.doubleDummyTricks !== undefined && data.doubleDummyTricks !== null) {
+                if (!data.practice && data.doubleDummyTricks !== undefined && data.doubleDummyTricks !== null) {
                     message += ` You made ${data.actualTricks} tricks. Double dummy optimum for this deal: ${data.doubleDummyTricks} tricks.`;
                 }
 
@@ -3723,7 +3969,8 @@ socket.on('trickComplete', (data) => {
             socket.on('newDealStarted', (data) => {
                 dealNumber = data.dealNumber;
                 currentDealer = data.dealer;
-                if (data.gameMode) gameMode = data.gameMode;
+                if (data.gameMode) gameMode = normalizeGameMode(data.gameMode);
+                if (data.practice) practiceInfo = data.practice;
                 miniState = data.miniState || null;
                 if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
                 dealIsReplay = !!data.replayed;
@@ -3833,6 +4080,10 @@ socket.on('trickComplete', (data) => {
 
             socket.on('error', (data) => {
                 const message = data && data.message ? data.message : 'Error occurred';
+                if (pendingRestore) {
+                    failTableRestore(`Could not rejoin table ${pendingRestore.tableCode}: ${message}`);
+                    return;
+                }
                 showErrorWithAnnouncement(message);
                 resetDdButton();
 
@@ -3864,6 +4115,14 @@ socket.on('trickComplete', (data) => {
             setupKeyboardListeners();
             connectToServer();
             setupSocketEventHandlers();
+
+            // The practice contract choice is shown only for declarer practice.
+            const practiceOptions = document.getElementById('practice-options');
+            document.querySelectorAll('input[name="game-mode"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    practiceOptions.hidden = !document.querySelector(`input[name="game-mode"][value="${PRACTICE_MODE}"]`).checked;
+                });
+            });
             
             document.getElementById('table-code-input').addEventListener('input', function() {
                 this.value = this.value.replace(/\D/g, '');
@@ -3913,9 +4172,23 @@ socket.on('trickComplete', (data) => {
                 });
             });
             
-            // Check URL for table code
+            // Warn before a refresh or closing the tab drops us from the table.
+            // Browsers show their own text; a custom message is ignored.
+            window.addEventListener('beforeunload', function(e) {
+                if (isAtTable()) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+
+            // Check URL for table code. A saved table session (page was
+            // refreshed while at a table) takes precedence.
+            const savedTableSession = loadTableSession();
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('code')) {
+            if (savedTableSession) {
+                showStartMenu();
+                restoreTableSession(savedTableSession);
+            } else if (urlParams.has('code')) {
                 showJoinTable();
                 document.getElementById('table-code-input').value = urlParams.get('code');
             } else {
@@ -3937,9 +4210,11 @@ socket.on('trickComplete', (data) => {
                 document.getElementById('synthStatus').textContent = 'Enabled';
             }
             
-            setTimeout(() => {
-                announceToScreenReader('AccessibleBridge loaded. Create table or join existing one.');
-            }, 1000);
+            if (!savedTableSession) {
+                setTimeout(() => {
+                    announceToScreenReader('AccessibleBridge loaded. Create table or join existing one.');
+                }, 1000);
+            }
         });
     </script>
 </body>

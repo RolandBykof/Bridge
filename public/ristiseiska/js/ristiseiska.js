@@ -1187,6 +1187,15 @@
         socket.disconnect();
     });
 
+    // Varoitus ennen sivun päivittämistä tai sulkemista pöydässä ollessa.
+    // Selain näyttää oman tekstinsä; omaa viestiä ei voi asettaa.
+    window.addEventListener('beforeunload', (e) => {
+        if (ui.state && socket.connected) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
     socket.on('state', (state) => {
         ui.state = state;
         render();

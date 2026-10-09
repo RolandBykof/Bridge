@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jakojen luontiskripti – käyttöohje</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+}
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1.25rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 46rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 38rem; }
+main { padding: 1.5rem 1.25rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+p, li { max-width: 40rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible { outline: 3px solid var(--suit-red); outline-offset: 3px; }
+.note {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: .75rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.note p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 30rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+dt { font-weight: 700; margin-top: 1rem; }
+dd { margin-left: 1.25rem; }
+footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Jakojen luontiskripti – käyttöohje</h1>
+    <p>Näin lisäät pelinvientiharjoituksen jakopankkiin uusia jakoja skriptillä <code>scripts/generate-practice-deals.js</code> ja viet ne palvelimelle.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisältö</h2>
+  <ol>
+    <li><a href="#mika">Mikä skripti on</a></li>
+    <li><a href="#ennen">Ennen kuin aloitat</a></li>
+    <li><a href="#pikaohje">Pikaohje</a></li>
+    <li><a href="#tyypit">Harjoitustyypit</a></li>
+    <li><a href="#valinnat">Kaikki valinnat</a></li>
+    <li><a href="#tulostus">Mitä skripti tulostaa</a></li>
+    <li><a href="#palvelimelle">Jakojen vieminen palvelimelle</a></li>
+    <li><a href="#tiedosto">Jakotiedoston rakenne ja käsin muokkaus</a></li>
+    <li><a href="#uusi-tyyppi">Uuden harjoitustyypin lisääminen</a></li>
+    <li><a href="#ongelmat">Ongelmatilanteet</a></li>
+  </ol>
+</nav>
+
+<h2 id="mika">Mikä skripti on</h2>
+<p>Pelinvientiharjoituksessa pelaaja pelaa valmiiksi valittua sopimusta. Jaot otetaan <strong>jakopankista</strong>, joka on kansiossa <code>data/practice</code>. Jokaiselle harjoitustyypille on oma tiedosto, esimerkiksi <code>major-game.json</code>.</p>
+<p>Skripti etsii pankkiin uusia jakoja. Se arpoo jakoja ja hyväksyy vain ne, jotka</p>
+<ul>
+  <li>täyttävät harjoitustyypin käsiehdot, esimerkiksi pisteet ja valttien määrän</li>
+  <li>vaativat pelinviejältä jotain tekniikkaa: pelkät varmat tikit eivät riitä sopimukseen</li>
+  <li>menevät tuplanukkeratkaisijan mukaan täsmälleen kotiin, kun etelä pelaa ja länsi lähtee.</li>
+</ul>
+<p>Skriptiä ajetaan omalla koneella, ei palvelimella. Palvelin vain lukee valmiin pankin.</p>
+
+<h2 id="ennen">Ennen kuin aloitat</h2>
+<ol class="steps">
+  <li><strong>Node.js on asennettuna.</strong> Saman version pitää toimia, jolla palvelinta ajetaan paikallisesti. Tarkistus: komento <code>node --version</code> tulostaa versionumeron.</li>
+  <li><strong>Projektin riippuvuudet on asennettu.</strong> Jos et ole tehnyt tätä aiemmin, aja projektikansiossa <code>npm install</code>.</li>
+  <li><strong>Komentorivi on auki projektikansiossa.</strong> Windowsissa voit avata Resurssienhallinnassa projektikansion, kirjoittaa osoiteriville <code>powershell</code> ja painaa Enter. Kaikki tämän ohjeen komennot ajetaan tässä kansiossa.</li>
+</ol>
+
+<h2 id="pikaohje">Pikaohje</h2>
+
+<h3>Lisää 50 jakoa kaikkiin harjoitustyyppeihin</h3>
+<pre><code>npm run practice:generate</code></pre>
+
+<h3>Lisää haluttu määrä kaikkiin tyyppeihin</h3>
+<pre><code>npm run practice:generate -- --count 20</code></pre>
+<p>Huomaa kaksi viivaa <code>--</code> ennen valintoja. Ne välittävät valinnat npm:ltä skriptille.</p>
+
+<h3>Lisää jakoja yhteen tyyppiin</h3>
+<pre><code>node scripts/generate-practice-deals.js --spec major-game --count 100</code></pre>
+
+<h3>Lisää jakoja useampaan tyyppiin</h3>
+<pre><code>node scripts/generate-practice-deals.js --spec slam,minor-game --count 30</code></pre>
+
+<h3>Näytä ohje ja harjoitustyypit</h3>
+<pre><code>node scripts/generate-practice-deals.js --help</code></pre>
+
+<div class="note">
+  <p><strong>Vanhat jaot säilyvät aina.</strong> Uudet jaot lisätään tiedoston loppuun, ja numerointi jatkuu siitä, mihin se jäi. Pankissa jo olevaa jakoa ei lisätä uudelleen.</p>
+</div>
+
+<h2 id="tyypit">Harjoitustyypit</h2>
+<div class="table-wrap">
+<table>
+  <caption>Harjoitustyypit ja niiden tunnisteet</caption>
+  <thead>
+    <tr><th scope="col">Tunniste</th><th scope="col">Sopimukset</th><th scope="col">Pääehdot</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>partscore</code></td><td>2 pataa, 2 herttaa, 3 ruutua, 3 ristiä, 1 sangi</td><td>Puolella 20–24 pistettä. Maasopimuksissa 8–10 valttia, sangissa pelinviejä tasajakoinen.</td></tr>
+    <tr><td><code>notrump-game</code></td><td>3 sangea</td><td>Puolella 24–28 pistettä, ei ylämaan sopua, pelinviejä tasajakoinen.</td></tr>
+    <tr><td><code>major-game</code></td><td>4 herttaa tai 4 pataa</td><td>Puolella 23–29 pistettä ja 8–9 valttia.</td></tr>
+    <tr><td><code>minor-game</code></td><td>5 ristiä tai 5 ruutua</td><td>Puolella 26–31 pistettä ja 9–11 valttia, ei ylämaan sopua.</td></tr>
+    <tr><td><code>slam</code></td><td>6 maata tai 6 sangea</td><td>Puolella 31–36 pistettä.</td></tr>
+  </tbody>
+</table>
+</div>
+<p>”Puoli” tarkoittaa pelinviejää ja lepääjää yhdessä. Tarkat ehdot ovat tiedostossa <code>lib/practice/specs.js</code>.</p>
+<p>Pelissä on lisäksi tyyppi <code>mixed</code> (sekalainen), joka valitsee jaon kaikista pankeista. Sille ei luoda omia jakoja.</p>
+
+<h2 id="valinnat">Kaikki valinnat</h2>
+<dl>
+  <dt><code>--spec &lt;tunniste&gt;</code></dt>
+  <dd>Harjoitustyyppi, johon jakoja luodaan. Useamman tyypin voi antaa pilkulla erotettuna tai toistamalla valinnan.</dd>
+  <dt><code>--all</code></dt>
+  <dd>Kaikki harjoitustyypit.</dd>
+  <dt><code>--count &lt;määrä&gt;</code></dt>
+  <dd>Montako uutta jakoa kuhunkin tyyppiin luodaan. Oletus on 50.</dd>
+  <dt><code>--time &lt;sekunnit&gt;</code></dt>
+  <dd>Aikaraja kullekin tyypille. Oletus on 300 sekuntia eli 5 minuuttia. Skripti lopettaa viimeistään tähän, vaikka jakoja ei olisi syntynyt pyydettyä määrää.</dd>
+  <dt><code>--dir &lt;kansio&gt;</code></dt>
+  <dd>Jakopankin kansio. Oletus on <code>data/practice</code>. Tätä tarvitaan lähinnä kokeiluihin, kun pankkia ei haluta muuttaa.</dd>
+  <dt><code>--help</code></dt>
+  <dd>Tulostaa lyhyen ohjeen ja harjoitustyyppien luettelon.</dd>
+</dl>
+<p>Joko <code>--spec</code> tai <code>--all</code> on pakollinen.</p>
+
+<h2 id="tulostus">Mitä skripti tulostaa</h2>
+<p>Esimerkki yhden tyypin ajosta:</p>
+<pre><code>major-game: generating 50 deals (0 in the bank)...
+major-game: 50 new deals, 50 in total. dealt 4724, passed constraints 186, needed technique 182, solved 182, accepted 50, 2.1 s
+Done: 50 new deals in data\practice.</code></pre>
+<p>Toisen rivin luvut kertovat, miten jakoja karsittiin:</p>
+<dl>
+  <dt>dealt</dt>
+  <dd>Montako jakoa arvottiin.</dd>
+  <dt>passed constraints</dt>
+  <dd>Montako täytti käsiehdot (pisteet, valtit, jakaumat).</dd>
+  <dt>needed technique</dt>
+  <dd>Montako jäi jäljelle, kun jaot, joissa varmat tikit riittävät sellaisenaan, hylättiin.</dd>
+  <dt>solved</dt>
+  <dd>Montako jakoa tuplanukkeratkaisija laski.</dd>
+  <dt>accepted</dt>
+  <dd>Montako jakoa hyväksyttiin pankkiin, eli sopimus meni täsmälleen kotiin.</dd>
+</dl>
+<p>Pitkissä ajoissa skripti tulostaa välitilanteen viiden sekunnin välein, jotta näet sen etenevän.</p>
+<p>Jakojen luonti on nopeaa: kaikkien viiden tyypin 50 jakoa syntyivät yhteensä noin 13 sekunnissa.</p>
+
+<h2 id="palvelimelle">Jakojen vieminen palvelimelle</h2>
+<p>Skripti muuttaa vain omalla koneellasi olevia tiedostoja. Palvelimelle jaot päätyvät GitHubin kautta:</p>
+<ol class="steps">
+  <li><strong>Aja testit</strong> komennolla <code>npm test</code>. Yksi testeistä tarkistaa jokaisen pankin jaon: kortit, käsiehdot ja ratkaisijan tikkimäärän. Kaikkien testien pitää mennä läpi.</li>
+  <li><strong>Commitoi muuttuneet tiedostot</strong> kansiosta <code>data/practice</code> ja pushaa ne GitHubin <code>main</code>-haaraan, esimerkiksi GitHub Desktopilla.</li>
+  <li><strong>GitHub julkaisee muutoksen automaattisesti</strong> Azureen. Julkaisussa testit ajetaan uudelleen.</li>
+</ol>
+<div class="note">
+  <p><strong>Julkaisu käynnistää palvelimen uudelleen,</strong> ja kesken olevat pelit katkeavat. Vie uudet jaot palvelimelle mieluiten aikaan, jolloin pelaajia on vähän.</p>
+</div>
+
+<h2 id="tiedosto">Jakotiedoston rakenne ja käsin muokkaus</h2>
+<p>Jakotiedosto on tekstimuotoinen JSON-tiedosto. Jokainen jako on omalla rivillään:</p>
+<pre><code>{
+  "spec": "major-game",
+  "label": "4 hearts or 4 spades",
+  "generated": "2026-10-09",
+  "deals": [
+    {"id":"major-game-0001","pbn":"N:Q7.KQJ75.KQ.KT93 T9832.AT3.J5.J74 K4.8642.A8762.Q2 AJ65.9.T943.A865","contract":"4H","declarer":"south","ddTricks":10,"note":null}
+  ]
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <caption>Jaon kentät</caption>
+  <thead>
+    <tr><th scope="col">Kenttä</th><th scope="col">Merkitys</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>id</code></td><td>Jaon tunniste. Ei saa muuttaa, koska pöytä muistaa pelatut jaot tunnisteen perusteella.</td></tr>
+    <tr><td><code>pbn</code></td><td>Kädet bridgen PBN-muodossa. Pohjoisesta alkaen myötäpäivään (pohjoinen, itä, etelä, länsi), maat järjestyksessä pata, hertta, ruutu, risti. T tarkoittaa kymppiä.</td></tr>
+    <tr><td><code>contract</code></td><td>Sopimus, esimerkiksi <code>4H</code> on 4 herttaa ja <code>3N</code> 3 sangea.</td></tr>
+    <tr><td><code>declarer</code></td><td>Pelinviejä pankissa, aina <code>south</code>. Peli kiertää jaon pelaajan paikalle.</td></tr>
+    <tr><td><code>ddTricks</code></td><td>Pelinviejän tikit tuplanukkeratkaisijan mukaan.</td></tr>
+    <tr><td><code>note</code></td><td>Vapaaehtoinen vihje tai selitys pelaajalle. Tyhjänä <code>null</code>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Vihjeen lisääminen</h3>
+<p>Vaihda jaon rivillä <code>"note":null</code> tekstiksi lainausmerkeissä, esimerkiksi:</p>
+<pre><code>"note":"Poista valtit ennen ruutujen kehittämistä."</code></pre>
+<p>Lainausmerkki tekstin sisällä kirjoitetaan muodossa <code>\"</code>.</p>
+
+<h3>Jaon poistaminen</h3>
+<p>Poista jaon koko rivi. Jos poistat viimeisen jaon, poista myös edellisen rivin lopusta pilkku. Muiden jakojen tunnisteita ei tarvitse numeroida uudelleen.</p>
+
+<div class="note">
+  <p><strong>Aja käsin muokkauksen jälkeen aina <code>npm test</code>.</strong> Testi huomaa rikkinäisen jaon, väärän tikkimäärän ja JSON-muodon virheet ennen kuin muutos päätyy palvelimelle. Kenttiä <code>pbn</code>, <code>contract</code> ja <code>ddTricks</code> ei pidä muuttaa käsin.</p>
+</div>
+
+<h2 id="uusi-tyyppi">Uuden harjoitustyypin lisääminen</h2>
+<p>Uusi tyyppi ei vaadi ohjelmointia. Lisää tiedoston <code>lib/practice/specs.js</code> luetteloon uusi kuvaus, esimerkiksi:</p>
+<pre><code>{
+  id: 'notrump-partscore',
+  label: '2 no trump',
+  contracts: ['2N'],
+  constraints: {
+    side: { hcp: [22, 24], noMajorFit: true },
+    declarer: { balanced: true }
+  },
+  dd: { min: 'contract', max: 'contract' }
+}</code></pre>
+<p>Aja sitten <code>node scripts/generate-practice-deals.js --spec notrump-partscore --count 50</code>.</p>
+
+<h3>Kuvauksen kentät</h3>
+<dl>
+  <dt><code>id</code></dt>
+  <dd>Tunniste, josta tulee myös jakotiedoston nimi. Pienet kirjaimet ja väliviivat.</dd>
+  <dt><code>label</code></dt>
+  <dd>Nimi, joka näytetään pelaajalle.</dd>
+  <dt><code>contracts</code></dt>
+  <dd>Sopimukset, joista yksi arvotaan kuhunkin jakoon. Taso 1–7 ja maa S, H, D, C tai N (sangi).</dd>
+  <dt><code>constraints</code></dt>
+  <dd>Käsiehdot kaikille sopimuksille.</dd>
+  <dt><code>suitConstraints</code> ja <code>notrumpConstraints</code></dt>
+  <dd>Lisäehdot vain maasopimuksille tai vain sangisopimuksille. Tarpeen, jos samassa tyypissä on molempia.</dd>
+  <dt><code>dd</code></dt>
+  <dd>Tuplanukkeehto: pienin ja suurin hyväksytty tikkimäärä. <code>'contract'</code> tarkoittaa täsmälleen sopimuksen vaatimia tikkejä, <code>'contract+1'</code> yhtä ylitikkiä. Myös pelkkä luku käy.</dd>
+</dl>
+
+<h3>Roolit ja ehdot</h3>
+<p>Ehdot kirjoitetaan pelinviejän näkökulmasta. Roolit ovat:</p>
+<ul>
+  <li><code>declarer</code>: pelinviejä</li>
+  <li><code>dummy</code>: lepääjä</li>
+  <li><code>side</code>: pelinviejä ja lepääjä yhdessä</li>
+  <li><code>lho</code>: pelinviejän vasen vastustaja, joka tekee avauslähdön</li>
+  <li><code>rho</code>: pelinviejän oikea vastustaja</li>
+  <li><code>defenders</code>: molemmat vastustajat yhdessä</li>
+</ul>
+
+<div class="table-wrap">
+<table>
+  <caption>Käytettävissä olevat ehdot</caption>
+  <thead>
+    <tr><th scope="col">Ehto</th><th scope="col">Merkitys</th><th scope="col">Esimerkki</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>hcp</code></td><td>Honööripisteet vähintään ja enintään. Pareilla yhteensä.</td><td><code>hcp: [23, 29]</code></td></tr>
+    <tr><td><code>trumpLength</code></td><td>Valttien määrä. Pareilla yhteensä. Sangisopimuksissa ehto ohitetaan.</td><td><code>trumpLength: [8, 9]</code></td></tr>
+    <tr><td><code>balanced</code></td><td>Tasajakoinen käsi: 4333, 4432 tai 5332. Pareilla molemmat kädet.</td><td><code>balanced: true</code></td></tr>
+    <tr><td><code>maxSuitLength</code></td><td>Mikään maa ei ole tätä pidempi. Pareilla kummassakaan kädessä.</td><td><code>maxSuitLength: 6</code></td></tr>
+    <tr><td><code>noMajorFit</code></td><td>Parilla ei ole yhteensä 8 korttia herttaa eikä pataa. Vain rooleille <code>side</code> ja <code>defenders</code>.</td><td><code>noMajorFit: true</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Kirjoitusvirhe ehdon tai roolin nimessä ei mene huomaamatta: skripti ja testit ilmoittavat tuntemattomasta nimestä.</p>
+
+<h2 id="ongelmat">Ongelmatilanteet</h2>
+<dl>
+  <dt>”Time limit reached before 50 deals.”</dt>
+  <dd>Jakoja ei syntynyt pyydettyä määrää aikarajan sisällä. Anna pidempi aikaraja, esimerkiksi <code>--time 900</code>, tai löysää ehtoja tiedostossa <code>lib/practice/specs.js</code>. Jo löydetyt jaot tallennetaan silti.</dd>
+  <dt>”Unknown practice type”</dt>
+  <dd>Tunniste on kirjoitettu väärin. Oikeat tunnisteet näet komennolla <code>--help</code>.</dd>
+  <dt>”Unknown constraint” tai ”Unknown role”</dt>
+  <dd>Uuden harjoitustyypin kuvauksessa on kirjoitusvirhe ehdon tai roolin nimessä. Katso sallitut nimet kohdasta <a href="#uusi-tyyppi">Uuden harjoitustyypin lisääminen</a>.</dd>
+  <dt>”node” tai ”npm” ei ole tunnettu komento</dt>
+  <dd>Node.js puuttuu tai komentorivi ei löydä sitä. Asenna Node.js ja avaa komentorivi uudelleen.</dd>
+  <dt><code>npm test</code> epäonnistuu jakopankin testissä</dt>
+  <dd>Virheilmoitus kertoo jaon tunnisteen ja syyn, esimerkiksi ”major-game-0007: ehdot”. Yleisin syy on käsin muokattu rivi. Korjaa rivi tai poista jako.</dd>
+</dl>
+
+</main>
+
+<footer>
+  <p>Skripti: <code>scripts/generate-practice-deals.js</code>. Generaattori: <code>lib/practice/generator.js</code>. Suunnitelma: <code>kontrahti.html</code>.</p>
+</footer>
+</body>
+</html>

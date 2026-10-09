@@ -1,50 +1,107 @@
-Ristiseiska: ässän lyönnin testitulos
+Pelinvientiharjoittelu: vaiheet 1–3 toteutettu
 Päivämäärä: 9.10.2026
 
-TAUSTA
+YHTEENVETO
 
-Asiakas kertoi, ettei ässää voinut lyödä, vaikka se olisi sopinut pöytään. Tilanne testattiin uudella testisarjalla (ristiseiska/assa.test.js).
+Suunnitelman (kontrahti.html) vaiheet 1–3 on tehty: käsiehdot, jakogeneraattori, generointiskripti ja jakopankki. Pankissa on nyt 253 jakoa viidessä harjoitustyypissä. Kaikki 103 testiä menevät läpi.
 
-TULOS
+Nämä osat eivät vielä näy pelissä. Harjoitustila kytketään palvelimeen ja käyttöliittymään vasta vaiheessa 4.
 
-Virhettä ei löytynyt. Ässän lyönti onnistui kaikissa tilanteissa, joissa ässä sopi pöytään.
+Samalla löytyi ja korjattiin virhe pelin lopun tuplanukkevertailussa. Siitä kerrotaan kohdassa LÖYDETTY VIRHE.
 
-Kaikki ristiseiskan 28 testiä menivät läpi, niistä 9 uusia ässätestejä.
 
-MITÄ TESTATTIIN
+JAKOPANKKI
 
-Ässätesteissä pelattiin yhteensä 2 009 peliä:
+Jaot ovat kansiossa data/practice, yksi tiedosto kutakin harjoitustyyppiä kohden:
 
-1. 2 000 satunnaista peliä, joissa oli 2–8 pelaajaa. Ässä lyötiin aina, kun se sopi. Ässiä lyötiin yhteensä 6 835, niistä 180 lisävuorolla kuninkaan tai toisen ässän jälkeen. Yksikään lyönti ei epäonnistunut.
+- partscore.json: osapelit (2 pataa, 2 herttaa, 3 ruutua, 3 ristiä, 1 sangi), 50 jakoa
+- notrump-game.json: 3 sangea, 50 jakoa
+- major-game.json: 4 herttaa tai 4 pataa, 53 jakoa
+- minor-game.json: 5 ristiä tai 5 ruutua, 50 jakoa
+- slam.json: pikkuslammi, 6 maata tai 6 sangea, 50 jakoa
 
-2. 8 käsin rakennettua peliä tiettyihin tilanteisiin:
-   - ässä tavallisella vuorolla jokaisessa neljässä maassa (4 peliä)
-   - ässä lisävuorolla: kuningas, sitten ässä ja vielä toinen ässä peräkkäin
-   - ässä viimeisenä korttina: pelaaja pääsee pois, eikä lisävuoroa tule
-   - pyytämällä saatu ässä lyödään seuraavalla vuorolla
-   - kun ainoa sopiva kortti on ässä, peli tarjoaa lyöntiä eikä pyyntöä
+Neljännen tyypin 53 jakoa johtuvat siitä, että kokeilin jakojen lisäämistä olemassa olevaan tiedostoon. Jokainen jako menee tuplanukkena täsmälleen kotiin, kun etelä pelaa ja länsi lähtee.
 
-3. 1 peli oikean palvelinyhteyden yli: pelaaja löi kaksi ässää peräkkäin, eikä palvelin palauttanut virhettä.
+Jokainen jako on tiedostossa omalla rivillään. Silloin GitHubin muutosnäkymästä näkee suoraan, mitkä jaot lisättiin, poistettiin tai mihin lisättiin vihje. Vihjeen voi kirjoittaa käsin note-kenttään.
 
-Lisäksi kaksi testiä kävi läpi kaikki mahdolliset pöydän tilanteet jokaisessa maassa. Ässä sopii täsmälleen silloin, kun maan alapäässä on kakkonen.
+Harjoitustyyppi "mixed" (sekalainen) ei ole oma tiedostonsa. Se valitsee jaon kaikista muista tyypeistä.
 
-MITÄ EI TESTATTU AUTOMAATTISESTI
 
-Selaimen näppäinkäsittelyä ei testattu automaattisesti, koska projektissa ei ole selaintestaustyökalua. Koodi luettiin läpi, ja A-näppäin valitsee ässän oikein.
+NÄIN LISÄÄT JAKOJA
 
-MAHDOLLISIA SELITYKSIÄ ASIAKKAAN KOKEMUKSELLE
+Komennot ajetaan projektin kansiossa.
 
-1. Ässä kuninkaan jälkeen. Pelissä ässä on aina pienin kortti, kuten säännöissä: 5, 4, 3, 2, ässä. Ässää ei voi lyödä kuninkaan perään. Jos asiakas on tottunut versioon, jossa ässän saa lyödä myös kuninkaan jälkeen, tämä voi näyttää viralta.
+Lisää 50 jakoa kaikkiin tyyppeihin:
+  npm run practice:generate
 
-2. Numeronäppäin 1. Näppäin 1 valitsee kympin, ei ässää. Ässä valitaan A-kirjaimella, esimerkiksi S ja A valitsee pataässän.
+Lisää 100 jakoa yhteen tyyppiin:
+  node scripts/generate-practice-deals.js --spec major-game --count 100
 
-3. Kakkonen puuttui pöydästä. Ässä sopii vasta, kun saman maan kakkonen on pöydässä.
+Muut valinnat:
+  --spec a,b    useampi tyyppi kerralla pilkulla erotettuna
+  --time 600    aikaraja sekunteina tyyppiä kohden, oletus 300
+  --help        ohje ja harjoitustyyppien luettelo
 
-KYSYMYKSIÄ ASIAKKAALLE
+Uudet jaot lisätään tiedoston loppuun ja numerointi jatkuu. Vanhat jaot säilyvät, eikä samaa jakoa tule kahdesti. Generointi on nopeaa: 250 jakoa syntyi noin 13 sekunnissa.
 
-- Minkä maan ässä oli kyseessä?
-- Mitä kortteja tuossa maassa oli pöydällä?
-- Valitsitko ässän näppäimillä vai hiirellä? Jos näppäimillä, mitä näppäimiä painoit?
-- Mitä peli ilmoitti, kun yritit lyödä ässän?
+Uudet jaot päätyvät palvelimelle, kun muutetut tiedostot viedään GitHubiin (commit ja push). Julkaisu tapahtuu automaattisesti.
 
-Jos ässän halutaan sopivan myös kuninkaan perään, sen voi lisätä peliin sääntövaihtoehtona.
+Uuden harjoitustyypin saa lisäämällä kuvauksen tiedostoon lib/practice/specs.js ja ajamalla skriptin. Kuvauksessa annetaan sopimukset, pisteet, valttien määrä ja tuplanukkeehto. Ohjelmakoodia ei tarvitse muuttaa.
+
+
+UUDET TIEDOSTOT
+
+- lib/deal.js: yhteiset jakoapuvälineet. Jakaminen ja pisteiden laskenta siirrettiin tänne server.js:stä. Uusi parseDealString lukee jakorivin takaisin käsiksi.
+- lib/practice/constraints.js: käsiehdot (vaihe 1). Ehtoja ovat pisteet, valttien pituus, tasajakoisuus, pisimmän maan pituus ja "ei ylämaan sopua". Lisäksi tiedosto laskee varmat tikit.
+- lib/practice/specs.js: viiden harjoitustyypin kuvaukset.
+- lib/practice/generator.js: jakogeneraattori (vaihe 2).
+- lib/practice/bank.js: jakopankin lukeminen ja jaon arpominen (vaihe 3). Saman pöydän jo pelatut jaot jätetään pois, kunnes kaikki on pelattu. Vaihe 4 käyttää tätä.
+- scripts/generate-practice-deals.js: generointiskripti (vaihe 3).
+- Testit: lib/deal.test.js ja lib/practice/-kansiossa constraints.test.js, generator.test.js ja bank.test.js.
+
+
+MUUTOKSET OLEMASSA OLEVAAN KOODIIN
+
+- server.js: jakaminen (dealCards) ja pisteiden laskenta (countHcp) haetaan nyt tiedostosta lib/deal.js. Toiminta ei muuttunut. Palvelin käynnistyy ja vastaa normaalisti.
+- lib/bridge_solver_wasm.js: korjattiin solveContract (katso alla) ja lisättiin nopea declarerTricks-funktio generaattoria varten.
+- package.json: uudet testit lisättiin npm test -komentoon, ja lisättiin komento practice:generate.
+
+
+LÖYDETTY VIRHE
+
+Suunnitelmassa sovittiin, että vaiheen 2 alussa tarkistetaan, antavatko ratkaisijan eri funktiot saman tikkimäärän. Ne eivät antaneet.
+
+Pelin lopussa peli kertoo, montako tikkiä parhaalla pelillä olisi saatu. Tämä luku haettiin ratkaisijan taulukosta väärältä riviltä: etelän pelatessa käytettiin pohjoisen riviä ja lännen pelatessa idän riviä. Yleensä luvut ovat samat, mutta eivät aina, koska avaaja on eri pelaaja. Satunnaisissa jaoissa luku oli väärin 7 tapauksessa 40:stä. Korjauksen jälkeen luku vastasi raskasta pelin läpikäyntiä kaikissa kokeilluissa tapauksissa kaikilla neljällä pelinviejällä.
+
+Korjaus vaikuttaa vain pelin lopun tuplanukkevertailun lukuun. Robottien pelaamiseen se ei vaikuta.
+
+Toinen havainto: ratkaisijan nopea funktio palauttaa aina pohjois–eteläparin tikit, vaikka itä tai länsi olisi pelinviejä. Uusi declarerTricks ottaa tämän huomioon. Se on noin kymmenen kertaa nopeampi kuin koko taulukon laskeminen.
+
+
+TESTIT
+
+Kaikki 103 testiä menevät läpi, niistä 26 uusia. Testit varmistavat muun muassa seuraavat asiat:
+- jaossa on 52 eri korttia ja jokaisella pelaajalla 13
+- jakorivin kirjoittaminen ja lukeminen ovat toistensa vastapareja
+- käsiehdot ja varmojen tikkien laskenta toimivat käsin kirjoitetuilla jaoilla
+- generaattori tuottaa vain ehdot täyttäviä jakoja ja lopettaa aikarajaan
+- nopea tikkilaskenta vastaa ratkaisijan taulukkoa
+- pankin jokainen jako täyttää tyyppinsä ehdot ja vastaa ratkaisijan tulosta
+
+Viimeinen testi tarkistaa koko pankin, joten käsin muokattu tai rikkinäinen jako huomataan GitHubin julkaisussa ennen kuin se päätyy palvelimelle. Testi kestää noin 5 sekuntia.
+
+
+HUOMIOITAVAA
+
+1. Varmojen tikkien suodatin on lievä. Se hylkäsi vain muutaman prosentin jaoista. Varmojen tikkien laskenta on tarkoituksella karkea, koska se ei huomioi esimerkiksi siirtymiä kädestä toiseen. Jos jaot tuntuvat liian helpoilta, ehtoa voi kiristää. Esimerkiksi varmoja tikkejä voisi vaatia vähintään kaksi vähemmän kuin sopimus tarvitsee.
+
+2. Tuplanukke ei ole sama kuin todellinen peli, kuten suunnitelmassa todettiin. Osa jaoista onnistuu vain arvaamalla maahinnan suunta oikein.
+
+3. Uudet tiedostot eivät ole vielä GitHubissa. Muutokset pitää commitoida ja pushata. Se kannattaa tehdä hiljaiseen aikaan, koska julkaisu käynnistää palvelimen uudelleen.
+
+4. Tämä tiedosto korvasi aiemman sisällön, ristiseiskan ässätestin raportin.
+
+
+SEURAAVA VAIHE
+
+Vaiheessa 4 harjoitustila kytketään palvelimeen. Pöydän luonnissa voi silloin valita pelimuodon "pelinvientiharjoitus" ja harjoitustyypin. Palvelin hakee jaon pankista, kiertää sen pelaajan paikalle ja asettaa sopimuksen ilman tarjoamista.
