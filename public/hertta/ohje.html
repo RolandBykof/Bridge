@@ -46,8 +46,8 @@
             <li>If you reload the page, you return to the same table and seat.</li>
         </ul>
 
-        <h2>Selecting cards with the keyboard</h2>
-        <p>Select a card by pressing the suit and then the rank. For example, <kbd>S</kbd> and then <kbd>Q</kbd> selects the queen of spades. When playing, one card is selected at a time. When passing, select three cards. Then press <kbd>L</kbd>.</p>
+        <h2>Playing cards with the keyboard</h2>
+        <p>Type a card by pressing the suit and then the rank. When it is your turn to play, the card is played right away: for example, <kbd>S</kbd> and then <kbd>4</kbd> plays the 4 of spades. Only when passing cards at the start of a round, typing a card selects it: select three cards and then press <kbd>L</kbd>.</p>
         <div class="table-wrap">
         <table>
             <caption class="sr-only">Suits and ranks</caption>
@@ -71,8 +71,10 @@
             <caption class="sr-only">Keyboard commands</caption>
             <thead><tr><th scope="col">Key</th><th scope="col">Action</th></tr></thead>
             <tbody>
-                <tr><td>Suit + rank, e.g. <kbd>S</kbd> <kbd>Q</kbd></td><td>Select a card. Selecting the same card again deselects it.</td></tr>
-                <tr><td><kbd>L</kbd></td><td>Play the selected card, pass the three selected cards, or start the next round.</td></tr>
+                <tr><td>Suit + rank, e.g. <kbd>S</kbd> <kbd>4</kbd></td><td>Play the card right away. When passing: select the card; selecting it again deselects it.</td></tr>
+                <tr><td><kbd>L</kbd></td><td>Pass the three selected cards, or start the next round. (Also plays a card selected with the mouse.)</td></tr>
+                <tr><td><kbd>I</kbd> or <kbd>↑</kbd></td><td>Play your highest card of the suit led, right away. Works when you have cards of that suit.</td></tr>
+                <tr><td><kbd>O</kbd> or <kbd>↓</kbd></td><td>Play your lowest card of the suit led, right away. Works when you have cards of that suit.</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Clear the selection.</td></tr>
                 <tr><td><kbd>Alt</kbd>+<kbd>P</kbd></td><td>Current trick and who is to play.</td></tr>
                 <tr><td><kbd>Alt</kbd>+<kbd>O</kbd></td><td>Last trick, who won it and its points.</td></tr>

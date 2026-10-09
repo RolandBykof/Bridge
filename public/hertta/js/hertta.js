@@ -852,8 +852,9 @@
     // ===== Toiminnot =====
 
     // Pelatessa valittuna on enintään yksi kortti, vaihdossa enintään kolme.
-    // Saman kortin valinta uudelleen poistaa sen.
-    function toggleCard(suit, rank) {
+    // Saman kortin valinta uudelleen poistaa sen. Näppäimistöllä kirjoitettu
+    // kortti (esim. S ja 4) pelataan heti; vain vaihdossa valitaan ja painetaan L.
+    function toggleCard(suit, rank, { fromKeyboard = false } = {}) {
         const g = game();
         if (!g || g.hand === null) return;
         const card = myHand().find(c => c.suit === suit && c.rank === rank);
@@ -864,6 +865,15 @@
         }
         const id = cardId(card);
         const passing = inPassPhase(g) && g.allowedActions.includes('pass');
+        if (fromKeyboard && !passing) {
+            if (!g.allowedActions.includes('play')) {
+                respond(notYourTurnText(g));
+                return;
+            }
+            ui.selected = [];
+            socket.emit('play', { cardId: id });
+            return;
+        }
         if (ui.selected.includes(id)) {
             ui.selected = ui.selected.filter(s => s !== id);
             refreshSelection();
@@ -918,7 +928,7 @@
 
         if (g.allowedActions.includes('play')) {
             if (chosen.length !== 1) {
-                respond('Select a card to play first, for example H and 8.');
+                respond('Type a card to play it, for example H and 8.');
                 return;
             }
             socket.emit('play', { cardId: cardId(chosen[0]) });
@@ -932,6 +942,31 @@
         }
 
         respond(notYourTurnText(g));
+    }
+
+    // Aloitetun maan isoin tai pienin kortti pöytään heti, kuten Bridgessä (I/↑ ja O/↓).
+    function playLedSuitExtreme(highest) {
+        const g = game();
+        if (!g || g.hand === null) return;
+        if (!g.allowedActions.includes('play')) {
+            respond(notYourTurnText(g));
+            return;
+        }
+        if (g.trick.length === 0) {
+            respond('No suit has been led yet. You must lead a card.');
+            return;
+        }
+        const suit = g.trick[0].card.suit;
+        const cards = myHand().filter(c => c.suit === suit)
+            .sort((a, b) => rankValue(a.rank) - rankValue(b.rank));
+        if (cards.length === 0) {
+            respond(`You have no ${suit}. Type a card to play, for example S and 4.`);
+            return;
+        }
+        const card = highest ? cards[cards.length - 1] : cards[0];
+        ui.selected = [];
+        ui.pendingSuit = null;
+        socket.emit('play', { cardId: cardId(card) });
     }
 
     // ===== Lukukomennot =====
@@ -1138,6 +1173,18 @@
             performAction();
             return;
         }
+        // Valikossa (robottien nopeus) nuolet jäävät valikolle.
+        const inSelect = document.activeElement && document.activeElement.tagName === 'SELECT';
+        if (key === 'i' || (key === 'arrowup' && !inSelect)) {
+            e.preventDefault();
+            playLedSuitExtreme(true);
+            return;
+        }
+        if (key === 'o' || (key === 'arrowdown' && !inSelect)) {
+            e.preventDefault();
+            playLedSuitExtreme(false);
+            return;
+        }
         if (SUIT_KEYS[key]) {
             e.preventDefault();
             ui.pendingSuit = SUIT_KEYS[key];
@@ -1148,7 +1195,7 @@
             e.preventDefault();
             const suit = ui.pendingSuit;
             ui.pendingSuit = null;
-            toggleCard(suit, RANK_KEYS[key]);
+            toggleCard(suit, RANK_KEYS[key], { fromKeyboard: true });
         }
     }
 
