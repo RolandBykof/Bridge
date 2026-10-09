@@ -89,8 +89,11 @@ async function playHumanToEnd(c) {
             c.socket.emit('give', { cardId: id(g.hand[0]) });
         } else if (g.allowedActions.includes('play')) {
             const playable = g.hand.find(card => isPlayable(g.table, card));
-            if (playable) c.socket.emit('play', { cardId: id(playable) });
-            else c.socket.emit(g.bonus ? 'end-turn' : 'ask');
+            c.socket.emit('play', { cardId: id(playable) });
+        } else if (g.allowedActions.includes('ask')) {
+            c.socket.emit('ask');
+        } else if (g.allowedActions.includes('end-turn')) {
+            c.socket.emit('end-turn');
         } else {
             await new Promise(r => setTimeout(r, 3));
             continue;

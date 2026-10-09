@@ -2,6 +2,7 @@
 // piirtää pelitilanteen, hoitaa näppäinkomennot ja ruudunlukijailmoitukset.
 // Runko (ilmoitusjono, odotushuone, äänet) on sama kuin Musta Maijassa.
 // Peli ei kerro, mitkä omat kortit ovat lyötävissä: pelaaja päättelee sen itse.
+// Toimintopainike kuitenkin tarjoaa pyyntöä vain, kun mikään kortti ei sovi.
 (function () {
     'use strict';
 
@@ -781,16 +782,24 @@
 
         // aria-disabled eikä disabled: painike pysyy fokusoitavana, joten fokus ei
         // katoa, kun vuoro vaihtuu. Painaminen kertoo, kenen vuoro on.
+        // Pyydä näkyy vain, kun mitään ei voi lyödä. Lyö-painike on käytettävissä
+        // vasta, kun kortti on valittu.
         const chosen = selectedCard();
-        if (g.allowedActions.includes('play')) {
+        const actions = g.allowedActions;
+        if (actions.includes('ask')) {
             button.setAttribute('aria-disabled', 'false');
-            if (chosen) button.textContent = 'Lyö valittu (L)';
-            else if (g.bonus) button.textContent = 'Lopeta vuoro (L)';
-            else {
-                const target = askTarget(myId());
-                button.textContent = target ? `Pyydä kortti pelaajalta ${target.name} (L)` : 'Pyydä kortti (L)';
-            }
-        } else if (g.allowedActions.includes('give')) {
+            const target = askTarget(myId());
+            button.textContent = target ? `Pyydä kortti pelaajalta ${target.name} (L)` : 'Pyydä kortti (L)';
+        } else if (actions.includes('play') && chosen) {
+            button.setAttribute('aria-disabled', 'false');
+            button.textContent = 'Lyö valittu (L)';
+        } else if (actions.includes('end-turn')) {
+            button.setAttribute('aria-disabled', 'false');
+            button.textContent = 'Lopeta vuoro (L)';
+        } else if (actions.includes('play')) {
+            button.setAttribute('aria-disabled', 'true');
+            button.textContent = 'Lyö valittu (L)';
+        } else if (actions.includes('give')) {
             button.setAttribute('aria-disabled', 'false');
             button.textContent = 'Anna valittu kortti (L)';
         } else {
@@ -851,24 +860,32 @@
         if (!g || g.hand === null) return;
         const chosen = selectedCard();
 
-        if (g.allowedActions.includes('play')) {
-            if (chosen) {
-                ui.pendingEnd = false;
-                socket.emit('play', { cardId: cardId(chosen) });
-                ui.selected = null;
-                return;
-            }
-            if (g.bonus) {
-                if (fromButton || ui.pendingEnd) {
-                    ui.pendingEnd = false;
-                    socket.emit('end-turn');
-                    return;
-                }
-                ui.pendingEnd = true;
-                respond('Paina L uudelleen lopettaaksesi vuoron.');
-                return;
-            }
+        if (g.allowedActions.includes('ask')) {
+            ui.selected = null;
             socket.emit('ask');
+            return;
+        }
+
+        if (g.allowedActions.includes('play') && chosen) {
+            ui.pendingEnd = false;
+            socket.emit('play', { cardId: cardId(chosen) });
+            ui.selected = null;
+            return;
+        }
+
+        if (g.allowedActions.includes('end-turn')) {
+            if (fromButton || ui.pendingEnd) {
+                ui.pendingEnd = false;
+                socket.emit('end-turn');
+                return;
+            }
+            ui.pendingEnd = true;
+            respond('Paina L uudelleen lopettaaksesi vuoron.');
+            return;
+        }
+
+        if (g.allowedActions.includes('play')) {
+            respond('Valitse ensin lyötävä kortti, esimerkiksi H ja 8.');
             return;
         }
 

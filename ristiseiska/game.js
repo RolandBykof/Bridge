@@ -278,12 +278,16 @@ class Game {
     }
 
     // Pelaajakohtainen näkymä. viewerId = null katsojalle. Lyötäviä kortteja ei
-    // kerrota kenellekään: pelaaja päättelee ne itse.
+    // nimetä, mutta allowedActions kertoo, voiko vuorossa oleva lyödä mitään:
+    // 'play' vain, jos jokin sopii, ja 'ask' vain, jos mikään ei sovi.
     getView(viewerId) {
         const viewer = this.players.find(p => p.id === viewerId) || null;
         const allowedActions = [];
         if (viewer && this.phase === 'play' && viewer === this.players[this.current]) {
-            allowedActions.push('play', this.bonus ? 'end-turn' : 'ask');
+            const canPlay = playableCards(this.table, viewer.hand).length > 0;
+            if (canPlay) allowedActions.push('play');
+            if (this.bonus) allowedActions.push('end-turn');
+            else if (!canPlay) allowedActions.push('ask');
         }
         if (viewer && this.phase === 'give' && viewer === this.players[this.giver]) {
             allowedActions.push('give');

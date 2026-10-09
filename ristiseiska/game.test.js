@@ -94,6 +94,18 @@ test('lyöntipakko: pyyntö hylätään, jos voi lyödä', () => {
     assert.throws(() => game.ask('p0'), (err) => err instanceof GameError && err.message === 'Sinulla on lyötävä kortti.');
 });
 
+test('näkymä sallii pyynnön vain, kun mikään kortti ei sovi', () => {
+    const game = new Game(players(2), { rng: seeded(1) });
+    const clubs = { clubs: { low: '7', high: '7' } };
+    arrange(game, [['spades-7', 'hearts-2'], ['spades-9', 'spades-10']], clubs);
+    assert.deepStrictEqual(game.getView('p0').allowedActions, ['play']);
+    arrange(game, [['spades-2', 'hearts-2'], ['spades-9', 'spades-10']], clubs);
+    assert.deepStrictEqual(game.getView('p0').allowedActions, ['ask']);
+    assert.deepStrictEqual(game.getView('p1').allowedActions, []);
+    game.bonus = true;
+    assert.deepStrictEqual(game.getView('p0').allowedActions, ['end-turn'], 'lisävuorolla ei sopivaa: vain lopetus');
+});
+
 test('pyyntö ja antaminen: edellinen antaa, vuoro siirtyy pyytäjää seuraavalle', () => {
     const game = new Game(players(3), { rng: seeded(1) });
     arrange(game, [['spades-9', 'spades-10'], ['hearts-2', 'hearts-3'], ['diamonds-2', 'diamonds-3']], { clubs: { low: '7', high: '7' } }, 1);
