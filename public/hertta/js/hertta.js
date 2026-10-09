@@ -319,9 +319,11 @@
             }
             case 'play': {
                 const broke = e.brokeHearts ? ' Hearts are broken.' : '';
-                if (e.auto) return `${who(e.playerId, e.name, true)} ${isMe(e.playerId, e.name) ? 'lead' : 'leads'} the 2 of clubs.`;
+                if (e.auto === 'two-of-clubs') return `${who(e.playerId, e.name, true)} ${isMe(e.playerId, e.name) ? 'lead' : 'leads'} the 2 of clubs.`;
                 return `${who(e.playerId, e.name, true)} played ${cardName(e.card)}.${broke}`;
             }
+            case 'last-trick':
+                return 'Everyone has one card left. The last trick is played automatically.';
             case 'trick': {
                 const pts = e.points !== 0 ? `, ${pointsText(e.points)}` : ', no points';
                 return `${who(e.winnerId, e.winnerName, true)} won the trick${pts}.`;
@@ -352,7 +354,7 @@
     // Oman siirron tulos ja sen välittömät seuraukset luetaan yhtenä ryhmänä heti
     // jonon kärjestä. Palvelin lähettää tapahtumat ja heti perään uuden tilan.
     function isOwnMoveFollowup(e) {
-        return ['trick', 'round-over', 'over', 'exchange'].includes(e.type) || (e.type === 'play' && e.auto);
+        return ['trick', 'round-over', 'over', 'exchange', 'last-trick'].includes(e.type) || (e.type === 'play' && e.auto);
     }
 
     function flushOwnMove(turnText) {
@@ -432,7 +434,8 @@
         const suit = document.createElement('span');
         suit.className = 'card-suit';
         suit.setAttribute('aria-hidden', 'true');
-        suit.textContent = SUIT_SYMBOLS[card.suit];
+        // U+FE0E pakottaa tekstiesityksen, jottei esim. ♥ piirry emojina.
+        suit.textContent = `${SUIT_SYMBOLS[card.suit]}︎`;
         const rank = document.createElement('span');
         rank.className = 'card-rank';
         rank.setAttribute('aria-hidden', 'true');
@@ -571,12 +574,12 @@
         if (g.phase === 'round-over') return `Round ${g.round} over.`;
         if (g.phase === 'pass') {
             if (g.allowedActions.includes('pass')) {
-                return `▶ Choose ${PASS_COUNT} cards to pass to ${nameOf(g.passTargetId)} (${DIRECTION_TEXT[g.passDirection]})`;
+                return `Choose ${PASS_COUNT} cards to pass to ${nameOf(g.passTargetId)} (${DIRECTION_TEXT[g.passDirection]})`;
             }
             const ready = g.players.filter(p => p.passed).length;
             return `Waiting for others to pass cards (${ready}/${g.players.length} ready)`;
         }
-        if (g.currentId === myId()) return g.trick.length === 0 ? '▶ Your turn to lead' : '▶ Your turn';
+        if (g.currentId === myId()) return g.trick.length === 0 ? 'Your turn to lead' : 'Your turn';
         return `To play: ${nameOf(g.currentId)}${isRobot(g.currentId) ? ' – thinking…' : ''}`;
     }
 
@@ -593,7 +596,7 @@
         const bar = $('turn-bar');
         bar.classList.toggle('is-yours', myTurn);
         bar.textContent = turnBarText(g);
-        document.title = myTurn ? '▶ Your turn – Hearts' : 'Hearts';
+        document.title = myTurn ? 'Your turn – Hearts' : 'Hearts';
 
         renderPlayers(g, state);
         renderTrick(g);
@@ -618,7 +621,7 @@
                 item.classList.add('is-current');
                 const badge = document.createElement('span');
                 badge.className = 'turn-badge';
-                badge.textContent = g.phase === 'pass' ? '▶ CHOOSING CARDS' : '▶ TO PLAY';
+                badge.textContent = g.phase === 'pass' ? 'CHOOSING CARDS' : 'TO PLAY';
                 item.appendChild(badge);
             }
 
@@ -942,7 +945,7 @@
         respond(notYourTurnText(g));
     }
 
-    // Aloitetun maan isoin tai pienin kortti pöytään heti, kuten Bridgessä (I/↑ ja O/↓).
+    // Aloitetun maan isoin tai pienin kortti pöytään heti, kuten Bridgessä (I tai nuoli ylös, O tai nuoli alas).
     function playLedSuitExtreme(highest) {
         const g = game();
         if (!g || g.hand === null) return;

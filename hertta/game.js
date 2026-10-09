@@ -118,7 +118,7 @@ class Game {
         this.phase = 'play';
         const holder = this.players.findIndex(p => p.hand.some(isTwoOfClubs));
         this.current = holder;
-        return this.play(this.players[holder].id, 'clubs-2', { auto: true });
+        return this.play(this.players[holder].id, 'clubs-2', { auto: 'two-of-clubs' });
     }
 
     findInHand(player, id) {
@@ -208,6 +208,19 @@ class Game {
         }
         events.push(this.finishTrick());
         if (this.tricksPlayed === TRICKS_PER_ROUND) events.push(...this.finishRound());
+        else if (this.tricksPlayed === TRICKS_PER_ROUND - 1) events.push(...this.playLastTrick());
+        return events;
+    }
+
+    // Viimeisessä tikissä jokaisella on yksi kortti, joten se pelataan automaattisesti
+    // voittajasta alkaen. Viimeinen play() päättää myös kierroksen.
+    playLastTrick() {
+        const events = [{ type: 'last-trick' }];
+        for (let i = 0; i < PLAYERS; i++) {
+            const player = this.players[this.current];
+            const card = player.hand[0];
+            events.push(...this.play(player.id, `${card.suit}-${card.rank}`, { auto: 'last-trick' }));
+        }
         return events;
     }
 

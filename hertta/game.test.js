@@ -165,6 +165,24 @@ test('peli päättyy, kun joku saa 100 pistettä, ja pienimmät pisteet voittava
     assert.deepStrictEqual(tie.winnerIds, ['p1', 'p2']);
 });
 
+test('viimeinen tikki pelataan automaattisesti', () => {
+    const game = new Game(players(), { rng: seeded(21), dealerIndex: 0 });
+    passAll(game);
+    let events = [];
+    while (game.tricksPlayed < 12) {
+        const p = game.players[game.current];
+        const view = game.getView(p.id);
+        events = game.play(p.id, cardId(legalCards(view.hand, context(view))[0]));
+    }
+    // Kahdennentoista tikin viimeinen kortti pelasi myös viimeisen tikin ja päätti kierroksen.
+    assert.ok(events.some(e => e.type === 'last-trick'));
+    assert.strictEqual(events.filter(e => e.type === 'play' && e.auto === 'last-trick').length, 4);
+    assert.strictEqual(game.tricksPlayed, 13);
+    assert.ok(game.players.every(p => p.hand.length === 0));
+    assert.ok(['round-over', 'over'].includes(game.phase));
+    assert.strictEqual(game.history[0].points.reduce((a, b) => a + b, 0), 16);
+});
+
 test('hertat rikkoutuvat, kun hertta pelataan', () => {
     const game = new Game(players(), { rng: seeded(5), dealerIndex: 0 });
     passAll(game);

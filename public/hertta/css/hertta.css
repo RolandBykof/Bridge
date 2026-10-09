@@ -17,15 +17,13 @@
 .played-card .card-display { min-width: 48px; }
 
 /* Annettaviksi valitut kortit (odotetaan muita) ja vaihdossa saadut kortit
-   ensimmäisen tikin ajan. Merkitty myös muuten kuin värillä: katkoviiva ja tähti. */
+   ensimmäisen tikin ajan. Merkitty muuten kuin värillä: katkoviiva ja kaksoisreuna. */
 .card-display.is-passing { border-style: dashed; opacity: .7; }
-.card-display.is-received::before {
-    content: "★";
-    position: absolute;
-    top: -.9em;
-    font-size: .85rem;
-    color: var(--accent);
-}
+.card-display.is-received { border-style: double; border-width: 5px; padding: 1px 3px; }
+
+/* Ei symboleja ruudulla: valittu kortti näkyy nostettuna ja paksulla sinisellä
+   reunalla, joten Maijan tyylien ✓-merkki jätetään pois. */
+.card-display.is-selected::after { content: none; }
 
 .hand .card-display { min-width: 48px; }
 

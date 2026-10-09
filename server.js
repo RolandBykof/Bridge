@@ -1464,7 +1464,28 @@ function processTrick(table) {
     nextPlayer: winner
   });
 
+  // Viimeisessä tikissä jokaisella on yksi kortti, joten vaihtoehtoja ei ole:
+  // tikki pelataan automaattisesti voittajasta alkaen.
+  if (table.gameState.totalTricks === 12) {
+    autoPlayLastTrick(table);
+    return;
+  }
+
   maybeTriggerRobot(table);
+}
+
+/**
+ * Plays the last trick automatically: every hand has exactly one card left.
+ * processCardPlay() announces each card and resolves the trick as usual.
+ */
+function autoPlayLastTrick(table) {
+  for (let i = 0; i < 4; i++) {
+    const position = table.gameState.currentPlayer;
+    const hand = table.gameState.hands[position];
+    const suit = Object.keys(hand).find(s => hand[s] && hand[s].length > 0);
+    if (!suit) return; // ei pitäisi tapahtua; jätetään peli normaaliin kulkuun
+    processCardPlay(table, position, suit, hand[suit][0]);
+  }
 }
 
 /**
