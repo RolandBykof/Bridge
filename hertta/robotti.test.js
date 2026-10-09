@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { Game } = require('./game.js');
 const robotti = require('./robotti.js');
+const { GAME_END_SCORE } = require('../public/hertta/js/saannot.js');
 
 function seeded(seed) {
     let s = seed >>> 0;
@@ -65,5 +66,5 @@ test('robotit pelaavat kokonaisen pelin vain sallituilla siirroilla', () => {
         }
     }
     assert.strictEqual(game.phase, 'over');
-    assert.ok(game.players.some(p => p.score >= 100));
+    assert.ok(game.players.some(p => p.score >= GAME_END_SCORE));
 });

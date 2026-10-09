@@ -6,7 +6,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { io: connect } = require('socket.io-client');
 const hertta = require('./socket.js');
-const { legalCards } = require('../public/hertta/js/saannot.js');
+const { legalCards, GAME_END_SCORE } = require('../public/hertta/js/saannot.js');
 
 async function startServer() {
     const server = http.createServer();
@@ -78,31 +78,37 @@ test('pöydässä tasan 4 pelaajaa, ja virheet ovat englanniksi', async () => {
 // Ihminen pelaa yksinkertaisesti: antaa kolme ensimmäistä korttiaan, lyö
 // ensimmäisen sallitun kortin ja aloittaa seuraavan kierroksen.
 async function playHumanToEnd(c) {
+    // Odotetaan, että juuri oma siirto näkyy tilassa. Pelkkä tilan muuttuminen ei
+    // riitä: robotin aiempi siirto voi tuoda välissä tilan, jossa on yhä oma vuoro.
+    const me = () => c.state.game.players.find(p => p.id === c.state.you.id);
     for (let i = 0; i < 20000; i++) {
         const g = c.state.game;
         if (g.phase === 'over') return g;
-        const before = c.state;
+        const round = g.round;
         if (g.allowedActions.includes('pass')) {
             c.socket.emit('pass', { cardIds: g.hand.slice(0, 3).map(id) });
+            await until(() => c.state.game.round !== round || me().passed, 'vaihto');
         } else if (g.allowedActions.includes('play')) {
             const lead = g.trick.length ? g.trick[0].card.suit : null;
             const legal = legalCards(g.hand, { lead, firstTrick: g.tricksPlayed === 0, heartsBroken: g.heartsBroken });
+            const count = g.hand.length;
             c.socket.emit('play', { cardId: id(legal[0]) });
+            await until(() => c.state.game.round !== round || c.state.game.hand.length < count, 'kortti');
         } else if (g.allowedActions.includes('next-round')) {
             c.socket.emit('next-round');
+            await until(() => c.state.game.round !== round, 'uusi kierros');
         } else {
             await new Promise(r => setTimeout(r, 2));
-            continue;
         }
-        await until(() => c.state !== before, 'siirto');
     }
     throw new Error('peli ei päättynyt');
 }
 
 test('ihminen ja kolme robottia pelaavat pelin loppuun', async () => {
     const srv = await startServer();
+    let alice = null;
     try {
-        const alice = await createTable(srv.url, 'Alice');
+        alice = await createTable(srv.url, 'Alice');
         for (let i = 0; i < 3; i++) alice.socket.emit('add-robot');
         await until(() => alice.state.members.length === 4, 'robotit');
         alice.socket.emit('start-game');
@@ -112,7 +118,7 @@ test('ihminen ja kolme robottia pelaavat pelin loppuun', async () => {
         const g = await playHumanToEnd(alice);
         assert.strictEqual(g.phase, 'over');
         assert.ok(g.winnerIds.length >= 1);
-        assert.ok(g.players.some(p => p.score >= 100));
+        assert.ok(g.players.some(p => p.score >= GAME_END_SCORE));
         assert.ok(alice.events.some(e => e.type === 'over'));
         assert.deepStrictEqual(alice.errors, [], 'ei hylättyjä siirtoja');
         // Muiden vaihtamat kortit eivät näy.
@@ -123,8 +129,10 @@ test('ihminen ja kolme robottia pelaavat pelin loppuun', async () => {
         for (const e of alice.events.filter(e => e.type === 'exchange')) {
             assert.ok(e.transfers.every(t => t.fromId === myId || t.toId === myId));
         }
-        alice.socket.close();
+        assert.ok(alice.events.some(e => e.type === 'last-trick'), 'viimeinen tikki automaattisesti');
     } finally {
+        // Suljetaan myös epäonnistuessa, muuten testiajo jää odottamaan yhteyttä.
+        if (alice) alice.socket.close();
         await srv.close();
     }
 });

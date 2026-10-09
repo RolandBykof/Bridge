@@ -19,7 +19,7 @@
     // Vastaanottajan paikka antajaan nähden (pelaajat myötäpäivään, seuraava = vasen).
     const PASS_OFFSETS = { left: 1, right: 3, across: 2 };
     const PASS_COUNT = 3;
-    const GAME_END_SCORE = 100;
+    const GAME_END_SCORE = 50;
 
     function rankValue(rank) {
         return RANKS.indexOf(rank);

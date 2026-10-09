@@ -4,7 +4,8 @@
 //
 // Peli koostuu kierroksista (jaoista). Kierroksen alussa annetaan kolme korttia
 // vuorotellen vasemmalle, oikealle ja vastapäätä; joka neljännellä kierroksella
-// ei vaihdeta. Peli päättyy kierroksen jälkeen, kun jollakin on vähintään 100 pistettä.
+// ei vaihdeta. Peli päättyy kierroksen jälkeen, kun jollakin on vähintään 50 pistettä
+// (GAME_END_SCORE).
 
 const { sortCards } = require('../public/korttipelit/kortit.js');
 const {

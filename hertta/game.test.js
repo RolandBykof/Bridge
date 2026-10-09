@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { Game, GameError } = require('./game.js');
-const { legalCards, illegalReason, trickWinner, trickPoints } = require('../public/hertta/js/saannot.js');
+const { legalCards, illegalReason, trickWinner, trickPoints, GAME_END_SCORE } = require('../public/hertta/js/saannot.js');
 const { cardId } = require('../public/korttipelit/kortit.js');
 
 // Toistettava satunnaisluku testejä varten.
@@ -140,27 +140,28 @@ test('neljännellä kierroksella ei vaihdeta, ja ristikakkonen lyödään heti',
     }
 });
 
-test('peli päättyy, kun joku saa 100 pistettä, ja pienimmät pisteet voittavat', () => {
+test('peli päättyy, kun joku saa 50 pistettä, ja pienimmät pisteet voittavat', () => {
+    assert.strictEqual(GAME_END_SCORE, 50);
     const game = new Game(players(), { rng: seeded(11), dealerIndex: 0 });
-    game.players.forEach((p, i) => { p.score = [90, 40, 45, 70][i]; });
+    game.players.forEach((p, i) => { p.score = [40, 20, 25, 35][i]; });
     game.players.forEach((p, i) => { p.roundPoints = [9, 15, 2, -10][i]; });
     let events = game.finishRound();
-    assert.strictEqual(game.phase, 'round-over', '99 ei vielä riitä');
-    assert.strictEqual(events[0].results[0].total, 99);
+    assert.strictEqual(game.phase, 'round-over', '49 ei vielä riitä');
+    assert.strictEqual(events[0].results[0].total, 49);
 
     game.startRound();
     game.players.forEach((p, i) => { p.roundPoints = [1, 0, 2, 13][i]; });
     events = game.finishRound();
     assert.strictEqual(game.phase, 'over');
     const over = events.find(e => e.type === 'over');
-    assert.deepStrictEqual(over.winnerNames, ['Player 2'], 'pienimmät pisteet: 49');
-    assert.strictEqual(over.winningScore, 49);
-    assert.deepStrictEqual(over.ranking.map(r => r.score), [49, 55, 73, 100]);
+    assert.deepStrictEqual(over.winnerNames, ['Player 2'], 'pienimmät pisteet: 29');
+    assert.strictEqual(over.winningScore, 29);
+    assert.deepStrictEqual(over.ranking.map(r => r.score), [29, 35, 38, 50]);
     assert.throws(() => game.nextRound('p0'), /not over/);
 
     // Tasapisteillä voittajia on useampi.
     const tie = new Game(players(), { rng: seeded(12), dealerIndex: 0 });
-    tie.players.forEach((p, i) => { p.score = [100, 30, 30, 50][i]; });
+    tie.players.forEach((p, i) => { p.score = [50, 30, 30, 40][i]; });
     tie.finishRound();
     assert.deepStrictEqual(tie.winnerIds, ['p1', 'p2']);
 });

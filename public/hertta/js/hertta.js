@@ -7,7 +7,7 @@
     'use strict';
 
     const { SUIT_SYMBOLS, cardId, capitalize } = window.Kortit;
-    const { SUITS, PASS_COUNT, cardName, rankWord, rankValue } = window.HerttaSaannot;
+    const { SUITS, PASS_COUNT, GAME_END_SCORE, cardName, rankWord, rankValue } = window.HerttaSaannot;
 
     // Samat näppäimet kuin Accessible Bridgessä, Maijassa ja ristiseiskassa.
     const SUIT_KEYS = { s: 'spades', h: 'hearts', d: 'diamonds', c: 'clubs' };
@@ -759,7 +759,7 @@
                 ? `${names[0] === 'You' ? 'You win' : `Winner: ${names[0]}`} with ${pointsText(score)}.`
                 : `Shared win: ${listNames(names)} with ${pointsText(score)}.`;
         } else {
-            $('result-winner').textContent = 'Lowest score wins. The game ends when someone reaches 100 points.';
+            $('result-winner').textContent = `Lowest score wins. The game ends when someone reaches ${GAME_END_SCORE} points.`;
         }
         renderScoreTable(g);
 
