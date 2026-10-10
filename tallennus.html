@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hertan tallennus – suunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+}
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 48rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 40rem; }
+main { padding: 1.5rem 1rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+p, li { max-width: 42rem; }
+li { margin-bottom: .35rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible { outline: 3px solid var(--suit-red); outline-offset: 3px; }
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 30rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.speech {
+  background: var(--surface); border: 1px solid var(--rule); border-left: 6px solid var(--felt);
+  padding: .5rem 1rem; margin: .75rem 0; font-style: italic;
+}
+.speech::before { content: "Ruudunlukija: "; font-style: normal; font-weight: 700; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+.open-q { background: var(--surface); border: 2px dashed var(--suit-red); padding: .5rem 1.25rem 1rem; margin: 1.5rem 0; }
+.mock {
+  background: var(--surface); border: 1px solid var(--rule);
+  padding: .75rem 1.25rem 1rem; margin: 1rem 0;
+}
+.mock fieldset { border: 1px solid var(--rule); padding: .5rem 1rem; margin: .5rem 0; }
+.mock legend { font-weight: 700; padding: 0 .25rem; }
+.mock label { display: block; padding: .2rem 0; }
+.mock button {
+  font: inherit; padding: .35rem 1rem; margin-top: .5rem;
+  background: var(--felt); color: var(--bg); border: 0; border-radius: 4px;
+}
+footer { color: var(--muted); max-width: 48rem; margin: 0 auto; padding: 0 1rem 3rem; }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Hertan tallennus – suunnitelma</h1>
+    <p>Pöydän luoja voi valita ”Tallenna pöytä 5 vuorokaudeksi”. Silloin keskeytetty peli ei katoa, vaan sitä voi jatkaa samalla pöytäkoodilla myöhemmin. Toteutettu 10.10.2026; toteutus poikkeaa suunnitelmasta alla kerrotuin osin.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#tiivistelma">Tiivistelmä</a></li>
+    <li><a href="#nykytila">Miksi pisteet nyt katoavat</a></li>
+    <li><a href="#kayttaja">Miltä tämä näyttää pelaajille</a></li>
+    <li><a href="#milloin">Mitä tallennetaan ja milloin</a></li>
+    <li><a href="#palvelin">Palvelimen toteutus</a></li>
+    <li><a href="#protokolla">Viestit selaimen ja palvelimen välillä</a></li>
+    <li><a href="#saavutettavuus">Saavutettavuus</a></li>
+    <li><a href="#riskit">Riskit ja huomiot</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+    <li><a href="#avoimet">Avoimet kysymykset</a></li>
+    <li><a href="#vaiheet">Toteutusjärjestys ja työmäärä</a></li>
+  </ol>
+</nav>
+
+<h2 id="tiivistelma">Tiivistelmä</h2>
+<div class="verdict">
+  <p><strong>Toteutuksen tila:</strong> tehty. Poikkeamat suunnitelmasta:</p>
+  <ul>
+    <li>Pelaajan valinta ja tunnisteella palaaminen kulkevat olemassa olevan <code>join-table</code>-viestin kautta (<code>claimId</code> tai <code>spectator</code>). Erillistä <code>claim-player</code>-viestiä ei tehty.</li>
+    <li>Puuttuvaa pelaajaa ei voi korvata robotilla. Luoja voi sen sijaan luopua tallennetusta pelistä (”Discard saved game”), jolloin pöytä palaa tavalliseksi odotushuoneeksi.</li>
+    <li>Tallennuksen valinta ja tila, tallennusilmoitukset sekä ”Continue saved game” ovat vain pöydän luojalla, kuten pelin aloituskin. Myös seuraavan jaon aloittaa vain luoja.</li>
+    <li>Alkuperäinen luoja pysyy luojana. Jos hän ei palaa, oikeudet siirtyvät tavalliseen tapaan 5 minuutin kuluttua.</li>
+    <li>Säilytysaika on kiinteä 5 vuorokautta, ja tallennus on oletuksena pois päältä.</li>
+    <li>Samassa yhteydessä Bridgeen tehtiin salainen paikkatunniste. Bridgen pöytiä ei tallenneta.</li>
+  </ul>
+  <p><strong>Onko tämä liian monimutkaista?</strong> Ei ole. Työ on kohtalainen, jos tallennus tehdään <em>jakojen välissä</em>. Silloin tallennetaan pelaajat, kokonaispisteet, jaon numero, jakaja ja pistehistoria. Käsiä ja kesken olevaa tikkiä ei tallenneta. Arvio on noin 1,5–2 työpäivää testeineen.</p>
+  <p><strong>Ehdotus:</strong> luojan valintaruutu ”Tallenna pöytä 5 vuorokaudeksi”. Kun ruutu on valittuna, palvelin kirjoittaa pöydän tiedostoon aina jaon päätyttyä ja myös silloin, kun pöytä suljetaan. Kun joku liittyy myöhemmin samalla koodilla, pöytä herää tiedostosta. Liittyjä valitsee listasta, kuka hän on (esim. ”Ville, 14 pistettä”). Kun kaikki paikat on täytetty, peli jatkuu seuraavasta jaosta.</p>
+  <p><strong>Rajaus (päätetty):</strong> keskeneräisiä jakoja ei tallenneta. Jos peli keskeytyy kesken jaon, se jako pelataan uudelleen alusta. Kokonaispisteet säilyvät.</p>
+  <p><strong>Koskee vain Herttaa (päätetty):</strong> Musta Maijassa ja Ristiseiskassa yksi peli on yksi jako, eikä pisteitä kerry jakojen yli. Niissä ei siis olisi tallennettavaa.</p>
+</div>
+
+<h2 id="nykytila">Miksi pisteet nyt katoavat</h2>
+<ul>
+  <li>Kaikki pöydät ovat vain palvelimen muistissa (<code>korttipelit/poydat.js</code>, <code>Tables</code>-luokka). Mitään ei kirjoiteta levylle.</li>
+  <li>Huoltoajastin poistaa pöydän, kun yhtään ihmistä ei ole ollut paikalla 5 minuuttiin tai kun pöydässä ei ole tapahtunut mitään 60 minuuttiin.</li>
+  <li>Myös palvelimen uudelleenkäynnistys poistaa kaikki pöydät. Näin käy esimerkiksi, kun IIS kierrättää sovelluksen tai kun uusi versio julkaistaan.</li>
+  <li>Selain muistaa pelaajan tunnisteen (<code>hertta-session</code> localStoragessa). Tunniste kelpaa kuitenkin vain niin kauan kuin pöytä on muistissa.</li>
+</ul>
+<p>Pelin tila on onneksi yksinkertainen. Kaikki olennainen on <code>hertta/game.js</code>:n <code>Game</code>-oliossa: pelaajat, <code>score</code>, <code>round</code>, <code>dealer</code> ja <code>history</code>. Pöydän tiedot ovat <code>Table</code>-oliossa: jäsenet, istumajärjestys, luoja ja robottien nopeus.</p>
+
+<h2 id="kayttaja">Miltä tämä näyttää pelaajille</h2>
+
+<h3>1. Luoja valitsee tallennuksen</h3>
+<p>Aulassa ja pelin aikana valikossa on luojalle valintaruutu. Muut pelaajat näkevät tilan tekstinä (”Pöytä tallennetaan”), mutta eivät voi muuttaa sitä.</p>
+<div class="mock" aria-label="Esimerkki valintaruudusta">
+  <label><input type="checkbox" checked> Tallenna pöytä 5 vuorokaudeksi</label>
+  <p class="done-when">Pöytä säilyy 5 vuorokautta viimeisestä pelatusta jaosta. Jatka samalla pöytäkoodilla 4821.</p>
+</div>
+<ul>
+  <li>Jos ruudun valinnan poistaa, tallennettu tiedosto poistetaan heti.</li>
+  <li>Kun peli päättyy normaalisti (joku saavuttaa 50 pistettä), tallennus poistetaan, koska jatkettavaa ei ole.</li>
+  <li>Pöytäkoodi kannattaa näyttää selvästi ja tarjota sille ”Kopioi koodi” -painike, koska koodi on avain jatkamiseen.</li>
+</ul>
+
+<h3>2. Paluu samalla koodilla</h3>
+<p>Kun joku syöttää koodin, eikä pöytää ole muistissa mutta tallennus löytyy, pöytä herätetään. Liittyjä näkee valinnan:</p>
+<div class="mock" aria-label="Esimerkki pelaajan valinnasta">
+  <fieldset>
+    <legend>Tallennettu peli, jako 7. Kuka olet?</legend>
+    <label><input type="radio" name="p"> Ville – 14 pistettä</label>
+    <label><input type="radio" name="p"> Anna – 22 pistettä (jo paikalla)</label>
+    <label><input type="radio" name="p"> Pekka – 9 pistettä</label>
+    <label><input type="radio" name="p"> Liity katsojaksi</label>
+  </fieldset>
+  <p class="done-when">Robot 1 (31 pistettä) jatkaa automaattisesti.</p>
+  <button type="button">Jatka</button>
+</div>
+<ul>
+  <li><strong>Robotit</strong> palaavat automaattisesti omille paikoilleen.</li>
+  <li><strong>Jo varattua</strong> pelaajaa ei voi valita, jos sen haltija on yhteydessä.</li>
+  <li><strong>Samalla laitteella</strong> palaava pelaaja tunnistetaan suoraan selaimen muistamasta tunnisteesta. Tunnisteet tallennetaan tiedostoon, joten valintaa ei tarvita.</li>
+  <li><strong>Jatkaminen:</strong> kun kaikki neljä paikkaa on täytetty, luoja (tai kuka tahansa, jos luoja ei ole palannut) painaa ”Jatka peliä”. Silloin seuraava jako jaetaan.</li>
+  <li><strong>Luoja:</strong> jos alkuperäinen luoja ei palaa, luojaksi tulee ensimmäinen palannut ihminen. Tämä toimii kuten nykyinen luojan oikeuksien siirto.</li>
+</ul>
+
+<h2 id="milloin">Mitä tallennetaan ja milloin</h2>
+
+<h3>Tallennushetket (kun ruutu on valittuna)</h3>
+<ol>
+  <li>Kun jako päättyy (vaihe <code>round-over</code>). Tämä on tärkein, koska se suojaa myös palvelimen yllättävältä uudelleenkäynnistykseltä.</li>
+  <li>Kun luoja valitsee ruudun kesken pelin. Silloin tallennetaan edellisen jaon jälkeinen tilanne.</li>
+  <li>Juuri ennen kuin huoltoajastin poistaa pöydän muistista.</li>
+</ol>
+
+<h3>Tiedoston sisältö</h3>
+<p>Yksi JSON-tiedosto pöytää kohti, esim. <code>saved-tables/hertta-4821.json</code>:</p>
+<pre><code>{
+  "version": 1,
+  "game": "hertta",
+  "code": "4821",
+  "savedAt": "2026-10-10T18:42:00Z",
+  "expiresAt": "2026-10-15T18:42:00Z",
+  "creatorId": "a1…",
+  "robotSpeed": "normal",
+  "members": [
+    { "id": "a1…", "token": "t1…", "type": "human", "name": "Ville", "seat": 0 },
+    { "id": "b2…", "token": "t2…", "type": "human", "name": "Anna",  "seat": 1 },
+    { "id": "r1",  "token": null,  "type": "robot", "name": "Robot 1", "seat": 2 },
+    { "id": "c3…", "token": "t3…", "type": "human", "name": "Pekka", "seat": 3 }
+  ],
+  "progress": {
+    "nextRound": 7,
+    "dealer": 2,
+    "scores":  { "a1…": 14, "b2…": 22, "r1": 31, "c3…": 9 },
+    "history": [ { "round": 1, "points": [ … ] }, … ]
+  }
+}</code></pre>
+<p>Vanhenemisaika lasketaan aina viimeisimmästä tallennuksesta. Pöytä siis säilyy 5 vuorokautta viimeisestä pelatusta jaosta. Ohitussuunta (vasen, oikea, vastapäätä, ei ohitusta) johdetaan jaon numerosta kuten nyt, joten sitä ei tarvitse tallentaa erikseen.</p>
+
+<h2 id="palvelin">Palvelimen toteutus</h2>
+
+<h3>Uusi moduuli <code>korttipelit/tallennus.js</code></h3>
+<ul>
+  <li><code>save(game, code, snapshot)</code> kirjoittaa ensin väliaikaiseen tiedostoon ja nimeää sen sitten oikeaksi. Näin tiedosto ei jää puolikkaaksi, jos palvelin kaatuu kesken kirjoituksen.</li>
+  <li><code>load(game, code)</code> palauttaa tallennuksen tai <code>null</code>. Vanhentunut tallennus poistetaan ja käsitellään kuin sitä ei olisi.</li>
+  <li><code>remove(game, code)</code> ja <code>purgeExpired()</code>. Jälkimmäistä kutsutaan nykyisestä minuutin huoltoajastimesta.</li>
+  <li><code>reservedCodes(game)</code>: tallennettujen pöytien koodit, joita ei saa antaa uusille pöydille.</li>
+  <li>Hakemisto tulee ympäristömuuttujasta <code>SAVE_DIR</code>. Oletus on <code>data/saved-tables/</code>, ja se lisätään <code>.gitignore</code>-tiedostoon.</li>
+</ul>
+<p>Moduuli otetaan käyttöön vain Hertassa. Koska <code>poydat.js</code> on yhteinen, muutokset sinne tehdään niin, että Musta Maija ja Ristiseiska toimivat ennallaan: tallennus on niissä aina pois päältä, eikä valintaruutua näytetä.</p>
+
+<h3>Muutokset <code>korttipelit/poydat.js</code>:ään</h3>
+<ul>
+  <li><code>Table</code> saa kentät <code>saveEnabled</code> ja <code>restoredFrom</code> sekä metodin <code>toSnapshot()</code>.</li>
+  <li><code>Tables.create()</code> ohittaa koodit, joille on voimassa oleva tallennus. Koodeja on 9 000, joten niitä riittää.</li>
+  <li><code>Tables.restore(snapshot)</code> luo pöydän muistiin. Jäsenet palautetaan katkaistuun tilaan (<code>connected = false</code>), ja pöytä merkitään tilaan ”odottaa jatkamista”.</li>
+  <li><code>claimMember(code, memberId, socket)</code> liittää uuden yhteyden tallennettuun pelaajaan. Toiminto on sama kuin nykyinen <code>reconnect()</code>, mutta jäsen valitaan listasta eikä tunnisteella.</li>
+  <li><code>maintenance()</code>: ennen kuin pöytä poistetaan, se tallennetaan, jos <code>saveEnabled</code> on päällä.</li>
+</ul>
+
+<h3>Muutokset <code>hertta/game.js</code>:ään</h3>
+<ul>
+  <li><code>game.toProgress()</code> palauttaa <code>{ nextRound, dealer, scores, history }</code>. Jos jako on kesken, <code>nextRound</code> on nykyinen jako, jolloin se pelataan uudelleen.</li>
+  <li><code>Game.resume(players, progress, rng)</code> on uusi tehdasfunktio. Se asettaa pisteet, jaon numeron ja jakajan ja kutsuu sitten tavallista <code>startRound()</code>-metodia. Uutta korttien jakologiikkaa ei siis tarvita.</li>
+  <li><code>rng</code> annetaan uudelleen palautuksessa, koska funktiota ei voi tallentaa.</li>
+</ul>
+
+<h3>Muutokset <code>hertta/socket.js</code>:ään</h3>
+<ul>
+  <li><code>join-table</code>:
+    <ul>
+      <li>Jos pöytää ei ole muistissa, palvelin kokeilee <code>tallennus.load()</code>-funktiota ja herättää pöydän.</li>
+      <li>Jos liittyjän tunniste vastaa tallennettua jäsentä, hänet liitetään suoraan.</li>
+      <li>Muuten liittyjälle lähetetään pelaajavalinta.</li>
+    </ul>
+  </li>
+  <li>Uudet tapahtumat: <code>set-save</code> (vain luoja), <code>claim-player</code> ja <code>resume-game</code>.</li>
+  <li>Kun jako päättyy, tallennus tehdään, jos <code>saveEnabled</code> on päällä. Kun peli päättyy (<code>over</code>), tallennus poistetaan.</li>
+  <li>Robotit odottavat jo nyt, kunnes ihminen on yhteydessä, joten palautus ei vaadi muutoksia robottien ajoitukseen.</li>
+</ul>
+
+<h3>Selain: <code>public/hertta/js/hertta.js</code></h3>
+<ul>
+  <li>Valintaruutu aulaan ja pelin valikkoon (vain luojalle). Muille näytetään tilateksti.</li>
+  <li>Pelaajavalinta: lomake, jossa on <code>fieldset</code>, <code>legend</code> ja valintanapit sekä ”Jatka”-painike.</li>
+  <li>”Jatka peliä” -painike, kun kaikki paikat on täytetty.</li>
+  <li>Nykyinen <code>join-error</code> <code>missing: true</code> säilyy vanhentuneille tai tuntemattomille koodeille.</li>
+</ul>
+
+<h2 id="protokolla">Viestit selaimen ja palvelimen välillä</h2>
+<div class="table-wrap">
+<table>
+  <caption>Uudet ja muuttuvat Socket.IO-tapahtumat</caption>
+  <thead><tr><th scope="col">Tapahtuma</th><th scope="col">Suunta</th><th scope="col">Sisältö ja merkitys</th></tr></thead>
+  <tbody>
+    <tr><td><code>set-save</code></td><td>selain → palvelin</td><td><code>{ enabled: true|false }</code>. Vain luoja voi lähettää. Palvelin tallentaa tai poistaa tiedoston heti.</td></tr>
+    <tr><td><code>state</code></td><td>palvelin → selain</td><td>Näkymään lisätään <code>save: { enabled, expiresAt }</code> ja palautetulle pöydälle <code>resuming: true</code>.</td></tr>
+    <tr><td><code>choose-player</code></td><td>palvelin → selain</td><td><code>{ code, round, players: [{ id, name, score, robot, taken }] }</code>. Lähetetään, kun liittyjää ei tunnisteta.</td></tr>
+    <tr><td><code>claim-player</code></td><td>selain → palvelin</td><td><code>{ code, memberId }</code> tai <code>{ code, spectator: true }</code>. Vastaus on tavallinen <code>joined</code>, jossa on tunniste.</td></tr>
+    <tr><td><code>resume-game</code></td><td>selain → palvelin</td><td>Jakaa seuraavan jaon, kun kaikki neljä paikkaa on täytetty.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="saavutettavuus">Saavutettavuus</h2>
+<ul>
+  <li>Valintaruudulla on näkyvä <code>label</code>. Selitysteksti liitetään siihen <code>aria-describedby</code>-määreellä, jotta ruudunlukija lukee säilytysajan.</li>
+  <li>Pelaajavalinta on tavallinen valintanappiryhmä. Siinä voi liikkua nuolinäppäimillä, ja jo varatut pelaajat ovat <code>disabled</code>-tilassa ja niissä lukee ”jo paikalla”.</li>
+  <li>Ilmoitukset menevät nykyiseen ilmoitusjonoon:</li>
+</ul>
+<p class="speech">Pöytä tallennetaan 5 vuorokaudeksi. Jatka myöhemmin pöytäkoodilla 4 8 2 1.</p>
+<p class="speech">Tallennettu peli löytyi, jako 7. Valitse, kuka olet.</p>
+<p class="speech">Anna palasi pöytään. Odotetaan vielä Pekkaa.</p>
+<p class="speech">Kaikki paikalla. Peli jatkuu jaosta 7. Pisteet: Ville 14, Anna 22, Robot 1 31, Pekka 9.</p>
+<p>Koodi luetaan numero kerrallaan, jotta se on helppo kirjoittaa muistiin.</p>
+
+<h2 id="riskit">Riskit ja huomiot</h2>
+<ul>
+  <li><strong>Levylle kirjoittaminen palvelimella.</strong> Sovellus pyörii IIS:n / iisnoden alla (<code>web.config</code>).
+    <ul>
+      <li>Varmistettava, että sovelluksella on kirjoitusoikeus tallennushakemistoon.</li>
+      <li>Jos kyseessä on Azure App Service ja julkaisu tehdään ”run from package” -tavalla, sovelluskansio on vain luku -tilassa. Silloin <code>SAVE_DIR</code> osoitetaan esim. <code>D:\home\data\saved-tables</code>-kansioon.</li>
+      <li>Hakemisto ei saa olla sellainen, jonka julkaisu tyhjentää.</li>
+    </ul>
+  </li>
+  <li><strong>Useita palvelinprosesseja.</strong> Jos iisnode ajaa useampaa Node-prosessia, sama pöytä voisi herätä kahteen prosessiin. Nykyinenkin pöytämalli edellyttää yhtä prosessia (muistissa olevat pöydät), joten tilanne ei muutu. Asia kannattaa kuitenkin tarkistaa asetuksista (<code>nodeProcessCountPerApplication</code> = 1).</li>
+  <li><strong>Tietoturva.</strong> Kuka tahansa koodin tietävä voi valita minkä tahansa vapaan pelaajan. Taso on sama kuin nyt, koska nelinumeroinen koodi on ainoa ”salasana”. Ystävien kesken tämä riittää. Tiedostoon tallennetaan vain nimet ja pisteet, ei henkilötietoja.</li>
+  <li><strong>Tiedostojen määrä</strong> pysyy pienenä, koska vanhentuneet poistetaan automaattisesti ja tallennus on vapaaehtoinen.</li>
+  <li><strong>Versiomuutokset.</strong> <code>version</code>-kenttä mahdollistaa vanhojen tallennusten hylkäämisen hallitusti, jos muoto myöhemmin muuttuu.</li>
+</ul>
+
+<h2 id="testaus">Testaus</h2>
+<ul>
+  <li><code>hertta/game.test.js</code>: <code>toProgress()</code> → <code>Game.resume()</code> tuottaa samat pisteet, jaon numeron, jakajan ja ohitussuunnan.</li>
+  <li>Uusi <code>korttipelit/tallennus.test.js</code>: tallennus ja luku väliaikaishakemistoon, vanheneminen, varatut koodit ja rikkinäinen tiedosto (palauttaa <code>null</code>, ei kaada palvelinta).</li>
+  <li><code>hertta/socket.test.js</code>:
+    <ul>
+      <li>Koko kierros: luo pöytä, valitse tallennus, pelaa jako ja sulje pöytä.</li>
+      <li>Liity uudella yhteydellä ja tarkista, että saat <code>choose-player</code>-viestin.</li>
+      <li>Valitse pelaaja, jatka peliä ja tarkista pisteet.</li>
+      <li>Palvelimen uudelleenkäynnistys simuloidaan luomalla uusi <code>Tables</code>-olio samalla hakemistolla.</li>
+    </ul>
+  </li>
+  <li>Käsin: kokeillaan ruudunlukijalla (NVDA ja VoiceOver) valintaruutu, pelaajavalinta ja ilmoitukset.</li>
+</ul>
+
+<h2 id="avoimet">Avoimet kysymykset</h2>
+<div class="open-q">
+  <ol>
+    <li><strong>Jos joku ei palaa:</strong> saako luoja korvata puuttuvan ihmisen robotilla, joka perii hänen pisteensä? Ehdotus: kyllä, painike ”Korvaa robotilla”.</li>
+    <li><strong>Säilytysaika:</strong> riittääkö kiinteä 5 vuorokautta, vai halutaanko valinta (1 / 5 / 14 vrk)? Ehdotus: aloitetaan kiinteällä.</li>
+    <li><strong>Tallennuksen oletustila:</strong> pitäisikö tallennuksen olla oletuksena päällä? Ehdotus: oletuksena pois, jotta levylle ei kerry turhia tiedostoja.</li>
+  </ol>
+</div>
+
+<h2 id="vaiheet">Toteutusjärjestys ja työmäärä</h2>
+
+<div class="phase">
+  <h3>Vaihe 1: Tallennus levylle (½ päivää)</h3>
+  <p><code>korttipelit/tallennus.js</code>, <code>Table.toSnapshot()</code>, <code>game.toProgress()</code>, tallennus jaon lopussa ja ennen pöydän poistoa, sekä vanhentuneiden tallennusten siivous. Luoja voi valita tallennuksen <code>set-save</code>-viestillä.</p>
+  <p class="done-when">Valmis, kun pelatun jaon jälkeen levyllä on oikeat pisteet ja tiedosto häviää 5 vuorokauden kuluttua tai kun ruudun valinta poistetaan.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 2: Herätys ja pelaajan valinta (½–1 päivää)</h3>
+  <p><code>Tables.restore()</code>, <code>Game.resume()</code>, <code>choose-player</code>, <code>claim-player</code> ja <code>resume-game</code>. Tunnisteella palaava pelaaja liitetään suoraan.</p>
+  <p class="done-when">Valmis, kun palvelimen uudelleenkäynnistyksen jälkeen samalla koodilla pääsee jatkamaan ja pisteet ovat tallessa.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 3: Käyttöliittymä ja ilmoitukset (½ päivää)</h3>
+  <p>Valintaruutu, tilateksti, pelaajavalintalomake, ”Jatka peliä” -painike ja ruudunlukijailmoitukset. Lopuksi testataan ruudunlukijalla.</p>
+</div>
+
+<p><strong>Yhteensä noin 1,5–2 työpäivää</strong> testeineen.</p>
+
+</main>
+
+<footer>
+  <p>Suunnitelma perustuu tiedostoihin <code>korttipelit/poydat.js</code>, <code>hertta/socket.js</code>, <code>hertta/game.js</code>, <code>public/hertta/js/hertta.js</code> ja <code>web.config</code>. Laadittu 10.10.2026.</p>
+</footer>
+
+</body>
+</html>

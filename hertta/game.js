@@ -40,7 +40,8 @@ function shuffle(array, rng) {
 class Game {
     // players: [{ id, name }] istumajärjestyksessä (myötäpäivään). dealerIndex:
     // ensimmäisen kierroksen jakaja; jos sitä ei anneta, jakaja arvotaan.
-    constructor(players, { rng = Math.random, dealerIndex = null } = {}) {
+    // progress: tallennetun pelin jatkaminen (toProgress()); players samassa järjestyksessä.
+    constructor(players, { rng = Math.random, dealerIndex = null, progress = null } = {}) {
         if (players.length !== PLAYERS) {
             throw new GameError(`Hearts needs exactly ${PLAYERS} players.`);
         }
@@ -54,7 +55,36 @@ class Game {
         this.history = [];          // [{ round, points: [pelaajien pisteet istumajärjestyksessä] }]
         this.winnerIds = [];
         this.moves = 0;             // kasvaa jokaisesta siirrosta (robottien ajastus)
-        this.startRound();          // ensimmäisellä kierroksella vaihdetaan aina, joten tapahtumia ei synny
+        if (progress) this.applyProgress(progress);
+        // Ensimmäisellä kierroksella vaihdetaan aina, joten tapahtumia ei synny. Jatketussa
+        // pelissä ilman vaihtoa ristikakkonen lyödään heti; pöytä välittää nämä tapahtumat.
+        this.startEvents = this.startRound().filter(e => e.type !== 'round-start');
+    }
+
+    // Tallennettava eteneminen jakojen välissä: seuraavaksi jaettava kierros, sen
+    // jakaja, kokonaispisteet ja historia. Kesken oleva jako pelataan uudelleen.
+    toProgress() {
+        const finished = this.phase === 'round-over' || this.phase === 'over';
+        return {
+            round: finished ? this.round + 1 : this.round,
+            dealer: finished ? (this.dealer + 1) % PLAYERS : this.dealer,
+            scores: this.players.map(p => p.score),
+            history: this.history.map(h => ({ round: h.round, points: h.points.slice() }))
+        };
+    }
+
+    applyProgress(progress) {
+        const { round, dealer, scores, history } = progress;
+        const valid = Number.isInteger(round) && round >= 1
+            && Number.isInteger(dealer) && dealer >= 0 && dealer < PLAYERS
+            && Array.isArray(scores) && scores.length === PLAYERS && scores.every(Number.isFinite)
+            && Array.isArray(history) && history.every(h => h && Array.isArray(h.points));
+        if (!valid) throw new GameError('The saved game could not be read.');
+        this.players.forEach((p, i) => { p.score = scores[i]; });
+        this.history = history.map(h => ({ round: h.round, points: h.points.slice() }));
+        // startRound() kasvattaa kierrosta ja siirtää jakajaa (kierroksesta 2 alkaen).
+        this.round = round - 1;
+        this.dealer = round > 1 ? (dealer + PLAYERS - 1) % PLAYERS : dealer;
     }
 
     // Pöydän aloitustapahtumaan lisättävät tiedot (korttipelit/poydat.js).
@@ -275,14 +305,16 @@ class Game {
         }));
     }
 
-    // Kuka tahansa pelaaja voi aloittaa seuraavan kierroksen, kun kaikki ovat nähneet tuloksen.
-    nextRound(playerId) {
+    // Seuraava kierros, kun kaikki ovat nähneet tuloksen. Kuka sen saa aloittaa,
+    // päättää pöytä (hertta/socket.js: pöydän luoja). name: aloittajan nimi, jos
+    // aloittaja ei itse pelaa (luoja katsojana).
+    nextRound(playerId, name = null) {
         if (this.phase !== 'round-over') throw new GameError('The round is not over yet.');
         const player = this.player(playerId);
-        if (!player) throw new GameError('You are not playing in this game.');
+        if (!player && !name) throw new GameError('You are not playing in this game.');
         this.moves++;
         const events = this.startRound();
-        events[0] = { ...events[0], byId: player.id, byName: player.name };
+        events[0] = { ...events[0], byId: playerId, byName: player ? player.name : name };
         return events;
     }
 

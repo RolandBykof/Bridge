@@ -1,3 +1,5 @@
 node_modules/
 .env
 *.log
+# Tallennetut korttipelipöydät (korttipelit/tallennus.js)
+data/saved-tables/

@@ -5,15 +5,21 @@
 //   require('./hertta/socket').attach(io, { app });
 //
 // Peli on englanniksi, joten myös pöytien virheilmoitukset ovat englanniksi.
+//
+// Pöydän luoja voi tallentaa pöydän (tallennus.html). Tallennus kirjoitetaan
+// levylle jakojen välissä, ja samalla koodilla liittyvä herättää pöydän ja
+// valitsee, kuka tallennetun pelin pelaajista hän on.
 
 const { Game, GameError, PLAYERS } = require('./game.js');
 const { Tables, TableError } = require('../korttipelit/poydat.js');
+const { SaveStore } = require('../korttipelit/tallennus.js');
 const robotti = require('./robotti.js');
 
 const ROBOT_BASE_DELAY_MS = { slow: 4500, normal: 2500, fast: 1200 };
 const ROBOTS_ONLY_DELAY_MS = 800;
 const PASS_DELAY_MS = 600;          // robotit valitsevat vaihtokortit yhtä aikaa ihmisten kanssa
 const MAINTENANCE_INTERVAL_MS = 60 * 1000;
+const PURGE_EVERY = 60;             // vanhentuneet tallennukset siivotaan kerran tunnissa
 
 // Arvio siitä, kauanko ruudunlukijalta kestää lukea tapahtuman ilmoitus
 // (sama 45 ms/merkki kuin selaimen ilmoitusjonossa, MS_PER_CHAR).
@@ -32,10 +38,14 @@ function estimateReadingMs(events) {
 
 function attach(io, options = {}) {
     const nsp = io.of(options.namespace || '/hertta');
+    const now = options.now || Date.now;
+    const store = new SaveStore({ dir: options.saveDir, game: 'hertta', now });
     const tables = new Tables({
         rng: options.rng || Math.random,
-        now: options.now || Date.now,
+        now,
         createGame: (players, gameOptions) => new Game(players, gameOptions),
+        restoreGame: (players, progress, gameOptions) => new Game(players, { ...gameOptions, progress }),
+        isReserved: code => store.exists(code),
         minPlayers: PLAYERS,
         maxPlayers: PLAYERS,
         lang: 'en'
@@ -59,15 +69,82 @@ function attach(io, options = {}) {
                 robotSpeed: table.robotSpeed,
                 minPlayers: PLAYERS,
                 maxPlayers: PLAYERS,
-                seatedCount: table.seated().length
+                seatedCount: table.seated().length,
+                save: { enabled: table.saveEnabled, expiresAt: table.saveExpiresAt, failed: !!table.saveFailed },
+                resuming: table.resuming ? resumingView(table) : null
             },
             you: { id: member.id, name: member.name, isCreator: table.isCreator(member) },
             members: table.members.map(m => ({
                 id: m.id, name: m.name, type: m.type, connected: m.connected,
-                isCreator: table.isCreator(m), spectator: table.isSpectator(m)
+                isCreator: table.isCreator(m), spectator: table.isSpectator(m), saved: table.isSavedPlayer(m)
             })),
-            game: table.game ? table.game.getView(table.inGame(member) ? member.id : null) : null
+            game: table.game ? gameView(table, member) : null
         };
+    }
+
+    // Seuraavan jaon voi aloittaa vain pöydän luoja (myös katsojana).
+    function gameView(table, member) {
+        const view = table.game.getView(table.inGame(member) ? member.id : null);
+        view.allowedActions = view.allowedActions.filter(a => a !== 'next-round');
+        if (view.phase === 'round-over' && table.isCreator(member)) view.allowedActions.push('next-round');
+        return view;
+    }
+
+    // Tallennetun pelin tiedot odotushuoneeseen ja pelaajan valintaan.
+    function resumingView(table) {
+        const progress = table.resuming.progress;
+        const scores = Array.isArray(progress.scores) ? progress.scores : [];
+        return {
+            round: progress.round,
+            players: table.resuming.playerIds.map((id, i) => {
+                const m = table.member(id);
+                return { id, name: m.name, robot: m.type === 'robot', connected: m.connected, score: scores[i] };
+            })
+        };
+    }
+
+    // ===== Tallennus =====
+
+    // Kirjoitetaan jakojen välissä (aloitus, jaon loppu) ja ennen pöydän poistoa.
+    // Kesken oleva jako pelataan jatkettaessa uudelleen (Game.toProgress).
+    function writeSave(table) {
+        const game = table.game;
+        if (!table.saveEnabled || !game || game.phase === 'over') return;
+        try {
+            table.saveExpiresAt = store.save(table.code, {
+                ...table.toSnapshot(game.players.map(p => p.id)),
+                progress: game.toProgress()
+            });
+            table.saveFailed = false;
+        } catch (err) {
+            table.saveFailed = true;
+            console.error(`Hertta: pöytää ${table.code} ei voitu tallentaa: ${err.message}`);
+        }
+    }
+
+    function removeSave(table) {
+        store.remove(table.code);
+        table.saveExpiresAt = null;
+    }
+
+    function persist(table, events) {
+        if (events.some(e => e.type === 'over' || e.type === 'aborted')) {
+            removeSave(table);
+        } else if (events.some(e => e.type === 'start' || e.type === 'round-over' || e.type === 'resumed')) {
+            writeSave(table);
+        }
+    }
+
+    // Tallennettu pöytä herätetään muistiin, kun joku liittyy sen koodilla.
+    function restoreSaved(code) {
+        const snapshot = store.load(code);
+        if (!snapshot) return null;
+        const table = tables.restore(snapshot);
+        if (!table) {
+            console.error(`Hertta: tallennettua pöytää ${code} ei voitu lukea.`);
+            store.remove(code);
+        }
+        return table;
     }
 
     function humansOnline(table) {
@@ -89,6 +166,7 @@ function attach(io, options = {}) {
     }
 
     function publish(table, events) {
+        persist(table, events);
         if (events.length) broadcastEvents(table, events);
         broadcastState(table);
         maybeTriggerRobot(table, events);
@@ -175,12 +253,16 @@ function attach(io, options = {}) {
 
     // ===== Ylläpito =====
 
+    let maintenanceRuns = 0;
     const maintenanceTimer = setInterval(() => {
+        if (maintenanceRuns++ % PURGE_EVERY === 0) store.purgeExpired();
         for (const table of [...tables]) {
             const { events, remove } = table.maintenance();
             if (remove) {
+                if (table.gameRunning()) writeSave(table);
                 clearRobotTimer(table);
-                broadcastEvents(table, [{ type: 'table-closed' }]);
+                const saved = table.saveEnabled && table.saveExpiresAt !== null;
+                broadcastEvents(table, [{ type: 'table-closed', saved, code: table.code }]);
                 tables.delete(table.code);
                 continue;
             }
@@ -230,10 +312,13 @@ function attach(io, options = {}) {
             publish(table, [{ type: 'table-created', code: table.code, name: member.name, playerId: member.id }]);
         });
 
+        // join-table { code, name, token? }. Tallennetussa pöydässä myös { claimId }
+        // (kuka pelaajista olen) tai { spectator: true }.
         socket.on('join-table', (data) => {
             if (current()) return;
-            const code = data && String(data.code || '').trim();
-            const table = tables.get(code);
+            data = data || {};
+            const code = String(data.code || '').trim();
+            const table = tables.get(code) || restoreSaved(code);
             if (!table) {
                 socket.emit('join-error', { text: code ? `Table ${code} was not found.` : 'Enter a table code.', code, missing: true });
                 return;
@@ -246,6 +331,21 @@ function attach(io, options = {}) {
                 table.reconnect(existing, socket.id);
                 enter(table, existing);
                 publish(table, [{ type: 'reconnected', name: existing.name, playerId: existing.id }]);
+                return;
+            }
+            if (table.resuming && !data.spectator) {
+                const claimed = data.claimId ? table.member(data.claimId) : null;
+                if (claimed && table.isSavedPlayer(claimed) && claimed.type === 'human' && !claimed.connected) {
+                    table.reconnect(claimed, socket.id);
+                    enter(table, claimed);
+                    publish(table, [{ type: 'reconnected', name: claimed.name, playerId: claimed.id, claimed: true }]);
+                    return;
+                }
+                // Liittyjä valitsee, kuka tallennetun pelin pelaajista hän on.
+                socket.emit('choose-player', {
+                    code: table.code, name: typeof data.name === 'string' ? data.name : '',
+                    taken: !!data.claimId, ...resumingView(table)
+                });
                 return;
             }
             let member;
@@ -312,6 +412,28 @@ function attach(io, options = {}) {
             return [{ type: 'speed-changed', speed: table.robotSpeed, byName: member.name }];
         }));
 
+        socket.on('set-save', creatorAction((table, member, data) => {
+            table.setSave(member, data.enabled === true);
+            if (table.saveEnabled) writeSave(table);
+            else removeSave(table);
+            return [{
+                type: 'save-changed', enabled: table.saveEnabled, code: table.code,
+                byName: member.name, playerId: member.id, gameRunning: table.gameRunning()
+            }];
+        }));
+
+        // Tallennetun pelin jatkaminen: pöydän luoja, kun kaikki pelaajat ovat paikalla.
+        socket.on('resume-game', () => {
+            const ctx = current();
+            if (!ctx) return;
+            try {
+                clearRobotTimer(ctx.table);
+                publish(ctx.table, ctx.table.resume(ctx.member));
+            } catch (err) {
+                fail(err);
+            }
+        });
+
         socket.on('leave-table', () => {
             const ctx = current();
             if (!ctx) return;
@@ -331,7 +453,7 @@ function attach(io, options = {}) {
             }
         });
 
-        // Pelitoiminnot: pass { cardIds }, play { cardId }, next-round.
+        // Pelitoiminnot: pass { cardIds }, play { cardId }.
         function playerAction(handler) {
             return (data) => {
                 const ctx = current();
@@ -357,13 +479,25 @@ function attach(io, options = {}) {
             if (typeof data.cardId !== 'string') throw new GameError('Select a card first.');
             return game.play(id, data.cardId);
         }));
-        socket.on('next-round', playerAction((game, id) => game.nextRound(id)));
+        // Seuraavan jaon aloittaa pöydän luoja, kuten pelinkin.
+        socket.on('next-round', () => {
+            const ctx = current();
+            if (!ctx || !ctx.table.game) return;
+            try {
+                ctx.table.requireCreator(ctx.member, 'nextRound');
+                const events = ctx.table.game.nextRound(ctx.member.id, ctx.member.name);
+                ctx.table.touch();
+                publish(ctx.table, events);
+            } catch (err) {
+                fail(err);
+            }
+        });
 
         socket.on('disconnect', () => {
             const ctx = current();
             if (!ctx || ctx.member.socketId !== socket.id) return;
             const { table, member } = ctx;
-            const waiting = table.gameRunning() && table.inGame(member);
+            const waiting = (table.gameRunning() && table.inGame(member)) || table.isSavedPlayer(member);
             table.disconnect(member);
             publish(table, [{ type: 'left', name: member.name, playerId: member.id, waiting }]);
         });
@@ -372,6 +506,7 @@ function attach(io, options = {}) {
     return {
         namespace: nsp,
         tables,
+        store,
         close() {
             clearInterval(maintenanceTimer);
             for (const table of tables) clearRobotTimer(table);

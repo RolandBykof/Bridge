@@ -66,6 +66,7 @@
 
     const ui = {
         state: null,
+        claim: null,                // tallennetun pelin pelaajavalinta (choose-player)
         myName: storage.get('hertta-name', storage.get('ristiseiska-name', storage.get('maija-name', ''))),
         selected: [],               // valittujen korttien id:t: pelatessa enintään 1, vaihdossa enintään 3
         pendingSuit: null,
@@ -264,6 +265,13 @@
         return String(code).split('').join(' ');
     }
 
+    // "Thursday 15 October at 18:42"
+    function dateText(ms) {
+        return new Date(ms).toLocaleString('en-GB', {
+            weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+        });
+    }
+
     function passInstruction(direction) {
         return direction === 'none'
             ? 'No passing this round.'
@@ -282,7 +290,8 @@
                 }
                 return e.spectator ? `${e.name} joined as a spectator.` : `${e.name} joined.`;
             case 'reconnected':
-                return isMe(e.playerId, e.name) ? 'Connection restored.' : `${e.name} is back.`;
+                if (isMe(e.playerId, e.name)) return e.claimed ? `You rejoined the saved game as ${e.name}.` : 'Connection restored.';
+                return `${e.name} is back.`;
             case 'left':
                 return e.waiting
                     ? `${e.name} lost connection. The game waits for them to return.`
@@ -300,13 +309,30 @@
             case 'to-lobby':
                 return 'Returned to the lobby.';
             case 'table-closed':
-                return 'The table was closed because it was not used.';
+                return e.saved
+                    ? `The table was closed because it was not used. The game is saved: join with table code ${spellCode(e.code)} to continue.`
+                    : 'The table was closed because it was not used.';
+            case 'save-changed': {
+                // Tallennus on pöydän luojan asia, joten muille ei ilmoiteta.
+                if (!isMe(e.playerId, e.byName)) return '';
+                if (!e.enabled) return 'You turned off saving. The saved game was deleted.';
+                const when = e.gameRunning
+                    ? 'The table is saved after every round and kept for 5 days.'
+                    : 'The table will be saved when the game starts.';
+                return `You turned on saving. ${when} Continue later with table code ${spellCode(e.code)}.`;
+            }
+            case 'resumed': {
+                const scores = e.scores.map(s => `${who(s.id, s.name)} ${s.score}`).join(', ');
+                return `The saved game continues from round ${e.round}. Scores: ${scores}. Dealer: ${who(e.dealerId, e.dealerName)}. ${passInstruction(e.passDirection)}`;
+            }
             case 'start':
                 return `Game started. Players: ${e.playerNames.join(', ')}. Dealer: ${who(e.dealerId, e.dealerName)}. Round ${e.round}. ${passInstruction(e.passDirection)}`;
             case 'round-start':
                 return `Round ${e.round} started. Dealer: ${who(e.dealerId, e.dealerName)}. ${passInstruction(e.passDirection)}`;
             case 'aborted':
-                return `${e.name} aborted the game.`;
+                return e.discarded
+                    ? `${e.name} discarded the saved game. The table is now an ordinary lobby.`
+                    : `${e.name} aborted the game.`;
             case 'passed':
                 return isMe(e.playerId, e.name)
                     ? `You passed ${listCards(e.cards)} to ${e.toName}.`
@@ -379,7 +405,7 @@
                 announce(text);
             }
         }
-        if (e.type === 'start' || e.type === 'round-start') {
+        if (e.type === 'start' || e.type === 'round-start' || e.type === 'resumed') {
             ui.selected = [];
             ui.previousTurnKey = null;
             playSound('deal');
@@ -388,7 +414,9 @@
         } else if (e.type === 'exchange') {
             playSound('receive');
         } else if (e.type === 'table-closed') {
-            session.clear();
+            // Tallennetun pöydän tunniste säilytetään: sillä pääsee suoraan omalle paikalle.
+            if (e.saved) $('join-code').value = e.code;
+            else session.clear();
             ui.state = null;
             render();
         }
@@ -453,14 +481,15 @@
         return element;
     }
 
-    const VIEW_HEADINGS = { start: 'start-heading', lobby: 'lobby-heading', game: 'game-heading' };
+    const VIEW_HEADINGS = { start: 'start-heading', claim: 'claim-heading', lobby: 'lobby-heading', game: 'game-heading' };
     let currentView = null;
 
     function showView(name) {
         $('start-view').hidden = name !== 'start';
+        $('claim-view').hidden = name !== 'claim';
         $('lobby-view').hidden = name !== 'lobby';
         $('game-view').hidden = name !== 'game';
-        $('log-section').hidden = name === 'start';
+        $('log-section').hidden = name === 'start' || name === 'claim';
         if (name === currentView) return;
         const previous = currentView;
         currentView = name;
@@ -476,6 +505,12 @@
     function render() {
         const state = ui.state;
         if (!state) {
+            if (ui.claim) {
+                showView('claim');
+                renderClaim();
+                document.title = `Hearts – saved table ${ui.claim.code}`;
+                return;
+            }
             showView('start');
             document.title = 'Hearts';
             return;
@@ -488,16 +523,79 @@
             renderLobby();
             document.title = `Hearts – table ${state.table.code}`;
         }
+        renderSave(state, 'lobby');
+        renderSave(state, 'game');
     }
 
     function memberLabel(member, state) {
         const tags = [];
+        const resuming = state.table.resuming;
+        const saved = resuming && resuming.players.find(p => p.id === member.id);
         if (member.id === state.you.id) tags.push('you');
         if (member.isCreator) tags.push('table creator');
         if (member.type === 'robot') tags.push('robot');
+        if (saved && Number.isFinite(saved.score)) tags.push(pointsText(saved.score));
         if (member.spectator) tags.push('spectator');
-        if (!member.connected) tags.push('connection lost');
+        if (!member.connected) tags.push(saved ? 'not back yet' : 'connection lost');
         return tags.length ? `${member.name} – ${tags.join(', ')}` : member.name;
+    }
+
+    // ===== Tallennus =====
+
+    function saveInfoText(state) {
+        const save = state.table.save;
+        const code = state.table.code;
+        if (!save.enabled) return 'The table is not saved. If everyone leaves, the scores are lost.';
+        if (save.failed) return 'Saving failed on the server. The scores may be lost if everyone leaves.';
+        if (!save.expiresAt) return `The table will be saved when the game starts. Continue later with table code ${code}.`;
+        return `Saved until ${dateText(save.expiresAt)}. Continue later with table code ${code}. A round that is not finished is dealt again.`;
+    }
+
+    // Tallennuksen valinta ja tila näkyvät vain pöydän luojalle.
+    function renderSave(state, where) {
+        $(`save-control-${where}`).hidden = !state.you.isCreator;
+        $(`save-toggle-${where}`).checked = state.table.save.enabled;
+        $(`save-info-${where}`).textContent = saveInfoText(state);
+    }
+
+    function renderClaim() {
+        const claim = ui.claim;
+        $('claim-heading').textContent = `Saved game – table ${claim.code}, round ${claim.round}`;
+        const container = $('claim-options');
+        const previous = container.querySelector('input:checked');
+        const previousValue = previous ? previous.value : null;
+        container.replaceChildren();
+
+        const free = claim.players.filter(p => !p.robot && !p.connected);
+        const typed = (claim.name || ui.myName || '').toLowerCase();
+        const match = free.find(p => p.name.toLowerCase() === typed);
+        const selectable = value => value === 'spectator' || free.some(p => p.id === value);
+        const preselect = previousValue && selectable(previousValue)
+            ? previousValue
+            : (match ? match.id : free.length ? free[0].id : 'spectator');
+
+        function option(value, text, disabled) {
+            const label = document.createElement('label');
+            const input = document.createElement('input');
+            input.type = 'radio';
+            input.name = 'claim';
+            input.value = value;
+            input.disabled = disabled;
+            input.checked = !disabled && value === preselect;
+            label.append(input, ` ${text}`);
+            container.appendChild(label);
+        }
+        for (const p of claim.players.filter(p => !p.robot)) {
+            const score = Number.isFinite(p.score) ? ` – ${pointsText(p.score)}` : '';
+            option(p.id, `${p.name}${score}${p.connected ? ' (already at the table)' : ''}`, p.connected);
+        }
+        option('spectator', 'I am not one of these players – watch as a spectator', false);
+
+        const robots = claim.players.filter(p => p.robot)
+            .map(p => (Number.isFinite(p.score) ? `${p.name} (${pointsText(p.score)})` : p.name));
+        $('claim-robots').textContent = robots.length
+            ? `${listNames(robots)} ${robots.length === 1 ? 'continues' : 'continue'} automatically.`
+            : '';
     }
 
     function renderLobby() {
@@ -519,7 +617,7 @@
             const text = document.createElement('span');
             text.textContent = memberLabel(member, state);
             item.appendChild(text);
-            if (member.type === 'robot' && state.you.isCreator) {
+            if (member.type === 'robot' && state.you.isCreator && !t.resuming) {
                 const remove = document.createElement('button');
                 remove.type = 'button';
                 remove.className = 'secondary small';
@@ -541,6 +639,12 @@
         }
 
         const isCreator = state.you.isCreator;
+        const me = state.members.find(m => m.id === state.you.id);
+        if (t.resuming) {
+            renderResumingLobby(state, me);
+            return;
+        }
+        $('resume-tools').hidden = true;
         $('creator-tools').hidden = !isCreator;
         const full = t.seatedCount >= t.maxPlayers;
         $('add-robot-button').setAttribute('aria-disabled', full ? 'true' : 'false');
@@ -548,7 +652,6 @@
         $('start-button').setAttribute('aria-disabled', t.seatedCount < t.minPlayers ? 'true' : 'false');
         $('robot-speed').value = t.robotSpeed;
 
-        const me = state.members.find(m => m.id === state.you.id);
         if (isCreator) {
             const missing = t.minPlayers - t.seatedCount;
             $('lobby-info').textContent = missing > 0
@@ -559,6 +662,30 @@
             if (me && me.spectator) text += ' The table is full, so you are a spectator.';
             $('lobby-info').textContent = text;
         }
+    }
+
+    // Herätetty tallennus: odotetaan pelaajia, ja pöydän luoja jatkaa pelin.
+    function renderResumingLobby(state, me) {
+        const t = state.table;
+        const r = t.resuming;
+        const isCreator = state.you.isCreator;
+        $('lobby-heading').textContent = `Table ${t.code} – saved game, round ${r.round}`;
+        $('creator-tools').hidden = true;
+        $('resume-tools').hidden = !isCreator;
+        const missing = r.players.filter(p => !p.robot && !p.connected).map(p => p.name);
+        $('resume-button').setAttribute('aria-disabled', missing.length ? 'true' : 'false');
+        let text;
+        if (isCreator) {
+            text = missing.length
+                ? `Saved game. Still waiting for ${listNames(missing)}. When everyone is back, you can continue the game.`
+                : 'Everyone is back. Press Continue saved game to deal the next round.';
+        } else {
+            text = missing.length
+                ? `Saved game. Still waiting for ${listNames(missing)}.`
+                : `Everyone is back. Waiting for the table creator ${t.creatorName || ''} to continue the game.`;
+        }
+        if (!(me && me.saved)) text += ' You are watching this game.';
+        $('lobby-info').textContent = text;
     }
 
     function removeRobot(robotId) {
@@ -768,7 +895,9 @@
         $('new-game-button').hidden = !(over && state.you.isCreator);
         $('to-lobby-button').hidden = !(over && state.you.isCreator);
         if (!over) {
-            $('result-wait').textContent = canNext ? 'Any player can start the next round.' : 'Waiting for a player to start the next round.';
+            $('result-wait').textContent = canNext
+                ? 'You are the table creator. Start the next round when everyone has seen the result.'
+                : `Waiting for the table creator ${state.table.creatorName || ''} to start the next round.`;
         } else {
             $('result-wait').textContent = state.you.isCreator
                 ? 'A new game starts with the same players. In the lobby you can add or remove robots.'
@@ -908,7 +1037,7 @@
     function notYourTurnText(g) {
         if (g.phase === 'over') return 'The game is over.';
         if (g.phase === 'pass') return 'You have passed your cards. Waiting for the others.';
-        if (g.phase === 'round-over') return 'The round is over.';
+        if (g.phase === 'round-over') return `The round is over. Waiting for the table creator ${ui.state.table.creatorName || ''} to start the next round.`;
         return `It is not your turn. ${nameOf(g.currentId)} is to play.`;
     }
 
@@ -1087,7 +1216,9 @@
         if (g.phase === 'over') {
             respond('The game is over.');
         } else if (g.phase === 'round-over') {
-            respond('The round is over. Any player can start the next round.');
+            respond(g.allowedActions.includes('next-round')
+                ? 'The round is over. Press L to start the next round.'
+                : `The round is over. Waiting for the table creator ${ui.state.table.creatorName || ''} to start the next round.`);
         } else if (g.phase === 'pass') {
             const waiting = g.players.filter(p => !p.passed).map(p => (p.id === myId() ? 'you' : p.name));
             respond(`Passing cards. Waiting for ${listNames(waiting)}.`);
@@ -1274,6 +1405,7 @@
     });
 
     socket.on('joined', (data) => {
+        ui.claim = null;
         ui.myName = data.name;
         storage.set('hertta-name', data.name);
         session.set({ code: data.code, token: data.token, name: data.name });
@@ -1287,8 +1419,19 @@
         const saved = session.get();
         if (saved && data.missing && saved.code === data.code) session.clear();
         ui.state = null;
+        ui.claim = null;
         render();
         showStartError(data.text);
+    });
+
+    // Tallennettu pöytä: liittyjä valitsee, kuka pelaajista hän on.
+    socket.on('choose-player', (data) => {
+        ui.state = null;
+        ui.claim = data;
+        $('claim-error').textContent = data.taken ? 'That player is already at the table. Choose again.' : '';
+        render();
+        const intro = data.taken ? 'That player is already at the table. ' : '';
+        respond(`${intro}Saved game found at table ${spellCode(data.code)}, round ${data.round}. Choose who you are, then press Continue.`);
     });
 
     socket.on('left-table', () => {
@@ -1360,6 +1503,47 @@
         }
         socket.emit('join-table', { code, name });
     });
+
+    $('claim-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const claim = ui.claim;
+        if (!claim) return;
+        const chosen = $('claim-options').querySelector('input:checked');
+        if (!chosen) {
+            $('claim-error').textContent = 'Choose who you are.';
+            respond('Choose who you are.');
+            return;
+        }
+        const name = claim.name || ui.myName;
+        if (chosen.value === 'spectator') {
+            if (!name) {
+                ui.claim = null;
+                render();
+                showStartError('Enter your name and join again to watch.');
+                return;
+            }
+            socket.emit('join-table', { code: claim.code, name, spectator: true });
+        } else {
+            socket.emit('join-table', { code: claim.code, name, claimId: chosen.value });
+        }
+    });
+
+    $('claim-cancel').addEventListener('click', () => {
+        ui.claim = null;
+        render();
+    });
+
+    $('resume-button').addEventListener('click', () => socket.emit('resume-game'));
+    $('discard-button').addEventListener('click', async () => {
+        if (await confirmDialog('Discard the saved game? The scores are deleted and the table becomes an ordinary lobby.')) {
+            socket.emit('abort-game');
+        }
+    });
+    for (const where of ['lobby', 'game']) {
+        $(`save-toggle-${where}`).addEventListener('change', (e) => {
+            socket.emit('set-save', { enabled: e.target.checked });
+        });
+    }
 
     $('copy-link-button').addEventListener('click', async () => {
         const link = `${location.origin}${location.pathname}?table=${ui.state.table.code}`;

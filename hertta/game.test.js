@@ -225,3 +225,45 @@ test('näkymä ei paljasta muiden kortteja', () => {
     assert.deepStrictEqual(spectator.allowedActions, []);
     assert.ok(!('hand' in view.players[1]));
 });
+
+test('tallennus: jaon jälkeen jatketaan seuraavasta jaosta samoilla pisteillä', () => {
+    const game = new Game(players(), { rng: seeded(11), dealerIndex: 2 });
+    passAll(game);
+    playRound(game);
+    assert.strictEqual(game.phase, 'round-over');
+    const progress = game.toProgress();
+    assert.strictEqual(progress.round, 2);
+    assert.strictEqual(progress.dealer, 3);
+
+    // Kierroksen 2 jakaja ja ohitussuunta ovat samat kuin jatketussa pelissä.
+    const resumed = new Game(players(), { rng: seeded(5), progress });
+    game.nextRound('p0');
+    assert.strictEqual(resumed.round, 2);
+    assert.strictEqual(resumed.dealer, game.dealer);
+    assert.strictEqual(resumed.passDirection, 'right');
+    assert.strictEqual(resumed.phase, 'pass');
+    assert.deepStrictEqual(resumed.players.map(p => p.score), game.players.map(p => p.score));
+    assert.deepStrictEqual(resumed.history, game.history);
+    assert.deepStrictEqual(resumed.startEvents, []);
+});
+
+test('tallennus: kesken oleva jako pelataan uudelleen, ja ilman vaihtoa kakkonen lyödään heti', () => {
+    const game = new Game(players(), { rng: seeded(3), dealerIndex: 0 });
+    passAll(game);
+    const progress = game.toProgress();
+    assert.strictEqual(progress.round, 1);
+    assert.strictEqual(progress.dealer, 0);
+    const again = new Game(players(), { rng: seeded(4), progress });
+    assert.strictEqual(again.round, 1);
+    assert.strictEqual(again.dealer, 0);
+    assert.strictEqual(again.phase, 'pass');
+
+    const fourth = new Game(players(), { progress: { round: 4, dealer: 1, scores: [3, 0, 10, 13], history: [] } });
+    assert.strictEqual(fourth.passDirection, 'none');
+    assert.strictEqual(fourth.dealer, 1);
+    assert.strictEqual(fourth.phase, 'play');
+    assert.ok(fourth.startEvents.some(e => e.type === 'play' && e.auto === 'two-of-clubs'));
+    assert.deepStrictEqual(fourth.players.map(p => p.score), [3, 0, 10, 13]);
+
+    assert.throws(() => new Game(players(), { progress: { round: 0, dealer: 0, scores: [], history: [] } }), GameError);
+});

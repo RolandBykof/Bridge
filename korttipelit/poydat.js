@@ -7,6 +7,13 @@
 //
 // Pelin on tarjottava startInfo(), jonka kentät lisätään aloitustapahtumaan.
 // Ei tiedä mitään yhteyksistä, joten tämän voi testata suoraan.
+//
+// Tallennettava peli (Hertta) antaa lisäksi restoreGame(players, progress, { rng })
+// ja isReserved(code). Jatketun pelin on tarjottava startEvents (jaon aloituksen
+// tapahtumat) ja dealer (jakajan indeksi). Pöydän jäsenet saa talteen toSnapshot()-metodilla, ja
+// Tables.restore() herättää pöydän tilaan, jossa se odottaa tallennetun pelin
+// pelaajia (table.resuming). Pelin oma eteneminen (progress) on tälle tiedostolle
+// läpinäkymätön.
 
 const crypto = require('crypto');
 
@@ -28,7 +35,9 @@ const TEXTS = {
         actions: {
             addRobot: 'lisätä robotteja', removeRobot: 'poistaa robotteja',
             setSpeed: 'muuttaa robottien nopeutta', start: 'aloittaa pelin',
-            abort: 'keskeyttää pelin', toLobby: 'palata odotushuoneeseen'
+            abort: 'keskeyttää pelin', toLobby: 'palata odotushuoneeseen',
+            setSave: 'muuttaa pöydän tallennusta', resume: 'jatkaa tallennettua peliä',
+            nextRound: 'aloittaa seuraavan jaon'
         },
         addRobotRunning: 'Robotteja voi lisätä vain, kun peli ei ole käynnissä.',
         tableFull: max => `Pöytä on täynnä, ${max}/${max} pelaajaa.`,
@@ -41,7 +50,10 @@ const TEXTS = {
         needHuman: 'Pelissä on oltava vähintään yksi ihminen.',
         notRunning: 'Peli ei ole käynnissä.',
         stillRunning: 'Peli on vielä käynnissä.',
-        cannotLeave: 'Et voi poistua kesken pelin. Pöydän luoja voi keskeyttää pelin.'
+        cannotLeave: 'Et voi poistua kesken pelin. Pöydän luoja voi keskeyttää pelin.',
+        savedGame: 'Tallennettu peli jatkuu samoilla pelaajilla.',
+        waitingFor: names => `Odotetaan vielä: ${names}.`,
+        notSaved: 'Pöydällä ei ole jatkettavaa tallennettua peliä.'
     },
     en: {
         enterName: 'Enter your name.',
@@ -50,7 +62,9 @@ const TEXTS = {
         actions: {
             addRobot: 'add robots', removeRobot: 'remove robots',
             setSpeed: 'change the robot speed', start: 'start the game',
-            abort: 'abort the game', toLobby: 'return to the lobby'
+            abort: 'abort the game', toLobby: 'return to the lobby',
+            setSave: 'change the save setting', resume: 'continue the saved game',
+            nextRound: 'start the next round'
         },
         addRobotRunning: 'Robots can only be added when no game is running.',
         tableFull: max => `The table is full, ${max}/${max} players.`,
@@ -63,7 +77,10 @@ const TEXTS = {
         needHuman: 'At least one human must play.',
         notRunning: 'No game is running.',
         stillRunning: 'The game is still running.',
-        cannotLeave: 'You cannot leave during a game. The table creator can abort the game.'
+        cannotLeave: 'You cannot leave during a game. The table creator can abort the game.',
+        savedGame: 'The saved game continues with the same players.',
+        waitingFor: names => `Still waiting for ${names}.`,
+        notSaved: 'This table has no saved game to continue.'
     }
 };
 
@@ -72,12 +89,13 @@ function cleanName(name) {
 }
 
 class Table {
-    constructor(code, { rng = Math.random, now = Date.now, createGame, minPlayers, maxPlayers, lang = 'fi' }) {
+    constructor(code, { rng = Math.random, now = Date.now, createGame, restoreGame = null, minPlayers, maxPlayers, lang = 'fi' }) {
         this.code = code;
         this.texts = TEXTS[lang] || TEXTS.fi;
         this.rng = rng;
         this.now = now;
         this.createGame = createGame;
+        this.restoreGame = restoreGame;
         this.minPlayers = minPlayers;
         this.maxPlayers = maxPlayers;
         this.members = [];          // istumajärjestyksessä (seat kasvaa liittymisjärjestyksessä)
@@ -90,6 +108,9 @@ class Table {
         this.robotSpeed = 'normal';
         this.lastActivity = now();
         this.noHumansSince = null;
+        this.saveEnabled = false;
+        this.saveExpiresAt = null;  // viimeisimmän tallennuksen vanhenemisaika (ms)
+        this.resuming = null;       // herätetty tallennus: { playerIds, progress }
     }
 
     touch() {
@@ -125,12 +146,25 @@ class Table {
     }
 
     // Seuraavaan peliin pääsevät: robotit ja yhdistetyt ihmiset istumajärjestyksessä, enintään maxPlayers.
+    // Tallennettua peliä jatketaan vain sen omilla pelaajilla.
     seated() {
+        if (this.resuming) {
+            return this.savedPlayers().filter(m => m.type === 'robot' || m.connected);
+        }
         return this.members.filter(m => m.type === 'robot' || m.connected).slice(0, this.maxPlayers);
+    }
+
+    savedPlayers() {
+        return this.resuming ? this.resuming.playerIds.map(id => this.member(id)).filter(Boolean) : [];
+    }
+
+    isSavedPlayer(member) {
+        return !!this.resuming && this.resuming.playerIds.includes(member.id);
     }
 
     isSpectator(member) {
         if (this.gameRunning()) return !this.inGame(member);
+        if (this.resuming) return !this.isSavedPlayer(member);
         return !this.seated().includes(member);
     }
 
@@ -161,6 +195,7 @@ class Table {
         member.socketId = socketId;
         member.connected = true;
         member.disconnectedAt = null;
+        if (!this.creatorId) this.creatorId = member.id;
         this.noHumansSince = null;
         this.touch();
     }
@@ -173,6 +208,7 @@ class Table {
     addRobot(byMember) {
         this.requireCreator(byMember, 'addRobot');
         if (this.gameRunning()) throw new TableError(this.texts.addRobotRunning);
+        if (this.resuming) throw new TableError(this.texts.savedGame);
         if (this.seated().length >= this.maxPlayers) {
             throw new TableError(this.texts.tableFull(this.maxPlayers));
         }
@@ -192,6 +228,7 @@ class Table {
     removeRobot(byMember, robotId) {
         this.requireCreator(byMember, 'removeRobot');
         if (this.gameRunning()) throw new TableError(this.texts.removeRobotRunning);
+        if (this.resuming) throw new TableError(this.texts.savedGame);
         const robot = this.member(robotId);
         if (!robot || robot.type !== 'robot') throw new TableError(this.texts.robotNotFound);
         this.members = this.members.filter(m => m !== robot);
@@ -205,6 +242,12 @@ class Table {
         this.robotSpeed = speed;
     }
 
+    setSave(byMember, enabled) {
+        this.requireCreator(byMember, 'setSave');
+        this.saveEnabled = !!enabled;
+        if (!this.saveEnabled) this.saveExpiresAt = null;
+    }
+
     // Jakaja kiertää: edellistä jakajaa istumajärjestyksessä seuraava. Ensimmäisessä pelissä arvotaan.
     nextDealerIndex(participants) {
         if (this.lastDealerSeat === null) return Math.floor(this.rng() * participants.length);
@@ -215,6 +258,7 @@ class Table {
     start(byMember) {
         this.requireCreator(byMember, 'start');
         if (this.gameRunning()) throw new TableError(this.texts.alreadyRunning);
+        if (this.resuming) throw new TableError(this.texts.savedGame);
         const participants = this.seated();
         if (participants.length < this.minPlayers) {
             throw new TableError(this.texts.tooFewPlayers(this.minPlayers));
@@ -237,8 +281,40 @@ class Table {
         };
     }
 
+    // Tallennetun pelin jatkaminen, kun kaikki sen ihmispelaajat ovat palanneet.
+    // Kuten pelin aloitus, vain pöydän luojan toiminto.
+    resume(byMember) {
+        if (!this.resuming) throw new TableError(this.texts.notSaved);
+        this.requireCreator(byMember, 'resume');
+        const participants = this.savedPlayers();
+        const missing = participants.filter(m => m.type === 'human' && !m.connected);
+        if (missing.length) throw new TableError(this.texts.waitingFor(missing.map(m => m.name).join(', ')));
+        this.game = this.restoreGame(
+            participants.map(m => ({ id: m.id, name: m.name })), this.resuming.progress, { rng: this.rng });
+        this.resuming = null;
+        const dealer = participants[this.game.dealer];
+        this.lastDealerSeat = dealer.seat;
+        this.gameEpoch++;
+        this.pruneDisconnected();
+        this.touch();
+        return [{
+            type: 'resumed',
+            dealerId: dealer.id, dealerName: dealer.name,
+            playerNames: this.game.players.map(p => p.name),
+            scores: this.game.players.map(p => ({ id: p.id, name: p.name, score: p.score })),
+            ...this.game.startInfo()
+        }, ...this.game.startEvents];
+    }
+
     abort(byMember) {
         this.requireCreator(byMember, 'abort');
+        if (this.resuming) {
+            // Tallennetusta pelistä luovutaan: pöytä palaa tavalliseksi odotushuoneeksi.
+            this.resuming = null;
+            this.pruneDisconnected();
+            this.touch();
+            return { type: 'aborted', name: byMember.name, discarded: true };
+        }
         if (!this.gameRunning()) throw new TableError(this.texts.notRunning);
         this.game = null;
         this.gameEpoch++;
@@ -258,10 +334,11 @@ class Table {
         return { type: 'to-lobby', name: byMember.name };
     }
 
-    // Poistaa katkenneet ihmiset, jotka eivät ole kesken olevassa pelissä. Luojaa odotetaan.
+    // Poistaa katkenneet ihmiset, jotka eivät ole kesken olevassa tai tallennetussa pelissä. Luojaa odotetaan.
     pruneDisconnected() {
         this.members = this.members.filter(m =>
-            m.type === 'robot' || m.connected || (this.gameRunning() && this.inGame(m)) || m.id === this.creatorId);
+            m.type === 'robot' || m.connected || (this.gameRunning() && this.inGame(m))
+            || this.isSavedPlayer(m) || m.id === this.creatorId);
     }
 
     disconnect(member) {
@@ -276,6 +353,12 @@ class Table {
     leave(member) {
         if (this.gameRunning() && this.inGame(member)) {
             throw new TableError(this.texts.cannotLeave);
+        }
+        if (this.isSavedPlayer(member)) {
+            // Tallennetun pelin pelaaja jää pöytään, jotta hän voi palata myöhemmin.
+            member.socketId = null;
+            this.disconnect(member);
+            return [{ type: 'left', name: member.name, playerId: member.id, waiting: true }];
         }
         this.members = this.members.filter(m => m !== member);
         const events = [{ type: 'left', name: member.name, playerId: member.id, waiting: false }];
@@ -319,13 +402,38 @@ class Table {
         const idle = now - this.lastActivity >= MAX_IDLE_MS;
         return { events, remove: empty || idle };
     }
+
+    // Tallennettavat pöydän tiedot. Mukaan tulevat vain pelin pelaajat (playerIds,
+    // pelin järjestyksessä); katsojat voivat liittyä myöhemmin uudelleen nimellään.
+    toSnapshot(playerIds) {
+        const players = playerIds.map(id => this.member(id));
+        return {
+            creatorId: players.some(m => m.id === this.creatorId) ? this.creatorId : null,
+            robotSpeed: this.robotSpeed,
+            robotCounter: this.robotCounter,
+            nextSeat: this.nextSeat,
+            members: players.map(m => ({ id: m.id, token: m.token, name: m.name, type: m.type, seat: m.seat }))
+        };
+    }
+}
+
+function validSnapshot(snapshot, maxPlayers) {
+    return !!snapshot && Array.isArray(snapshot.members) && snapshot.members.length === maxPlayers
+        && snapshot.members.every(m => m && typeof m.id === 'string' && typeof m.name === 'string'
+            && (m.type === 'robot' || (m.type === 'human' && typeof m.token === 'string'))
+            && Number.isInteger(m.seat))
+        && snapshot.progress !== undefined;
 }
 
 class Tables {
-    constructor({ rng = Math.random, now = Date.now, createGame, minPlayers, maxPlayers, lang = 'fi' }) {
+    constructor({
+        rng = Math.random, now = Date.now, createGame, restoreGame = null, isReserved = null,
+        minPlayers, maxPlayers, lang = 'fi'
+    }) {
         this.rng = rng;
         this.now = now;
-        this.gameOptions = { createGame, minPlayers, maxPlayers, lang };
+        this.isReserved = isReserved;   // koodi, jolle on voimassa oleva tallennus
+        this.gameOptions = { createGame, restoreGame, minPlayers, maxPlayers, lang };
         this.tables = new Map();
     }
 
@@ -334,9 +442,31 @@ class Tables {
         let code;
         do {
             code = String(1000 + Math.floor(this.rng() * 9000));
-        } while (this.tables.has(code));
+        } while (this.tables.has(code) || (this.isReserved && this.isReserved(code)));
         const table = new Table(code, { rng: this.rng, now: this.now, ...this.gameOptions });
         this.tables.set(code, table);
+        return table;
+    }
+
+    // Herättää tallennetun pöydän muistiin. Ihmiset ovat aluksi poissa, ja pöytä
+    // odottaa, että he palaavat (resume). Palauttaa null, jos tallennus ei kelpaa.
+    restore(snapshot) {
+        if (!validSnapshot(snapshot, this.gameOptions.maxPlayers)) return null;
+        const now = this.now();
+        const table = new Table(snapshot.code, { rng: this.rng, now: this.now, ...this.gameOptions });
+        table.members = snapshot.members.map(m => ({
+            id: m.id, token: m.type === 'human' ? m.token : null, name: m.name, type: m.type, seat: m.seat,
+            socketId: null, connected: m.type === 'robot', disconnectedAt: m.type === 'robot' ? null : now
+        }));
+        table.nextSeat = Math.max(snapshot.nextSeat || 0, ...table.members.map(m => m.seat + 1));
+        table.robotCounter = snapshot.robotCounter || 0;
+        table.creatorId = table.member(snapshot.creatorId) ? snapshot.creatorId : null;
+        if (ROBOT_SPEEDS.includes(snapshot.robotSpeed)) table.robotSpeed = snapshot.robotSpeed;
+        table.noHumansSince = now;
+        table.saveEnabled = true;
+        table.saveExpiresAt = snapshot.expiresAt || null;
+        table.resuming = { playerIds: table.members.map(m => m.id), progress: snapshot.progress };
+        this.tables.set(table.code, table);
         return table;
     }
 

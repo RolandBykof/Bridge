@@ -8,6 +8,7 @@ const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
+const crypto = require('crypto');
 const cors = require('cors');
 const robot = require('./lib/robot');
 const solver = require('./lib/bridge_solver_wasm');
@@ -135,7 +136,8 @@ io.on('connection', (socket) => {
     table.players[position] = {
         name: playerName,
         id: socket.id,
-        type: 'human'
+        type: 'human',
+        token: createSeatToken()
     };
 
     // Store table
@@ -154,15 +156,17 @@ io.on('connection', (socket) => {
     socket.join(tableCode);
 
     // Send table created confirmation
-    socket.emit('tableCreated', { 
+    socket.emit('tableCreated', {
         tableCode,
         table: filterTable(table),
-        playerPosition: position
+        playerPosition: position,
+        seatToken: table.players[position].token
     });
-    
+
     socket.emit('tableInfo', {
         table: filterTable(table),
-        playerPosition: position
+        playerPosition: position,
+        seatToken: table.players[position].token
     });
     
     console.log(`Table ${tableCode} created successfully`);
@@ -258,7 +262,11 @@ function handleDisconnect(playerId) {
     const table = tables.get(player.table);
     if (table) {
       // KORJAUS: Jos peli on käynnissä, älä poista pelaajaa välittömästi
-      if (table.state === 'playing') {
+      // Paikan on voinut jo ottaa uusi yhteys (sivun päivitys, sama tunniste):
+      // silloin vanhan yhteyden katkeaminen ei koske paikkaa.
+      const seat = player.position ? table.players[player.position] : null;
+      const ownsSeat = !!seat && seat.id === playerId;
+      if (ownsSeat && table.state === 'playing') {
         // Merkitse pelaaja katkenneeksi
         const position = player.position;
         if (position && table.players[position]) {
@@ -302,7 +310,7 @@ function handleDisconnect(playerId) {
             }
           }, RECONNECT_TIMEOUT);
         }
-      } else {
+      } else if (ownsSeat) {
         // Jos peli ei ole käynnissä (waiting room), poista normaalisti
         removePlayerFromTable(player, table);
       }
@@ -314,6 +322,58 @@ function handleDisconnect(playerId) {
   if (!player.table || !tables.get(player.table) || tables.get(player.table).state !== 'playing') {
     players.delete(playerId);
   }
+}
+
+// Salainen paikkatunniste. Pöytään palaava selain tunnistetaan sillä eikä pelkällä
+// nimellä, joten kukaan ei voi viedä toisen paikkaa tietämällä hänen nimensä.
+function createSeatToken() {
+  return crypto.randomUUID();
+}
+
+// Paikan saa takaisin sama yhteys, saman tunnisteen esittävä selain tai, jos
+// paikan pelaajan yhteys on katkennut, sama nimi (esim. laitteen vaihto).
+function canReclaimSeat(seat, playerId, playerName, seatToken) {
+  if (!seat || seat.type !== 'human') return false;
+  if (seat.id === playerId) return true;
+  if (seatToken && seat.token && seatToken === seat.token) return true;
+  return !!seat.disconnected && !!playerName && seat.name === playerName;
+}
+
+function findReclaimableSeat(table, playerId, playerName, seatToken) {
+  const positions = Object.keys(table.players);
+  const seatOf = pos => table.players[pos];
+  return positions.find(pos => seatOf(pos) && seatOf(pos).id === playerId)
+    || (seatToken && positions.find(pos => seatOf(pos) && seatOf(pos).type === 'human' && seatOf(pos).token === seatToken))
+    || positions.find(pos => canReclaimSeat(seatOf(pos), playerId, playerName, null))
+    || null;
+}
+
+// Siirtää paikan uudelle yhteydelle. Vanha yhteys irrotetaan pöydästä, jottei
+// sen myöhempi katkeaminen merkitse paikkaa katkenneeksi eikä se voi enää pelata.
+// Palauttaa true, jos paikan pelaaja oli merkitty katkenneeksi.
+function takeOverSeat(table, position, socket, playerId) {
+  const seat = table.players[position];
+  if (seat.id !== playerId) {
+    const old = players.get(seat.id);
+    if (old && old.table === table.code && old.position === position) {
+      old.table = null;
+      old.position = null;
+      if (old.socket) old.socket.leave(table.code);
+    }
+  }
+  const wasDisconnected = !!seat.disconnected;
+  seat.id = playerId;
+  seat.disconnected = false;
+  delete seat.disconnectTime;
+  let player = players.get(playerId);
+  if (!player) {
+    player = { socket, connected: Date.now() };
+    players.set(playerId, player);
+  }
+  player.table = table.code;
+  player.position = position;
+  player.name = seat.name;
+  return wasDisconnected;
 }
 
 function joinTable(socket, playerId, data) {
@@ -368,7 +428,7 @@ function joinTable(socket, playerId, data) {
  * Select a position in table
  */
 function selectPosition(socket, playerId, data) {
-    const { tableCode, position, playerName } = data;
+    const { tableCode, position, playerName, seatToken } = data;
     
     console.log(`selectPosition: ${playerName} wants ${position} in table ${tableCode}`);
     
@@ -386,24 +446,18 @@ function selectPosition(socket, playerId, data) {
     // Check if same player is trying to rejoin
     const existingPlayer = table.players[position];
     if (existingPlayer) {
-        if (existingPlayer.id === playerId || existingPlayer.name === playerName) {
+        if (canReclaimSeat(existingPlayer, playerId, playerName, seatToken)) {
             console.log(`Player ${playerName} already in position ${position}, updating connection`);
-            table.players[position].id = playerId;
-            
-            const player = players.get(playerId);
-            if (player) {
-                player.table = tableCode;
-                player.position = position;
-                player.name = playerName;
-            }
-            
+            takeOverSeat(table, position, socket, playerId);
+
             socket.join(tableCode);
-            
+
             socket.emit('tableInfo', {
                 table: filterTable(table),
-                playerPosition: position
+                playerPosition: position,
+                seatToken: existingPlayer.token
             });
-            
+
             return;
         } else {
             sendError(socket, 'Position is already taken');
@@ -417,23 +471,25 @@ function selectPosition(socket, playerId, data) {
     table.players[position] = {
         name: playerName,
         id: playerId,
-        type: 'human'
+        type: 'human',
+        token: createSeatToken()
     };
-    
+
     // Update player info
     if (player) {
         player.table = tableCode;
         player.position = position;
         player.name = playerName;
     }
-    
+
     // Join socket to room
     socket.join(tableCode);
-    
+
     // Send table info to new player
     socket.emit('tableInfo', {
         table: filterTable(table),
-        playerPosition: position
+        playerPosition: position,
+        seatToken: table.players[position].token
     });
 
     // Notify all players about new player
@@ -448,7 +504,7 @@ function selectPosition(socket, playerId, data) {
 }
 
 function getTableInfo(socket, playerId, data) {
-    const { tableCode, playerName } = data;
+    const { tableCode, playerName, seatToken } = data;
     
     console.log(`getTableInfo: tableCode=${tableCode}, playerId=${playerId}, playerName=${playerName}`);
     
@@ -474,77 +530,25 @@ function getTableInfo(socket, playerId, data) {
         console.log(`Updated player ${playerId} name to ${playerName}`);
     }
     
-    // Tarkista onko pelaaja jo pöydässä socket.id:llä
-    let playerAlreadyInTable = false;
-    let existingPosition = null;
-    
-    for (const [pos, player] of Object.entries(table.players)) {
-        if (player && player.id === playerId) {
-            playerAlreadyInTable = true;
-            existingPosition = pos;
-            console.log(`Player ${playerId} already in table at position ${pos}`);
-            break;
+    // Paikka, johon tämä yhteys palaa: sama yhteys, salainen tunniste tai sama
+    // nimi paikalle, jonka pelaajan yhteys on katkennut. Yhteydessä olevan
+    // pelaajan paikkaa ei voi ottaa pelkällä nimellä.
+    const existingPosition = findReclaimableSeat(table, playerId, playerName, seatToken);
+    if (existingPosition && table.players[existingPosition].id !== playerId) {
+        const seatName = table.players[existingPosition].name;
+        console.log(`Player ${seatName} returns to position ${existingPosition}`);
+        if (takeOverSeat(table, existingPosition, socket, playerId)) {
+            // Ilmoita muille pelaajille uudelleenliittymisestä
+            sendToTablePlayers(table, {
+                type: 'playerReconnected',
+                position: existingPosition,
+                playerName: seatName,
+                message: `${seatName} (${positionName(existingPosition)}) reconnected!`
+            });
         }
     }
-    
-    // KORJAUS: Jos ei löydy ID:llä, etsi nimellä (reconnect-tilanne)
-    if (!playerAlreadyInTable && playerName) {
-        for (const [pos, tablePlayer] of Object.entries(table.players)) {
-            if (tablePlayer && 
-                tablePlayer.name === playerName && 
-                tablePlayer.type === 'human') {
-                console.log(`Found player by name: ${playerName} at position ${pos}`);
-                
-                // KORJAUS: Tarkista oliko pelaaja katkennneena
-                if (tablePlayer.disconnected) {
-                    console.log(`Player ${playerName} was disconnected, reconnecting...`);
-                    
-                    // Päivitä socket.id ja poista disconnected-merkintä
-                    table.players[pos].id = playerId;
-                    table.players[pos].disconnected = false;
-                    delete table.players[pos].disconnectTime;
-                    
-                    // Päivitä players Map
-                    if (currentPlayer) {
-                        currentPlayer.table = tableCode;
-                        currentPlayer.position = pos;
-                    } else {
-                        players.set(playerId, {
-                            socket: socket,
-                            table: tableCode,
-                            name: playerName,
-                            position: pos,
-                            connected: Date.now()
-                        });
-                    }
-                    
-                    playerAlreadyInTable = true;
-                    existingPosition = pos;
-                    
-                    // Ilmoita muille pelaajille uudelleenliittymisestä
-                    sendToTablePlayers(table, {
-                        type: 'playerReconnected',
-                        position: pos,
-                        playerName: playerName,
-                        message: `${playerName} (${positionName(pos)}) reconnected!`
-                    });
-                    
-                    break;
-                } else {
-                    // Päivitä normaalisti jos ei ollut disconnected
-                    table.players[pos].id = playerId;
-                    if (currentPlayer) {
-                        currentPlayer.table = tableCode;
-                        currentPlayer.position = pos;
-                    }
-                    playerAlreadyInTable = true;
-                    existingPosition = pos;
-                    break;
-                }
-            }
-        }
-    }
-    
+    const ownSeatToken = existingPosition ? table.players[existingPosition].token : undefined;
+
     // Liitä socket huoneeseen
     socket.join(tableCode);
     
@@ -555,6 +559,7 @@ function getTableInfo(socket, playerId, data) {
         socket.emit('gameReconnect', {
             table: filterTable(table),
             playerPosition: existingPosition,
+            seatToken: ownSeatToken,
             gameState: filterGameState(table.gameState, existingPosition),
             biddingState: table.biddingState,
             dealNumber: table.dealNumber || 1,
@@ -597,9 +602,10 @@ function getTableInfo(socket, playerId, data) {
     
     socket.emit('tableInfo', {
         table: filterTable(table),
-        playerPosition: existingPosition
+        playerPosition: existingPosition,
+        seatToken: ownSeatToken
     });
-    
+
     console.log(`Sent tableInfo for ${tableCode} to ${playerId}`);
 }
 

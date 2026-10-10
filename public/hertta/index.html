@@ -51,6 +51,22 @@
             <p class="back-link"><a href="../">Back to Bridge</a></p>
         </section>
 
+        <section id="claim-view" aria-labelledby="claim-heading" hidden>
+            <h2 id="claim-heading">Saved game</h2>
+            <p id="claim-error" class="error" role="alert"></p>
+            <form id="claim-form" class="panel stack-form">
+                <fieldset class="claim-options">
+                    <legend id="claim-legend">Who are you?</legend>
+                    <div id="claim-options"></div>
+                </fieldset>
+                <p id="claim-robots"></p>
+                <div class="creator-tools">
+                    <button type="submit">Continue</button>
+                    <button type="button" id="claim-cancel" class="secondary">Cancel</button>
+                </div>
+            </form>
+        </section>
+
         <section id="lobby-view" aria-labelledby="lobby-heading" hidden>
             <h2 id="lobby-heading">Lobby</h2>
             <div class="panel">
@@ -68,6 +84,14 @@
                         <option value="fast">Fast</option>
                     </select>
                     <button type="button" id="start-button">Start game</button>
+                </div>
+                <div id="resume-tools" class="creator-tools" hidden>
+                    <button type="button" id="resume-button">Continue saved game</button>
+                    <button type="button" id="discard-button" class="secondary">Discard saved game</button>
+                </div>
+                <div id="save-control-lobby" class="save-control" hidden>
+                    <label id="save-label-lobby"><input type="checkbox" id="save-toggle-lobby" class="save-toggle" aria-describedby="save-info-lobby"> Save the table for 5 days</label>
+                    <p id="save-info-lobby" class="save-info"></p>
                 </div>
                 <p><button type="button" id="leave-button" class="secondary">Leave table</button></p>
             </div>
@@ -100,6 +124,11 @@
                 <button type="button" id="clear-button" class="secondary">Clear selection (Esc)</button>
                 <button type="button" id="abort-button" class="secondary" hidden>Abort game</button>
             </section>
+
+            <div id="save-control-game" class="save-control" hidden>
+                <label id="save-label-game"><input type="checkbox" id="save-toggle-game" class="save-toggle" aria-describedby="save-info-game"> Save the table for 5 days</label>
+                <p id="save-info-game" class="save-info"></p>
+            </div>
 
             <section id="result" class="panel result" aria-labelledby="result-heading" hidden>
                 <h3 id="result-heading">Round over</h3>

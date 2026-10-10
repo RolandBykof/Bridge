@@ -44,6 +44,22 @@
 .score-table .total { font-weight: 800; }
 .score-table tr.is-winner th, .score-table tr.is-winner td { background: var(--current-bg); }
 
+/* .creator-tools on flex, mikä ohittaisi hidden-määritteen. */
+.creator-tools[hidden] { display: none; }
+
+/* Pöydän tallennus (tallennus.html) */
+.save-control { margin: .75rem 0; }
+.save-control label { display: inline-flex; align-items: center; gap: .4rem; font-weight: 700; cursor: pointer; }
+.save-control label[hidden] { display: none; }
+.save-control input { width: 1.25rem; height: 1.25rem; }
+.save-info { margin: .25rem 0 0; }
+
+.claim-options { border: 1px solid var(--rule); padding: .5rem 1rem .75rem; margin: 0; }
+.claim-options legend { font-weight: 700; padding: 0 .25rem; }
+.claim-options label { display: flex; align-items: center; gap: .5rem; min-height: 44px; font-weight: 400; }
+.claim-options input { width: 1.25rem; height: 1.25rem; }
+#claim-error { margin-bottom: .75rem; }
+
 @media (forced-colors: active) {
     .played-card.is-winner { outline: 3px solid Highlight; }
 }

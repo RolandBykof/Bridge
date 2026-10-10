@@ -300,6 +300,9 @@
         let dealIsReplay = false;
         let myPosition = null;
         let myName = null;
+        // Secret seat token from the server. Rejoining with it gets the same
+        // seat back; the name alone only works for a disconnected seat.
+        let mySeatToken = null;
         let selectedCreatePosition = 'south';
         let selectedJoinPosition = null;
         let availableJoinPositions = [];
@@ -488,7 +491,8 @@
                 sessionStorage.setItem(TABLE_SESSION_KEY, JSON.stringify({
                     tableCode: tableCode,
                     playerName: myName,
-                    position: myPosition
+                    position: myPosition,
+                    seatToken: mySeatToken
                 }));
             } catch (e) {}
         }
@@ -512,11 +516,12 @@
             tableCode = saved.tableCode;
             myName = saved.playerName;
             myPosition = saved.position || null;
+            mySeatToken = saved.seatToken || null;
             saveTableSession();
 
             announceToScreenReader(`Rejoining table ${saved.tableCode}...`);
             if (!socket || !socket.connected) connectToServer();
-            socket.emit('getTableInfo', { tableCode: saved.tableCode, playerName: saved.playerName });
+            socket.emit('getTableInfo', { tableCode: saved.tableCode, playerName: saved.playerName, seatToken: mySeatToken });
         }
 
         // A game in progress is restored through 'gameReconnect'; this handles
@@ -549,7 +554,7 @@
             if (savedPosition && !table.players[savedPosition]) {
                 selectedJoinPosition = savedPosition;
                 myPosition = savedPosition;
-                socket.emit('selectPosition', { tableCode: code, position: savedPosition, playerName: myName });
+                socket.emit('selectPosition', { tableCode: code, position: savedPosition, playerName: myName, seatToken: mySeatToken });
                 return;
             }
 
@@ -2412,6 +2417,7 @@ function formatContract(contract, asHtml = false) {
             bridgeScore = { ns: 0, ew: 0 };
             myPosition = null;
             myName = null;
+            mySeatToken = null;
             selectedCreatePosition = 'south';
             selectedJoinPosition = null;
             availableJoinPositions = [];
@@ -3483,6 +3489,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
 
             socket.on('tableCreated', (data) => {
                 tableCode = data.tableCode;
+                if (data.seatToken) mySeatToken = data.seatToken;
                 gameMode = normalizeGameMode(data.table && data.table.gameMode);
                 setPracticeFromTable(data.table);
                 resetCreateTableUI();
@@ -3605,9 +3612,10 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                 
                 if (tableCode && myName) {
                     console.log('Attempting to rejoin table:', tableCode);
-                    socket.emit('getTableInfo', { 
-                        tableCode: tableCode, 
-                        playerName: myName 
+                    socket.emit('getTableInfo', {
+                        tableCode: tableCode,
+                        playerName: myName,
+                        seatToken: mySeatToken
                     });
                 }
             });
@@ -3621,6 +3629,10 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                 if (!data) {
                     showErrorWithAnnouncement('Invalid server response');
                     return;
+                }
+                if (data.seatToken) {
+                    mySeatToken = data.seatToken;
+                    if (isAtTable()) saveTableSession();
                 }
                 if (pendingRestore && data.table) {
                     handleRestoreTableInfo(data);
@@ -3668,6 +3680,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
 
                 tableCode = data.table.code;
                 myPosition = data.playerPosition;
+                if (data.seatToken) mySeatToken = data.seatToken;
                 gameState = data.gameState || {};
                 biddingState = data.biddingState || {};
                 dealNumber = data.dealNumber || 1;
