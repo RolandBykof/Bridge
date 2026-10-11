@@ -591,14 +591,24 @@ function getTableInfo(socket, playerId, data) {
             });
         }
 
-        // Jos dummy on näkyvissä, lähetä sekin (minibridgessä myös contract-vaiheessa)
-        if (table.gameState && table.gameState.dummy &&
-            (table.gameState.gamePhase === 'play' || table.gameState.gamePhase === 'contract') &&
-            table.gameState.hands[table.gameState.dummy]) {
+        // Jos dummy on näkyvissä, lähetä sekin. Minibridgessä se näkyy jo
+        // contract-vaiheessa, muuten vasta avauslähdön jälkeen (kuten playCardissa).
+        const gs = table.gameState;
+        const dummyVisible = gs && gs.dummy && gs.hands[gs.dummy] &&
+            (table.gameMode === 'minibridge'
+                ? (gs.gamePhase === 'play' || gs.gamePhase === 'contract')
+                : (gs.gamePhase === 'play' && gs.playedCards.length > 0));
+        if (dummyVisible) {
             socket.emit('dummyRevealed', {
                 dummyPosition: table.gameState.dummy,
                 dummyCards: table.gameState.hands[table.gameState.dummy]
             });
+        }
+
+        // Robotin pelinviejän puolesta pelaava lepääjä tarvitsee taas sen käden.
+        if (existingPosition === getEffectiveController(table) &&
+            (gs.gamePhase === 'play' || gs.gamePhase === 'contract')) {
+            revealRobotDeclarerHandIfNeeded(table);
         }
 
         // Jos double dummy -katselu on auki, palaava pelaaja jatkaa samasta tikistä
@@ -1333,22 +1343,12 @@ function playCard(socket, playerId, data) {
     return;
   }
   
-  // Check if this player controls this position or player is dummy controller
-  // (or, if the declarer is a robot and dummy is human, that human controls both)
-  const isDummy = position === table.gameState.dummy;
-  const isDeclarerSeat = position === table.gameState.declarer;
-  const override = getEffectiveController(table);
-
-  let isController;
-  if (override) {
-    isController = (isDummy || isDeclarerSeat) && table.players[override].id === playerId;
-  } else if (isDummy) {
-    isController = table.players[table.gameState.declarer].id === playerId;
-  } else {
-    isController = table.players[position].id === playerId;
-  }
-
-  if (!isController) {
+  // The seat that decides this card: the player's own seat, declarer for the
+  // dummy, or -- if the declarer is a robot and dummy is human -- that human
+  // for both declarer-side hands. Defenders always play their own cards.
+  // Same rule as the robot turns use (currentController).
+  const controller = table.players[currentController(table)];
+  if (!controller || controller.id !== playerId) {
     sendError(socket, 'You cannot play from this position');
     return;
   }
