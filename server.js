@@ -38,6 +38,9 @@ const CARD_SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const CARD_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const MAX_IDLE_TIME = 3600000; // 1 hour in milliseconds
 const RECONNECT_TIMEOUT = 300000; // 5 minuuttia
+// Odotushuoneessa paikka pidetään lyhyemmän ajan, jotta sivun päivitys ei vie
+// paikkaa, mutta pois lähteneen paikka vapautuu muille pian.
+const WAITING_RECONNECT_TIMEOUT = 60000; // 1 minuutti
 
 // Minibridge
 const MINI_GAME_LEVEL = { N: 3, S: 4, H: 4, D: 5, C: 5 };
@@ -261,58 +264,26 @@ function handleDisconnect(playerId) {
   if (player.table) {
     const table = tables.get(player.table);
     if (table) {
-      // KORJAUS: Jos peli on käynnissä, älä poista pelaajaa välittömästi
-      // Paikan on voinut jo ottaa uusi yhteys (sivun päivitys, sama tunniste):
-      // silloin vanhan yhteyden katkeaminen ei koske paikkaa.
+      // Pelaajaa ei poisteta heti, vaan paikka pidetään hetken varattuna, jotta
+      // sivun päivitys (sama tunniste) palauttaa sen sekä pelissä että odotushuoneessa.
+      // Paikan on voinut jo ottaa uusi yhteys: silloin vanhan yhteyden katkeaminen
+      // ei koske paikkaa.
       const seat = player.position ? table.players[player.position] : null;
       const ownsSeat = !!seat && seat.id === playerId;
-      if (ownsSeat && table.state === 'playing') {
-        // Merkitse pelaaja katkenneeksi
+      if (ownsSeat) {
         const position = player.position;
-        if (position && table.players[position]) {
-          table.players[position].disconnected = true;
-          table.players[position].disconnectTime = Date.now();
-          
-          // Ilmoita muille pelaajille
-          sendToTablePlayers(table, {
-            type: 'playerDisconnected',
-            position: position,
-            playerName: player.name,
-            message: `${player.name} (${positionName(position)}) lost connection. Waiting for reconnect...`
-          });
-          
-          console.log(`Player ${player.name} marked as disconnected, waiting for reconnect`);
-          
-          // Aseta timeout pelaajan lopulliseen poistamiseen
-          setTimeout(() => {
-            const currentTable = tables.get(player.table);
-            if (currentTable && currentTable.players[position]) {
-              const tablePlayer = currentTable.players[position];
-              // Jos pelaaja on edelleen katkennneena (ei ole liittynyt takaisin)
-              if (tablePlayer.disconnected && tablePlayer.id === playerId) {
-                console.log(`Player ${player.name} reconnect timeout - removing from game`);
-                
-                // Poista pelaaja lopullisesti
-                removePlayerFromTable(player, currentTable);
+        seat.disconnected = true;
+        seat.disconnectTime = Date.now();
 
-                // Double dummy -katselua ohjaa vain pöydän luoja; jos hän
-                // poistuu lopullisesti, katselu suljetaan kaikilta.
-                if (currentTable.ddReview && position === currentTable.creatorPosition) {
-                  endDoubleDummyReview(currentTable);
-                }
-                
-                sendToTablePlayers(currentTable, {
-                  type: 'playerRemovedTimeout',
-                  position: position,
-                  message: `${player.name} could not reconnect and was removed from the game.`
-                });
-              }
-            }
-          }, RECONNECT_TIMEOUT);
-        }
-      } else if (ownsSeat) {
-        // Jos peli ei ole käynnissä (waiting room), poista normaalisti
-        removePlayerFromTable(player, table);
+        sendToTablePlayers(table, {
+          type: 'playerDisconnected',
+          position: position,
+          playerName: player.name,
+          message: `${player.name} (${positionName(position)}) lost connection. Waiting for reconnect...`
+        });
+
+        console.log(`Player ${player.name} marked as disconnected, waiting for reconnect`);
+        scheduleSeatRemoval(table, position, player, playerId);
       }
     }
   }
@@ -322,6 +293,45 @@ function handleDisconnect(playerId) {
   if (!player.table || !tables.get(player.table) || tables.get(player.table).state !== 'playing') {
     players.delete(playerId);
   }
+}
+
+// Poistaa katkenneen pelaajan paikalta, jos hän ei palaa ajoissa. Odotusaika
+// riippuu pöydän tilasta tarkistushetkellä: jos peli alkoi odotushuoneen aikana,
+// odotetaan pelin koko aika.
+function scheduleSeatRemoval(table, position, player, playerId) {
+  const stillDisconnected = () => {
+    const seat = tables.get(table.code) === table ? table.players[position] : null;
+    return !!seat && seat.disconnected && seat.id === playerId ? seat : null;
+  };
+  const limit = () => (table.state === 'playing' ? RECONNECT_TIMEOUT : WAITING_RECONNECT_TIMEOUT);
+
+  const check = () => {
+    const seat = stillDisconnected();
+    if (!seat) return;
+    const remaining = seat.disconnectTime + limit() - Date.now();
+    if (remaining > 0) {
+      setTimeout(check, remaining);
+      return;
+    }
+    const playing = table.state === 'playing';
+    console.log(`Player ${player.name} reconnect timeout - removing from table ${table.code}`);
+    removePlayerFromTable(player, table);
+
+    // Double dummy -katselua ohjaa vain pöydän luoja; jos hän
+    // poistuu lopullisesti, katselu suljetaan kaikilta.
+    if (table.ddReview && position === table.creatorPosition) {
+      endDoubleDummyReview(table);
+    }
+
+    if (playing) {
+      sendToTablePlayers(table, {
+        type: 'playerRemovedTimeout',
+        position: position,
+        message: `${player.name} could not reconnect and was removed from the game.`
+      });
+    }
+  };
+  setTimeout(check, limit());
 }
 
 // Salainen paikkatunniste. Pöytään palaava selain tunnistetaan sillä eikä pelkällä
