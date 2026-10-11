@@ -2295,6 +2295,17 @@ function updateContractDisplay() {
                 return true;
             }
 
+            // Bare P reads the trick shown in the review, not the last trick
+            // played at the table (see announceCurrentTrick).
+            if (!e.altKey && !e.shiftKey && e.key.toLowerCase() === 'p') {
+                const target = e.target;
+                const tag = (target && target.tagName) || '';
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || (target && target.isContentEditable)) return false;
+                e.preventDefault();
+                announceUrgent(ddTrickAnnouncement());
+                return true;
+            }
+
             if (e.key === 'Escape' && !e.altKey && !e.shiftKey && isTableCreator()) {
                 const tag = (e.target && e.target.tagName) || '';
                 if (tag === 'INPUT' || tag === 'TEXTAREA') return false;
@@ -2572,7 +2583,7 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Alt + N', desc: 'Next trick (table creator)' },
                 { key: 'Alt + Shift + N', desc: 'Previous trick (table creator)' },
                 { key: 'Escape', desc: 'Close the review (table creator)' },
-                { key: 'Alt + Shift + P', desc: 'Announce the shown trick again' },
+                { key: 'P or Alt + Shift + P', desc: 'Announce the shown trick again' },
                 { key: 'Alt + A/S/D/F/G', desc: 'Your hand at the start of the shown trick' },
                 { key: 'Alt + Q/W/E/R/T', desc: 'Partner\'s hand at the start of the shown trick' },
                 { key: 'Alt + 1-5 / 7-0, 6', desc: 'Left / right opponent\'s hand at the start of the shown trick' },
