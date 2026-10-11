@@ -456,11 +456,15 @@
 
         // SOCKET CONNECTION
         function connectToServer() {
-            if (socket && socket.connected) {
-                console.log('Socket already connected');
+            // Always reuse the one socket: the event handlers are attached to it
+            // (setupSocketEventHandlers), and a second io() call would open a new
+            // connection without them. A socket that is still connecting or
+            // reconnecting is fine to emit on -- socket.io buffers the events.
+            if (socket) {
+                if (!socket.connected && !socket.active) socket.connect();
                 return socket;
             }
-            
+
             console.log('Creating new socket connection...');
             
             socket = io({
@@ -3603,7 +3607,9 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                 document.body.style.pointerEvents = 'none';
             });
 
-            socket.on('reconnect', () => {
+            // In socket.io v4 'reconnect' comes from the Manager (socket.io),
+            // not from the socket itself.
+            socket.io.on('reconnect', () => {
                 console.log('Reconnected to server');
                 announceToScreenReader('Connection restored');
                 
