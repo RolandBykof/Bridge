@@ -3,3 +3,5 @@ node_modules/
 *.log
 # Tallennetut korttipelipöydät (korttipelit/tallennus.js)
 data/saved-tables/
+# Testityökalun ajojen tulokset (testityokalu/cli.js)
+testityokalu/tulokset/

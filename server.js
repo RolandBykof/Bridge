@@ -46,8 +46,36 @@ const WAITING_RECONNECT_TIMEOUT = 60000; // 1 minuutti
 const MINI_GAME_LEVEL = { N: 3, S: 4, H: 4, D: 5, C: 5 };
 const MINI_TRUMP = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs', N: null };
 
+// Testitila (testityokalu/, ks. testityökalusuunnitelma.html). Päällä vain, kun
+// palvelin käynnistetään muuttujalla TEST_MODE=1; tuotannossa sitä ei aseteta.
+// Testitila lyhentää odotukset, avaa testisivun ja lähettää jaon tiedot
+// testiyhteyksille jaon päätyttyä. TEST_DELAYS=normal pitää odotukset ennallaan.
+const TEST_MODE = process.env.TEST_MODE === '1';
+const FAST_DELAYS = TEST_MODE && process.env.TEST_DELAYS !== 'normal';
+
+// Kaikki pelin tarkoitukselliset odotukset yhdessä paikassa. Testitilassa vain
+// ajastimien pituudet muuttuvat, pelin logiikka pysyy samana.
+const DELAYS = FAST_DELAYS ? {
+  robotThinkMin: 0,
+  robotThinkJitter: 20,
+  trickPause: 30,
+  allPassedRedeal: 30,
+  miniRedeal: 30,
+  autoNextDeal: 50
+} : {
+  robotThinkMin: 1200,
+  robotThinkJitter: 800,
+  trickPause: 3000,
+  allPassedRedeal: 3000,
+  miniRedeal: 3000,
+  autoNextDeal: 10000
+};
+
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
+if (TEST_MODE) {
+  app.use('/testityokalu', express.static(path.join(__dirname, 'testityokalu')));
+}
 app.use(express.json());
 app.use(cors());
 
@@ -781,6 +809,7 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
         points: roles.points,
         message: '20-20. Redealing.'
       });
+      sendTestDealRecord(table, 'miniRedeal');
 
       const epochAtSchedule = table.dealEpoch;
       setTimeout(() => {
@@ -800,7 +829,7 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
             table.biddingState = null;
           }
         }
-      }, 3000);
+      }, DELAYS.miniRedeal);
       return;
     }
 
@@ -845,9 +874,10 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
   sendToTablePlayers(table, payload);
   sendAudioToTable(table, 'deal');
 
-  // Send each player their own cards privately
+  // Send each player their own cards privately. A seat can be empty if its
+  // player left during the pause before an automatic new deal.
   for (const [position, playerData] of Object.entries(table.players)) {
-    if (playerData.type === 'human' && playerData.id) {
+    if (playerData && playerData.type === 'human' && playerData.id) {
       const player = players.get(playerData.id);
       if (player && player.socket) {
         player.socket.emit('yourCards', {
@@ -1054,7 +1084,7 @@ function makeBid(socket, playerId, data) {
   }
   
   // Check if bid is valid
-  if (!isBidValid(bid, table.biddingState.highestBid)) {
+  if (!isBidValid(bid, table.biddingState.highestBid, table.biddingState.bidHistory, position)) {
     sendError(socket, 'Invalid bid');
     return;
   }
@@ -1163,19 +1193,29 @@ function finalizeBiddingPhase(table) {
       bid: lastBid.bid,
       biddingState: table.biddingState
     });
-    
+    sendTestDealRecord(table, 'allPassed');
+
     // Start new deal automatically
     const epochAtSchedule = table.dealEpoch;
     setTimeout(() => {
       if (table.dealEpoch !== epochAtSchedule) return; // this deal was abandoned in the meantime
       startNextDeal(table);
-    }, 3000);
+    }, DELAYS.allPassedRedeal);
     return;
   }
   
-  // Determine final contract
-  determineContract(table);
-  
+  // Determine final contract. isBidValid() rejects a double or redouble
+  // without a contract bid, so an auction that ends here always has one.
+  if (!determineContract(table)) {
+    console.error(`Table ${table.code}: bidding ended without a contract bid`, table.biddingState.bidHistory);
+    sendToTablePlayers(table, {
+      type: 'dealError',
+      message: 'The auction ended without a contract. Starting a new deal.'
+    });
+    startNextDeal(table);
+    return;
+  }
+
   // Determine declarer and dummy
   determineDeclarerAndDummy(table);
   
@@ -1236,45 +1276,18 @@ function determineContract(table) {
  * Determine declarer and dummy
  */
 function determineDeclarerAndDummy(table) {
-  const contractSuit = table.biddingState.contract.charAt(1);
-  
-  const partnerships = {
-    'north-south': ['north', 'south'],
-    'east-west': ['east', 'west']
-  };
-  
-  let declarerPartnership = null;
-  let firstPlayer = null;
-  
-  for (const bidInfo of table.biddingState.bidHistory) {
-    if (bidInfo.bid.charAt(1) === contractSuit && !['P', 'X', 'XX'].includes(bidInfo.bid)) {
-      const player = bidInfo.player;
-      
-      for (const [partnership, players] of Object.entries(partnerships)) {
-        if (players.includes(player)) {
-          declarerPartnership = partnership;
-          
-          if (!firstPlayer || !players.includes(firstPlayer)) {
-            firstPlayer = player;
-          }
-          break;
-        }
-      }
-      
-      if (declarerPartnership && firstPlayer) {
-        break;
-      }
-    }
-  }
-  
-  if (declarerPartnership && firstPlayer) {
-    table.biddingState.declarer = firstPlayer;
-    const dummyIndex = (partnerships[declarerPartnership].indexOf(firstPlayer) + 1) % 2;
-    table.biddingState.dummy = partnerships[declarerPartnership][dummyIndex];
-  } else {
-    table.biddingState.declarer = 'south';
-    table.biddingState.dummy = 'north';
-  }
+  const history = table.biddingState.bidHistory;
+  const isContractBid = (b) => !['P', 'X', 'XX'].includes(b.bid);
+
+  // The declaring side made the final contract bid; declarer is the player
+  // of that side who first named the contract's strain. A strain named
+  // earlier by the opponents doesn't count.
+  const finalBid = [...history].reverse().find(isContractBid);
+  const strain = finalBid.bid.charAt(1);
+  const first = history.find(b => isContractBid(b) && b.bid.charAt(1) === strain && sameSide(b.player, finalBid.player));
+
+  table.biddingState.declarer = first.player;
+  table.biddingState.dummy = getNextPlayer(getNextPlayer(first.player));
 }
 
 /**
@@ -1411,7 +1424,7 @@ function processCardPlay(table, position, suit, card) {
     setTimeout(() => {
       if (table.dealEpoch !== epochAtSchedule) return; // this deal was abandoned in the meantime
       processTrick(table);
-    }, 3000);
+    }, DELAYS.trickPause);
   } else {
     // Move to next player
     table.gameState.currentPlayer = getNextPlayer(table.gameState.currentPlayer);
@@ -1645,7 +1658,7 @@ function maybeTriggerRobot(table) {
     runRobotTurn(table, phase, epochAtSchedule).catch(err => {
       console.error(`Robot turn failed at table ${table.code}:`, err);
     });
-  }, 1200 + Math.random() * 800);
+  }, DELAYS.robotThinkMin + Math.random() * DELAYS.robotThinkJitter);
 }
 
 /**
@@ -1814,6 +1827,7 @@ async function endGame(table) {
     gameOverPayload.autoNextDeal = !!table.autoNextDeal;
 
     sendToTablePlayers(table, gameOverPayload);
+    sendTestDealRecord(table, 'end');
 
     console.log(`Game ${table.code} ended: ${resultMessage}`);
 
@@ -1845,13 +1859,13 @@ function scheduleAutoNextDeal(table) {
                     console.log(`Table ${table.code} missing players, not starting next deal`);
                 }
             }
-        }, 10000);
+        }, DELAYS.autoNextDeal);
 
         sendToTablePlayers(table, {
             type: 'autoDealCountdownStarted',
             nextDealNumber: (table.dealNumber || 1) + 1,
             nextDealer: getNextDealer(table.currentDealer || 'south'),
-            countdown: 10
+            countdown: Math.round(DELAYS.autoNextDeal / 1000)
         });
     }
 }
@@ -1927,6 +1941,7 @@ function requestNextDeal(socket, playerId, data) {
     }
 
     const abandoned = table.gameState.gamePhase !== 'end';
+    if (abandoned) sendTestDealRecord(table, 'abandoned');
 
     if (table.pendingNextDealTimeout) {
         clearTimeout(table.pendingNextDealTimeout);
@@ -2347,13 +2362,22 @@ function sendActiveTables(socket) {
 }
 
 /**
- * Check if bid is valid
+ * Check if bid is valid. A double is allowed only right after an opponent's
+ * contract bid (passes in between are fine), a redouble only right after an
+ * opponent's double. `bidHistory` and `position` are needed for those two.
  */
-function isBidValid(bid, highestBid) {
+function isBidValid(bid, highestBid, bidHistory = [], position = null) {
   if (bid === 'P') return true;
-  
-  if (bid === 'X' || bid === 'XX') return true;
-  
+
+  if (bid === 'X' || bid === 'XX') {
+    const lastAction = [...bidHistory].reverse().find(b => b.bid !== 'P');
+    if (!lastAction || !position || sameSide(lastAction.player, position)) return false;
+    if (bid === 'X') return !['X', 'XX'].includes(lastAction.bid);
+    return lastAction.bid === 'X';
+  }
+
+  if (!/^[1-7][CDHSN]$/.test(bid)) return false;
+
   if (!highestBid) return true;
   
   const bidLevel = parseInt(bid.charAt(0));
@@ -2367,8 +2391,13 @@ function isBidValid(bid, highestBid) {
   
   if (bidLevel > highestLevel) return true;
   if (bidLevel === highestLevel && bidSuitIndex > highestSuitIndex) return true;
-  
+
   return false;
+}
+
+function sameSide(a, b) {
+  const ns = ['north', 'south'];
+  return ns.includes(a) === ns.includes(b);
 }
 
 /**
@@ -2402,6 +2431,37 @@ function sendToTablePlayers(table, message) {
       }
     }
   }
+}
+
+/**
+ * Testitila: lähettää pöydän pelaajille koko jaon tiedot (kaikki neljä
+ * alkuperäistä kättä, tarjoukset ja pelatut kortit), jotta testityökalu voi
+ * tarkistaa jaon ja toistaa virheellisen jaon. Kutsutaan vain jaon päätyttyä
+ * tai hylättäessä, eikä tavallisessa tilassa lähetetä koskaan mitään.
+ */
+function sendTestDealRecord(table, reason) {
+  if (!TEST_MODE || !table.gameState) return;
+  const gs = table.gameState;
+  const bs = table.biddingState || {};
+  sendToTablePlayers(table, {
+    type: 'testDealRecord',
+    reason,
+    dealNumber: table.dealNumber,
+    dealEpoch: table.dealEpoch,
+    dealer: table.currentDealer,
+    gameMode: table.gameMode || 'bridge',
+    vulnerable: gs.vulnerable,
+    hands: gs.originalHands,
+    bidHistory: (bs.bidHistory || []).map(b => ({ player: b.player, bid: b.bid })),
+    contract: gs.contract,
+    declarer: gs.declarer,
+    dummy: gs.dummy,
+    trumpSuit: gs.trumpSuit,
+    playedCards: gs.playedCards,
+    tricks: gs.tricks,
+    miniPoints: table.miniState ? table.miniState.points || null : null,
+    isReplay: !!gs.isReplay
+  });
 }
 
 /**
@@ -2514,6 +2574,11 @@ function filterGameState(gameState, position) {
 
   const filteredState = { ...gameState };
 
+  // gameState.players is the table's own player map, with every player's
+  // secret seat token and socket id -- send only names and types, like
+  // filterTablePlayers() does everywhere else.
+  if (filteredState.players) filteredState.players = filterTablePlayers(filteredState.players);
+
   // Remove hands info (sent separately, and only to their owner/dummy-viewers)
   delete filteredState.hands;
   // originalHands is solver-internal (double-dummy comparisons, robot card
@@ -2600,6 +2665,9 @@ function formatContract(contract) {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`BridgeCircle Server running on port ${PORT}`);
+  if (TEST_MODE) {
+    console.log(`TEST MODE: delays ${FAST_DELAYS ? 'shortened' : 'normal'}, robot bidder ${robot.bidderMode()}, test tool at /testityokalu/`);
+  }
   console.log('Features:');
   console.log('- Human players, with robots auto-filling empty seats at start');
   console.log('- Real-time multiplayer bridge');

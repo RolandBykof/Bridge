@@ -1766,7 +1766,8 @@ function updateContractDisplay() {
             const biddingControls = document.getElementById('game-bidding-controls');
             if (!biddingControls) return;
             
-            const possibleBids = getPossibleBids(biddingState ? biddingState.highestBid : null);
+            const possibleBids = getPossibleBids(biddingState ? biddingState.highestBid : null,
+                biddingState ? biddingState.bidHistory : [], myPosition);
             
             let html = '<h3>Your Bid</h3><div class="bidding-buttons">';
             
@@ -1824,13 +1825,19 @@ function updateContractDisplay() {
             });
         }
 
-        function getPossibleBids(highestBid) {
+        // Same rule as the server's isBidValid(): double only right after an
+        // opponent's contract bid, redouble only right after an opponent's
+        // double (passes in between are fine).
+        function getPossibleBids(highestBid, bidHistory = [], position = null) {
             const possibleBids = ['P'];
-            
-            if (highestBid && !highestBid.includes('X')) {
+
+            const ns = ['north', 'south'];
+            const lastAction = [...(bidHistory || [])].reverse().find(b => b.bid !== 'P');
+            const byOpponent = lastAction && position && ns.includes(lastAction.player) !== ns.includes(position);
+            if (byOpponent && !['X', 'XX'].includes(lastAction.bid)) {
                 possibleBids.push('X');
             }
-            if (highestBid && highestBid.includes('X') && !highestBid.includes('XX')) {
+            if (byOpponent && lastAction.bid === 'X') {
                 possibleBids.push('XX');
             }
             
@@ -2277,11 +2284,30 @@ function updateContractDisplay() {
 
         /**
          * Keys while the review is open. Returns true when the key was handled.
-         * Alt+1-6/7-0 (left and right player) are handled by the general
-         * hand-reading keys, which read the review hands while it's open.
          */
         function handleDdReviewKey(e) {
             if (e.ctrlKey) return false; // AltGr is Ctrl+Alt on Windows
+
+            // Hands of the left and right player, only in the review (during
+            // play they'd announce dummy or "Cannot view"). By physical key
+            // (e.code) so they work on every keyboard layout; on a Finnish
+            // keyboard AltGr+7/8/9/0 types { [ ] }, hence the ctrlKey check.
+            const relativeHandKeys = {
+                Digit1: ['left', 'spades'], Digit2: ['left', 'hearts'],
+                Digit3: ['left', 'diamonds'], Digit4: ['left', 'clubs'],
+                Digit5: ['left', null],
+                Digit7: ['right', 'spades'], Digit8: ['right', 'hearts'],
+                Digit9: ['right', 'diamonds'], Digit0: ['right', 'clubs'],
+                Digit6: ['right', null]
+            };
+            if (e.altKey && !e.shiftKey && e.code in relativeHandKeys) {
+                e.preventDefault();
+                const [side, suit] = relativeHandKeys[e.code];
+                const position = getPositionLayout()[side];
+                if (suit) announceHandSuitWithFocus(position, suit, true);
+                else announceEntireHand(position);
+                return true;
+            }
 
             if (e.altKey && e.code === 'KeyN') {
                 e.preventDefault();
@@ -2566,7 +2592,7 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Ctrl + 4', desc: 'Play highest club' },
                 
                 { key: '', desc: '--- Game: Card Viewing (Left and Right Player) ---' },
-                { key: '', desc: 'Works whenever that hand is visible: the dummy during play, and every hand in the double dummy review.' },
+                { key: '', desc: 'Only in the double dummy review after the deal.' },
                 { key: 'Alt + 1', desc: 'Announce left player\'s spades' },
                 { key: 'Alt + 2', desc: 'Announce left player\'s hearts' },
                 { key: 'Alt + 3', desc: 'Announce left player\'s diamonds' },
@@ -2747,7 +2773,7 @@ function getSuitNameWithCount(suit, count) {
         /**
          * Spoken name of a hand relative to our own seat, e.g.
          * "West, left opponent". Used whenever the hand being read isn't
-         * obviously our own (the double dummy review, Alt+1-6/7-0).
+         * obviously our own (Alt+1-6/7-0 in the double dummy review).
          */
         function handOwnerLabel(position) {
             if (position === myPosition) return 'Your hand';
@@ -3136,34 +3162,6 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                     // Double dummy review keys first: Alt+Shift+P would
                     // otherwise reach the Alt+P handler below.
                     if (ddReviewState && handleDdReviewKey(e)) return;
-
-                    // Hands of the left and right player, by physical key
-                    // (e.code) so they work on every keyboard layout. Alt+1-4
-                    // used to play the lowest card of a suit; they now read
-                    // hands instead (lowest card of the led suit is still ↓/O).
-                    // !ctrlKey: AltGr is Ctrl+Alt on Windows, and on a Finnish
-                    // keyboard AltGr+7/8/9/0 types { [ ] }.
-                    if (e.altKey && !e.ctrlKey && !e.shiftKey) {
-                        const relativeHandKeys = {
-                            Digit1: ['left', 'spades'], Digit2: ['left', 'hearts'],
-                            Digit3: ['left', 'diamonds'], Digit4: ['left', 'clubs'],
-                            Digit5: ['left', null],
-                            Digit7: ['right', 'spades'], Digit8: ['right', 'hearts'],
-                            Digit9: ['right', 'diamonds'], Digit0: ['right', 'clubs'],
-                            Digit6: ['right', null]
-                        };
-                        const target = relativeHandKeys[e.code];
-                        if (target) {
-                            e.preventDefault();
-                            const position = getPositionLayout()[target[0]];
-                            if (target[1]) {
-                                announceHandSuitWithFocus(position, target[1], true);
-                            } else {
-                                announceEntireHand(position);
-                            }
-                            return;
-                        }
-                    }
 
                     // Card viewing shortcuts (Own cards)
                     if (e.altKey && e.key.toLowerCase() === 'a') {

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bridgen testityökalu</title>
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --accent: #a8221a;
+  --ok: #1d5a3d;
+  --rule: #9fb2a6;
+  --code-bg: #eef2ef;
+  --focus: #005fcc;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --accent: #ff8f85;
+    --ok: #79c9a0;
+    --rule: #3f574a;
+    --code-bg: #1b2820;
+    --focus: #66b3ff;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --accent: #ff8f85;
+  --ok: #79c9a0;
+  --rule: #3f574a;
+  --code-bg: #1b2820;
+  --focus: #66b3ff;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+.skip { position: absolute; left: -9999px; top: 0; background: var(--felt); color: var(--bg); padding: .5rem 1rem; }
+.skip:focus { left: 1rem; top: 1rem; }
+header.page { background: var(--felt); color: #fff; padding: 1.5rem 16px; }
+:root[data-theme="dark"] header.page { color: #0f1612; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) header.page { color: #0f1612; } }
+header.page .inner, main { max-width: 60rem; margin: 0 auto; }
+header.page h1 { margin: 0 0 .25rem; font-size: 2rem; }
+header.page p { margin: 0; }
+main { padding: 1rem 16px 4rem; }
+h2 { font-size: 1.5rem; margin: 2rem 0 .75rem; padding-top: .75rem; border-top: 3px solid var(--felt); }
+h3 { font-size: 1.2rem; margin: 1.25rem 0 .5rem; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+fieldset { border: 1px solid var(--rule); background: var(--surface); padding: .75rem 1rem 1rem; margin: 0 0 1rem; }
+legend { font-weight: 700; padding: 0 .3rem; }
+.field { margin: .6rem 0; }
+.field label { display: block; font-weight: 700; margin-bottom: .2rem; }
+.hint { color: var(--muted); font-size: .95rem; margin: .2rem 0 0; }
+.check { display: flex; align-items: center; gap: .5rem; margin: .35rem 0; }
+.check input { width: 1.3rem; height: 1.3rem; flex: none; }
+input[type="number"], input[type="text"], select {
+  font: inherit; color: var(--ink); background: var(--bg);
+  border: 2px solid var(--rule); border-radius: 6px; padding: .35rem .5rem; max-width: 100%;
+}
+input[type="number"] { width: 8rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0 1.5rem; }
+
+button {
+  font: inherit; font-weight: 700; cursor: pointer;
+  padding: .55rem 1.1rem; border-radius: 8px;
+  border: 2px solid var(--felt); background: var(--felt); color: var(--bg);
+}
+button.secondary { background: var(--surface); color: var(--ink); border-color: var(--ink); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1rem 0; }
+
+.progress-row { margin: .5rem 0 .9rem; }
+.progress-row .label { font-weight: 700; }
+progress { width: 100%; height: 1.2rem; accent-color: var(--felt); }
+#status-text { font-weight: 700; }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 40rem; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .4rem 0; }
+th, td { border: 1px solid var(--rule); padding: .4rem .6rem; text-align: left; vertical-align: top; }
+thead th { background: var(--felt-soft); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.badge { display: inline-block; font-weight: 700; padding: 0 .4rem; border-radius: 4px; border: 2px solid currentColor; font-size: .9rem; margin-right: .3rem; }
+.badge.error { color: var(--accent); }
+.badge.known { color: var(--muted); }
+.badge.ok { color: var(--ok); }
+
+ul.findings { list-style: none; padding: 0; margin: 0; }
+ul.findings li { margin: .35rem 0; }
+ul.findings button {
+  width: 100%; text-align: left; font-weight: 400;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px;
+}
+ul.findings button[aria-current="true"] { border: 3px solid var(--focus); }
+#details { background: var(--surface); border: 1px solid var(--rule); padding: .5rem 1rem 1rem; margin-top: 1rem; }
+#details h3:focus { outline: 3px solid var(--focus); }
+#details dl { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; margin: 0; }
+#details dt { font-weight: 700; }
+#details dd { margin: 0; }
+pre { background: var(--code-bg); padding: .75rem; overflow-x: auto; font-size: .9rem; white-space: pre-wrap; word-break: break-word; }
+.theme-switch { margin-top: .75rem; }
+.theme-switch button { background: transparent; color: inherit; border-color: currentColor; padding: .3rem .8rem; font-size: 1rem; }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+<header class="page">
+  <div class="inner">
+    <h1>Bridgen testityökalu</h1>
+    <p>Pelaa jakoja automaattisesti eri kokoonpanoilla ja tarkistaa jokaisen jaon. Toimii vain, kun palvelin on testitilassa.</p>
+    <div class="theme-switch"><button type="button" id="theme-toggle" aria-pressed="false">Tumma tila</button></div>
+  </div>
+</header>
+
+<main id="sisalto">
+  <form id="settings" novalidate>
+    <h2 id="asetukset">Asetukset</h2>
+
+    <fieldset>
+      <legend>Kokoonpanot</legend>
+      <div class="check"><input type="checkbox" id="cfg-0" name="configs" value="0" checked><label for="cfg-0">0 robottia (4 ihmistä)</label></div>
+      <div class="check"><input type="checkbox" id="cfg-1" name="configs" value="1" checked><label for="cfg-1">1 robotti (3 ihmistä)</label></div>
+      <div class="check"><input type="checkbox" id="cfg-2" name="configs" value="2" checked><label for="cfg-2">2 robottia (2 ihmistä)</label></div>
+      <div class="check"><input type="checkbox" id="cfg-3" name="configs" value="3" checked><label for="cfg-3">3 robottia (1 ihminen)</label></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Ihmisten paikat</legend>
+      <p class="hint">Oletuksena paikat vaihtelevat pöydittäin, jolloin kaikki yhdistelmät tulevat pelatuiksi. Neljällä ihmisellä kaikki paikat ovat ihmisiä.</p>
+      <div class="grid" id="seat-fields"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Ajo</legend>
+      <div class="grid">
+        <div class="field">
+          <label for="deals">Jakojen määrä kokoonpanoa kohden</label>
+          <input type="number" id="deals" min="1" max="1000" value="100" required aria-describedby="deals-hint">
+          <p class="hint" id="deals-hint">1–1000</p>
+        </div>
+        <div class="field">
+          <label for="parallel">Rinnakkaiset pöydät</label>
+          <input type="number" id="parallel" min="1" max="8" value="4" required aria-describedby="parallel-hint">
+          <p class="hint" id="parallel-hint">1–8</p>
+        </div>
+        <div class="field">
+          <label for="mode">Pelimuoto</label>
+          <select id="mode">
+            <option value="bridge">Bridge</option>
+            <option value="minibridge">Minibridge</option>
+            <option value="declarerPractice">Pelinviejäharjoitus</option>
+          </select>
+        </div>
+        <div class="field" id="practice-field" hidden>
+          <label for="practice-type">Harjoitustyyppi</label>
+          <select id="practice-type">
+            <option value="mixed">Sekalaiset</option>
+            <option value="partscore">Osasopimus</option>
+            <option value="notrump-game">3 sangia</option>
+            <option value="major-game">4 herttaa tai 4 pataa</option>
+            <option value="minor-game">5 ristiä tai 5 ruutua</option>
+            <option value="slam">Pieni slammi</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="style">Ihmispelaajien tyyli</label>
+          <select id="style" aria-describedby="style-hint">
+            <option value="mixed">Sekoitus</option>
+            <option value="random">Satunnainen</option>
+            <option value="passer">Passaaja</option>
+            <option value="doubler">Kahdentaja</option>
+            <option value="climber">Kiipeäjä</option>
+            <option value="aborter">Keskeyttäjä</option>
+          </select>
+          <p class="hint" id="style-hint">Sekoituksessa jokainen pelaaja saa jokaisessa jaossa satunnaisen tyylin.</p>
+        </div>
+        <div class="field">
+          <label for="seed">Satunnaisluvun siemen</label>
+          <input type="text" id="seed" inputmode="numeric" aria-describedby="seed-hint">
+          <p class="hint" id="seed-hint">Tyhjä = satunnainen. Sama siemen tuottaa samat pelaajien valinnat.</p>
+        </div>
+      </div>
+      <div class="check"><input type="checkbox" id="illegal" checked><label for="illegal">Kokeile myös laittomia siirtoja</label></div>
+    </fieldset>
+
+    <p id="form-error" role="alert" class="hint"></p>
+    <div class="actions">
+      <button type="submit" id="start">Käynnistä</button>
+      <button type="button" id="stop" class="secondary" disabled>Pysäytä</button>
+    </div>
+  </form>
+
+  <section aria-labelledby="edistyminen">
+    <h2 id="edistyminen">Edistyminen</h2>
+    <p id="status-text">Ei käynnissä.</p>
+    <div id="progress-list"></div>
+    <!-- Ruudunlukijalle harvakseltaan: joka kymmenes jako, virheet ja valmistuminen -->
+    <p id="live" role="status" aria-live="polite" class="hint"></p>
+  </section>
+
+  <section aria-labelledby="tulokset">
+    <h2 id="tulokset">Tulokset</h2>
+    <div class="table-wrap">
+      <table id="summary-table">
+        <caption>Yhteenveto kokoonpanoittain</caption>
+        <thead>
+          <tr>
+            <th scope="col">Kokoonpano</th>
+            <th scope="col">Jakoja</th>
+            <th scope="col">Virheitä</th>
+            <th scope="col">Tunnettuja</th>
+            <th scope="col">Kesto / jako</th>
+            <th scope="col">Kaikki passasivat</th>
+            <th scope="col">Hylätty kesken</th>
+            <th scope="col">Kahdennettu</th>
+            <th scope="col">Vastakahdennettu</th>
+            <th scope="col">Slammi</th>
+            <th scope="col">Ihminen ohjasi robottia</th>
+            <th scope="col">Minibridgen uusintajako</th>
+            <th scope="col">Laittomia yrityksiä</th>
+            <th scope="col">Jumittui</th>
+          </tr>
+        </thead>
+        <tbody id="summary-body">
+          <tr><td colspan="14">Ei tuloksia vielä.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <button type="button" id="download" class="secondary" disabled>Lataa tulokset (JSON)</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="loydokset">
+    <h2 id="loydokset">Löydökset</h2>
+    <p id="findings-count">Ei löydöksiä.</p>
+    <ul class="findings" id="findings-list"></ul>
+    <section id="details" aria-labelledby="details-heading" hidden>
+      <h3 id="details-heading" tabindex="-1">Löydöksen tiedot</h3>
+      <div id="details-body"></div>
+    </section>
+  </section>
+</main>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="tarkistimet.js"></script>
+<script src="simulaattori.js"></script>
+<script src="sivu.js"></script>
+</body>
+</html>

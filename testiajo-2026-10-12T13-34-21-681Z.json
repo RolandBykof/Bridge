@@ -1,0 +1,208 @@
+{
+  "tool": "Bridgen testityökalu",
+  "version": 1,
+  "options": {
+    "url": "file://",
+    "configs": [
+      1
+    ],
+    "deals": 100,
+    "parallel": 4,
+    "mode": "bridge",
+    "practiceType": "mixed",
+    "style": "mixed",
+    "illegal": true,
+    "seats": "vaihtele",
+    "dealsPerTable": 10,
+    "seed": 999185446
+  },
+  "startedAt": "2026-10-12T13:33:20.741Z",
+  "finishedAt": "2026-10-12T13:33:20.743Z",
+  "durationMs": 2,
+  "stopped": false,
+  "errors": 10,
+  "known": 0,
+  "summary": [
+    {
+      "robots": 1,
+      "target": 100,
+      "deals": 0,
+      "allPassed": 0,
+      "abandoned": 0,
+      "miniRedeals": 0,
+      "stalled": 0,
+      "doubled": 0,
+      "redoubled": 0,
+      "slams": 0,
+      "humanControlsRobot": 0,
+      "illegalAttempts": 0,
+      "errors": 10,
+      "known": 0,
+      "totalDealMs": 0,
+      "timedDeals": 0,
+      "averageDealMs": null
+    }
+  ],
+  "findings": [
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "south",
+        "north",
+        "west"
+      ],
+      "creator": "west",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "south",
+        "north",
+        "east"
+      ],
+      "creator": "south",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "south",
+        "west",
+        "east"
+      ],
+      "creator": "east",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "north",
+        "west",
+        "east"
+      ],
+      "creator": "west",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "south",
+        "north",
+        "west"
+      ],
+      "creator": "west",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "south",
+        "north",
+        "east"
+      ],
+      "creator": "east",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "south",
+        "west",
+        "east"
+      ],
+      "creator": "east",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "north",
+        "west",
+        "east"
+      ],
+      "creator": "east",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "south",
+        "north",
+        "west"
+      ],
+      "creator": "north",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    },
+    {
+      "robots": 1,
+      "mode": "bridge",
+      "table": null,
+      "humanSeats": [
+        "south",
+        "north",
+        "east"
+      ],
+      "creator": "east",
+      "dealNumber": null,
+      "check": "Palvelimen virheet",
+      "severity": "error",
+      "message": "Pöytää ei voitu pelata: io is not defined",
+      "deal": null
+    }
+  ]
+}
