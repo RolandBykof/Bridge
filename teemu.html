@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Korttinäkymien vertailu</title>
+<style>
+  :root {
+    --page-bg: #ffffff;
+    --page-fg: #000000;
+    --panel-border: #6b7280;
+    --focus: #005fcc;
+  }
+  :root[data-theme="dark"] {
+    --page-bg: #000000;
+    --page-fg: #ffffff;
+    --panel-border: #9ca3af;
+    --focus: #66b3ff;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--page-bg);
+    color: var(--page-fg);
+    font-family: Verdana, Arial, sans-serif;
+    font-size: 1.25rem;
+    line-height: 1.5;
+  }
+
+  main { max-width: 1100px; margin: 0 auto; }
+
+  h1 { font-size: 2rem; margin: 0 0 .5em; }
+  h2 { font-size: 1.6rem; margin: 0 0 .4em; }
+  h3 { font-size: 1.2rem; margin: 1em 0 .4em; }
+
+  p, li { max-width: 60ch; }
+
+  :focus-visible {
+    outline: 4px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  button {
+    font: inherit;
+    font-weight: 700;
+    padding: .4em .9em;
+    border-radius: 8px;
+    border: 2px solid var(--page-fg);
+    background: var(--page-bg);
+    color: var(--page-fg);
+    cursor: pointer;
+  }
+
+  .page-settings { margin: 1em 0 2em; }
+
+  /* ---------- Vaihtoehdot ---------- */
+  .option {
+    border: 2px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 0 0 2em;
+  }
+  .option-desc { margin: 0 0 .6em; }
+  .option ul { margin: .2em 0 .8em; padding-left: 1.4em; }
+
+  .table {
+    border-radius: 10px;
+    padding: 16px;
+    overflow-x: auto;
+  }
+  .table.light { background: #ffffff; border: 2px solid #6b7280; }
+  .table.dark  { background: #000000; border: 2px solid #9ca3af; }
+  .table.light .table-label { color: #000000; }
+  .table.dark  .table-label { color: #ffffff; }
+
+  .table-label {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 .4em;
+  }
+  .table-label + .hand { margin-bottom: 1.2em; }
+
+  /* Kortit samoilla mitoilla kuin Accessible Bridgen pelinäkymässä
+     (public/css/multiplayer.css .card-display ja .all-cards-row, isolla
+     näytöllä): peruskoko 16px, symboli 1.6em, arvo 1.1em. Ei skaalausta,
+     Teemu suurentaa omilla apuvälineillään. */
+  .hand {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+                 'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji',
+                 'Segoe UI Emoji', 'Segoe UI Symbol';
+    font-size: 16px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding: 2px 0;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 4px 6px;
+    min-width: 32px;
+    max-width: 48px;
+    min-height: 48px;
+    border: 2px solid #000000;
+    border-radius: 4px;
+    font-weight: 800;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .card .s { font-size: 1.6em; line-height: 1; display: block; font-weight: 900; }
+  .card .r { font-size: 1.1em; line-height: 1; display: block; font-weight: 900; }
+  .card .abbr { font-size: .75em; line-height: 1; display: block; font-weight: 700; }
+
+  /* 1. Nykyinen Accessible Bridge (vertailukohta) */
+  .v-current .card { background: #ffffff; }
+  .v-current .spades   { color: #000000; }
+  .v-current .hearts   { color: #dc2626; }
+  .v-current .diamonds { color: #b45309; }
+  .v-current .clubs    { color: #15803d; }
+
+  /* 2. Kaksivärinen perinteinen pakka */
+  .v-two .card { background: #ffffff; }
+  .v-two .spades, .v-two .clubs     { color: #000000; }
+  .v-two .hearts, .v-two .diamonds  { color: #cc0000; }
+
+  /* 3. Maakohtaiset taustavärit (vaalea) ja 5. sama + kirjain */
+  .v-bg .spades,   .v-bgabbr .spades   { background: #000000; color: #ffffff; }
+  .v-bg .hearts,   .v-bgabbr .hearts   { background: #b91c1c; color: #ffffff; }
+  .v-bg .diamonds, .v-bgabbr .diamonds { background: #fbbf24; color: #000000; }
+  .v-bg .clubs,    .v-bgabbr .clubs    { background: #ffffff; color: #14532d; }
+
+  /* 4. Tumma teema, kirkkaat merkit */
+  .v-dark .card { background: #000000; border-color: #9ca3af; }
+  .v-dark .spades   { color: #ffffff; }
+  .v-dark .diamonds { color: #ffd400; }
+  .v-dark .clubs    { color: #22d3ee; }
+  .v-dark .hearts   { color: #ff5c5c; }
+
+  /* 6. Tekstikäsi: maa kerran rivin alussa värimerkkinä. Symboli ja arvot
+     samaa kokoa kuin korteissa (1.6em ja 1.1em). */
+  .v-text .hand { flex-direction: column; gap: 4px; }
+  .v-text .row { display: flex; align-items: center; gap: 8px; }
+  .v-text .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    border: 2px solid #000000;
+    font-size: 1.6em;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .v-text .badge.spades   { background: #000000; color: #ffffff; }
+  .v-text .badge.hearts   { background: #b91c1c; color: #ffffff; }
+  .v-text .badge.diamonds { background: #fbbf24; color: #000000; }
+  .v-text .badge.clubs    { background: #ffffff; color: #14532d; }
+  .v-text .ranks {
+    font-size: 1.1em;
+    font-weight: 900;
+    color: #000000;
+    letter-spacing: .2em;
+  }
+  .v-text .trick-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .v-text .trick-item { display: flex; align-items: center; gap: 4px; }
+
+  /* ---------- Arviointi ---------- */
+  fieldset {
+    border: 2px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 0 0 1em;
+  }
+  legend { font-weight: 700; padding: 0 .3em; }
+  .choice { display: block; margin: .3em 0; }
+  .choice input { width: 1.3rem; height: 1.3rem; vertical-align: middle; margin-right: .4em; }
+  .rating { margin-top: .8em; }
+  .rating label { margin-right: 1.2em; white-space: nowrap; }
+  .rating input { width: 1.3rem; height: 1.3rem; vertical-align: middle; }
+
+  textarea {
+    width: 100%;
+    font: inherit;
+    padding: .5em;
+    border: 2px solid var(--page-fg);
+    border-radius: 8px;
+    background: var(--page-bg);
+    color: var(--page-fg);
+  }
+  #summary { min-height: 10em; }
+  .status { font-weight: 700; min-height: 1.5em; }
+
+  @media (max-width: 600px) {
+    body { font-size: 1.1rem; }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.3rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Korttinäkymien vertailu</h1>
+  <p>Hei Teemu! Tällä sivulla on kuusi eri tapaa näyttää pelikortit Accessible Bridgessä.
+    Tavoite on löytää näkymä, jossa maat (pata ♠, hertta ♥, ruutu ♦ ja risti ♣)
+    erottuvat toisistaan mahdollisimman helposti myös suurennettuina.</p>
+  <p>Kortit ovat samankokoisia kuin Accessible Bridgessä tietokoneen näytöllä.
+    Suurenna niitä samalla tavalla kuin pelatessasi, esimerkiksi omalla suurennusohjelmallasi.</p>
+  <h2>Näin arvioit</h2>
+  <ol>
+    <li>Katso jokaisesta vaihtoehdosta erityisesti rivi <strong>”Neljä kahdeksikkoa”</strong>.
+      Siinä kaikki kortit ovat arvoltaan samoja, joten ne erottaa toisistaan vain maan perusteella.</li>
+    <li>Merkitse jokaisen vaihtoehdon alle, kuinka hyvin erotat maat.</li>
+    <li>Valitse sivun lopussa paras vaihtoehto ja kirjoita halutessasi kommentti.</li>
+    <li>Paina lopuksi painiketta <strong>”Kopioi vastaus leikepöydälle”</strong> ja liitä vastaus
+      sähköpostiin Ctrl+V:llä.</li>
+  </ol>
+
+  <p class="page-settings">
+    <button type="button" id="theme-toggle" aria-pressed="false">Sivun tausta tummaksi</button>
+  </p>
+
+  <div id="options"></div>
+
+  <section aria-labelledby="result-heading">
+    <h2 id="result-heading">Oma valintasi</h2>
+    <fieldset>
+      <legend>Mikä vaihtoehto on mielestäsi paras?</legend>
+      <div id="best-choices"></div>
+    </fieldset>
+
+    <label for="comment"><strong>Kommentit (vapaaehtoinen):</strong></label>
+    <textarea id="comment" rows="4"></textarea>
+
+    <h3>Vastauksesi</h3>
+    <p>Alla oleva teksti päivittyy automaattisesti valintojesi mukaan.
+      Painike kopioi sen leikepöydälle, jolloin voit liittää sen sähköpostiin Ctrl+V:llä.</p>
+    <label for="summary" class="visually-hidden">Vastauksen yhteenveto</label>
+    <textarea id="summary" readonly></textarea>
+    <p><button type="button" id="copy">Kopioi vastaus leikepöydälle</button></p>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </section>
+</main>
+
+<script>
+  // Samat merkit kuin Accessible Bridgen getSuitSymbol()
+  var SUITS = {
+    spades:   { sym: '♠', name: 'Pata',   abbr: 'P'  },
+    hearts:   { sym: '♥', name: 'Hertta', abbr: 'H'  },
+    diamonds: { sym: '♦', name: 'Ruutu',  abbr: 'Ru' },
+    clubs:    { sym: '♣', name: 'Risti',  abbr: 'Ri' }
+  };
+  var RANK_NAMES = { A: 'ässä', K: 'kuningas', Q: 'rouva', J: 'sotilas' };
+
+  // Esimerkkikäsi (13 korttia) samassa maajärjestyksessä kuin oma käsi
+  // Accessible Bridgessä, ja testirivi, jossa kaikki arvot ovat samat
+  var HAND = [
+    ['spades',   ['K', 'J', '6', '5']],
+    ['hearts',   ['K', '10', '7', '3']],
+    ['diamonds', ['A', 'J', '9']],
+    ['clubs',    ['9', '3']]
+  ];
+  var EIGHTS = [['spades', '8'], ['hearts', '8'], ['diamonds', '8'], ['clubs', '8']];
+
+  var OPTIONS = [
+    {
+      id: 'v-current', table: 'light',
+      title: 'Nykyinen Accessible Bridge',
+      desc: 'Vertailukohta: näin kortit näkyvät nyt. Neliväripakka valkoisilla korteilla.',
+      points: [
+        'Hertta, ruutu ja risti ovat lähes yhtä tummia, ne eroavat vain värisävyltään.',
+        'Kontrasti valkoiseen: pata 21 : 1, muut noin 5 : 1.'
+      ]
+    },
+    {
+      id: 'v-two', table: 'light',
+      title: 'Perinteinen kaksivärinen pakka',
+      desc: 'Mustat padat ja ristit, punaiset hertat ja ruudut, kuten Bridge Base Onlinessa.',
+      points: [
+        'Tuttu ulkoasu, musta erittäin selkeä (21 : 1), punainen 5,9 : 1.',
+        'Mustat maat ja punaiset maat erottuvat toisistaan vain symbolin muodon perusteella.'
+      ]
+    },
+    {
+      id: 'v-bg', table: 'light',
+      title: 'Jokaisella maalla oma taustaväri (vaalea)',
+      desc: 'Pata musta, hertta tummanpunainen, ruutu keltainen ja risti valkoinen. Maan voi tunnistaa jo kortin tummuudesta.',
+      points: [
+        'Neljä selvästi eri tummuista korttia: hyvin tumma, tumma, vaalea ja hyvin vaalea.',
+        'Kontrastit: pata 21 : 1, hertta 6,5 : 1, ruutu 12,6 : 1, risti 9,1 : 1.',
+        'Toimii myös punavihersokealle.'
+      ]
+    },
+    {
+      id: 'v-dark', table: 'dark',
+      title: 'Tumma teema, kirkkaat merkit',
+      desc: 'Mustat kortit, joissa maat eri väreillä: pata valkoinen, ruutu keltainen, risti syaani (turkoosi) ja hertta vaaleanpunainen.',
+      points: [
+        'Sopii valoherkälle, koska kirkasta valkoista pintaa on vähän.',
+        'Kontrastit: pata 21 : 1, ruutu 14,7 : 1, risti 11,6 : 1, hertta 6,9 : 1.',
+        'Keltainen ja turkoosi erottuvat myös punavihersokealle.'
+      ]
+    },
+    {
+      id: 'v-bgabbr', table: 'light', abbr: true,
+      title: 'Taustavärit ja maan kirjain',
+      desc: 'Kuten vaihtoehto 3, mutta kortissa on lisäksi maan lyhenne: P, H, Ru ja Ri.',
+      points: [
+        'Maan voi tunnistaa kolmella tavalla: tummuus, symboli ja kirjain.',
+        'Kirjain auttaa, jos symbolit sumenevat samannäköisiksi.',
+        'Kortti on hieman korkeampi kuin muissa vaihtoehdoissa.'
+      ]
+    },
+    {
+      id: 'v-text', table: 'light', text: true,
+      title: 'Tekstikäsi',
+      desc: 'Ei erillisiä kortteja. Maa näkyy kerran rivin alussa värillisenä merkkinä, ja arvot ovat mustana tekstinä sen perässä, kuten bridgekirjoissa.',
+      points: [
+        'Vähiten pientä visuaalista sisältöä: ei 13 kortin kehyksiä.',
+        'Maan pituus näkyy heti rivin pituudesta.',
+        'Arvot musta valkoisella, 21 : 1.'
+      ]
+    }
+  ];
+
+  function cardLabel(suit, rank) {
+    return SUITS[suit].name + ' ' + (RANK_NAMES[rank] || rank);
+  }
+
+  function cardHtml(suit, rank, withAbbr) {
+    var s = SUITS[suit];
+    return '<span class="card ' + suit + '" role="img" aria-label="' + cardLabel(suit, rank) + '">' +
+      '<span class="s" aria-hidden="true">' + s.sym + '</span>' +
+      '<span class="r" aria-hidden="true">' + rank + '</span>' +
+      (withAbbr ? '<span class="abbr" aria-hidden="true">' + s.abbr + '</span>' : '') +
+      '</span>';
+  }
+
+  // Kaikki 13 korttia yhdellä rivillä, kuten oma käsi Accessible Bridgessä
+  function cardsHand(opt) {
+    var html = '';
+    HAND.forEach(function (g) {
+      g[1].forEach(function (r) { html += cardHtml(g[0], r, opt.abbr); });
+    });
+    return '<div class="hand">' + html + '</div>';
+  }
+
+  function cardsEights(opt) {
+    return '<div class="hand">' + EIGHTS.map(function (c) {
+      return cardHtml(c[0], c[1], opt.abbr);
+    }).join('') + '</div>';
+  }
+
+  function badge(suit) {
+    return '<span class="badge ' + suit + '" aria-hidden="true">' + SUITS[suit].sym + '</span>';
+  }
+
+  function textHand() {
+    return '<div class="hand">' + HAND.map(function (g) {
+      var label = SUITS[g[0]].name + ': ' + g[1].join(' ');
+      return '<div class="row" role="img" aria-label="' + label + '">' + badge(g[0]) +
+        '<span class="ranks" aria-hidden="true">' + g[1].join(' ') + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function textEights() {
+    return '<div class="hand"><div class="trick-row">' + EIGHTS.map(function (c) {
+      return '<span class="trick-item" role="img" aria-label="' + cardLabel(c[0], c[1]) + '">' +
+        badge(c[0]) + '<span class="ranks" aria-hidden="true">' + c[1] + '</span></span>';
+    }).join('') + '</div></div>';
+  }
+
+  function render() {
+    var html = '';
+    var choices = '';
+    OPTIONS.forEach(function (opt, i) {
+      var n = i + 1;
+      var headId = opt.id + '-h';
+      html += '<section class="option ' + opt.id + '" aria-labelledby="' + headId + '">' +
+        '<h2 id="' + headId + '">Vaihtoehto ' + n + ': ' + opt.title + '</h2>' +
+        '<p class="option-desc">' + opt.desc + '</p>' +
+        '<ul>' + opt.points.map(function (p) { return '<li>' + p + '</li>'; }).join('') + '</ul>' +
+        '<div class="table ' + opt.table + '">' +
+          '<p class="table-label">Esimerkkikäsi</p>' + (opt.text ? textHand() : cardsHand(opt)) +
+          '<p class="table-label">Neljä kahdeksikkoa: erotatko maat?</p>' + (opt.text ? textEights() : cardsEights(opt)) +
+        '</div>' +
+        '<fieldset class="rating"><legend>Kuinka hyvin erotat maat vaihtoehdossa ' + n + '?</legend>' +
+          ['Hyvin', 'Jotenkin', 'Huonosti'].map(function (val) {
+            return '<label><input type="radio" name="rate-' + n + '" value="' + val + '"> ' + val + '</label>';
+          }).join('') +
+        '</fieldset>' +
+        '</section>';
+      choices += '<label class="choice"><input type="radio" name="best" value="' + n + '"> ' +
+        'Vaihtoehto ' + n + ': ' + opt.title + '</label>';
+    });
+    document.getElementById('options').innerHTML = html;
+    document.getElementById('best-choices').innerHTML = choices;
+  }
+
+  function updateSummary() {
+    var lines = ['Korttinäkymien arvio', ''];
+    var best = document.querySelector('input[name="best"]:checked');
+    lines.push('Paras vaihtoehto: ' + (best ? best.value + ' (' + OPTIONS[best.value - 1].title + ')' : 'ei valittu'));
+    lines.push('');
+    lines.push('Maiden erottuvuus:');
+    OPTIONS.forEach(function (opt, i) {
+      var r = document.querySelector('input[name="rate-' + (i + 1) + '"]:checked');
+      lines.push('  ' + (i + 1) + '. ' + opt.title + ': ' + (r ? r.value : '-'));
+    });
+    var comment = document.getElementById('comment').value.trim();
+    if (comment) {
+      lines.push('');
+      lines.push('Kommentit:');
+      lines.push(comment);
+    }
+    document.getElementById('summary').value = lines.join('\n');
+  }
+
+  render();
+
+  var themeBtn = document.getElementById('theme-toggle');
+  themeBtn.addEventListener('click', function () {
+    var dark = document.documentElement.getAttribute('data-theme') !== 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    themeBtn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+    themeBtn.textContent = dark ? 'Sivun tausta vaaleaksi' : 'Sivun tausta tummaksi';
+  });
+
+  document.addEventListener('change', updateSummary);
+  document.getElementById('comment').addEventListener('input', updateSummary);
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var ta = document.getElementById('summary');
+    var status = document.getElementById('status');
+    function fallback() {
+      ta.focus();
+      ta.select();
+      try {
+        if (!document.execCommand('copy')) throw new Error('copy failed');
+        status.textContent = 'Vastaus kopioitu leikepöydälle. Liitä se sähköpostiin Ctrl+V:llä.';
+      } catch (e) {
+        status.textContent = 'Kopiointi ei onnistunut. Teksti on valittuna, kopioi se Ctrl+C:llä.';
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(function () {
+        status.textContent = 'Vastaus kopioitu leikepöydälle. Liitä se sähköpostiin Ctrl+V:llä.';
+      }, fallback);
+    } else {
+      fallback();
+    }
+  });
+
+  updateSummary();
+</script>
+</body>
+</html>

@@ -1153,9 +1153,15 @@ function finalizeBiddingPhase(table) {
   if (table.biddingState.bidHistory.length === 4 && 
       table.biddingState.bidHistory.every(bid => bid.bid === 'P')) {
     
+    // The fourth pass gets no bidMade of its own, so it travels here: the
+    // client shows it in the history and closes the bidding controls.
+    const lastBid = table.biddingState.bidHistory[3];
     sendToTablePlayers(table, {
       type: 'allPassed',
-      message: "All players passed. Starting new deal."
+      message: "All players passed. Starting new deal.",
+      position: lastBid.player,
+      bid: lastBid.bid,
+      biddingState: table.biddingState
     });
     
     // Start new deal automatically

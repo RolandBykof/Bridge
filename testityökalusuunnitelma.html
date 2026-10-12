@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bridgen testityökalu – suunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1.25rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 46rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 38rem; }
+main { padding: 1.5rem 1.25rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 .25rem; }
+p, li { max-width: 40rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--suit-red); outline-offset: 3px;
+}
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 32rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Bridgen testityökalu</h1>
+    <p>Suunnitelma työkalusta, joka pelaa satoja jakoja automaattisesti eri kokoonpanoilla (0–3 robottia) ja tarkistaa jokaisesta jaosta, että peli toimii oikein.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<div class="verdict">
+  <p><strong>Lyhyesti:</strong> Rakennetaan selaimessa toimiva testisivu ja sen rinnalle komentorivityökalu. Molemmat käyttävät samaa simulaatiomoottoria. Moottori pelaa ihmispelaajien puolesta suoraan palvelimen socket-viesteillä ilman käyttöliittymää, joten sata jakoa menee minuuteissa eikä tunneissa.</p>
+  <p>Ennen tätä palvelimeen tarvitaan <strong>testitila</strong>, joka poistaa keinotekoiset odotukset ja ohittaa ulkoisen GIB-palvelun. Testitila ja testisivu ovat käytössä vain, kun ne erikseen kytketään päälle. Tuotannossa ne eivät näy.</p>
+</div>
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisältö</h2>
+  <ol>
+    <li><a href="#tausta">Tausta: miksi nykyinen testi ei riitä</a></li>
+    <li><a href="#testitila">Palvelimen testitila</a></li>
+    <li><a href="#rakenne">Työkalun rakenne</a></li>
+    <li><a href="#sivu">Testisivu</a></li>
+    <li><a href="#pelaajat">Simuloidut ihmispelaajat</a></li>
+    <li><a href="#tarkistukset">Tarkistukset</a></li>
+    <li><a href="#raportti">Tulokset ja raportti</a></li>
+    <li><a href="#turvallisuus">Turvallisuus</a></li>
+    <li><a href="#vaiheet">Toteutusvaiheet</a></li>
+    <li><a href="#riskit">Riskit ja rajoitukset</a></li>
+    <li><a href="#avoimet">Avoimet kysymykset</a></li>
+  </ol>
+</nav>
+
+<h2 id="tausta">1. Tausta: miksi nykyinen testi ei riitä</h2>
+
+<p>Ensimmäinen Edge-testi (11.10.2026) pelasi kaksi jakoa kullakin kokoonpanolla klikkaamalla oikeaa käyttöliittymää. Se löysi yhden virheen: kun kaikki passaavat, neljäs passi ja ilmoitus puuttuivat. Virhe on jo korjattu. Kaksi jakoa ei kuitenkaan riitä harvinaisten tilanteiden löytämiseen, esimerkiksi näiden:</p>
+<ul>
+  <li>kahdennettu tai vastakahdennettu sopimus</li>
+  <li>sopimus, jossa pelinviejäksi tulee pelaaja, joka nimesi maan ensimmäisenä</li>
+  <li>robotti on pelinviejä ja ihminen lepääjä, jolloin ihminen ohjaa kumpaakin kättä</li>
+  <li>pienet ja isot slammit sekä yhden tikin jaot</li>
+  <li>vyöhykkeet ja pisteet kaikilla 16 jakonumerolla</li>
+  <li>Next Deal -painike kesken jaon</li>
+</ul>
+
+<p>Suurin este satojen jakojen ajamiselle on aika. Palvelimessa on tarkoituksellisia odotuksia, jotka ovat pelaajalle hyviä mutta testissä hitaita:</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Palvelimen odotukset nykyisin</caption>
+  <thead><tr><th scope="col">Kohta</th><th scope="col">Odotus</th><th scope="col">Missä</th></tr></thead>
+  <tbody>
+    <tr><td>Robotin "miettimisaika" jokaisella vuorolla</td><td>1,2–2 s</td><td><code>server.js</code>, <code>maybeTriggerRobot</code></td></tr>
+    <tr><td>Tauko täyden tikin jälkeen</td><td>3 s</td><td><code>server.js</code>, <code>processCardPlay</code></td></tr>
+    <tr><td>Uusi jako, kun kaikki passasivat</td><td>3 s</td><td><code>server.js</code>, <code>finalizeBiddingPhase</code></td></tr>
+    <tr><td>Minibridgen uusintajako tasapisteillä (20–20)</td><td>3 s</td><td><code>server.js</code>, <code>beginDeal</code></td></tr>
+    <tr><td>Automaattinen seuraava jako</td><td>10 s</td><td><code>server.js</code>, <code>scheduleAutoNextDeal</code></td></tr>
+    <tr><td>Robotin tarjous ulkoiselta GIB-palvelulta</td><td>verkkoviive, aikakatkaisu ja varatarjoaja</td><td><code>lib/robot.js</code>, <code>decideRobotBid</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Näillä odotuksilla yksi jako kestää 1–2 minuuttia. Sata jakoa neljällä kokoonpanolla veisi 5–10 tuntia.</p>
+
+<h2 id="testitila">2. Palvelimen testitila</h2>
+
+<p>Testitila kytketään päälle ympäristömuuttujalla, kun palvelin käynnistetään. Ilman muuttujaa palvelin toimii täsmälleen kuten nyt.</p>
+
+<pre><code>$env:TEST_MODE='1'; $env:PORT='3456'; node server.js</code></pre>
+
+<h3>Mitä testitila muuttaa</h3>
+<ol class="steps">
+  <li><strong>Odotukset lähes nollaan.</strong> Kootaan kaikki odotukset yhteen <code>DELAYS</code>-olioon <code>server.js</code>:n alkuun. Testitilassa ne ovat 0–50 ms. Pelin logiikka ei muutu, vain ajastimien pituudet. Näin testi ajaa samaa koodia kuin oikea peli.</li>
+  <li><strong>Robottien tarjoustapa valittavissa.</strong> Muuttuja <code>ROBOT_BIDDER=local</code> ohittaa GIB-kutsun ja käyttää palvelimen omaa varatarjoajaa (<code>decideFallbackBid</code>), joka on jo olemassa. Satoja jakoja ei siis kuormiteta toisten palvelua. Oletuksena käytetään GIB:iä, jotta myös se voidaan testata pienemmällä määrällä.</li>
+  <li><strong>Testisivu käyttöön.</strong> Palvelin tarjoaa osoitteen <code>/testityokalu/</code> vain testitilassa.</li>
+  <li><strong>Jaon tiedot talteen (valinnainen).</strong> Testitilassa palvelin voi lähettää testiyhteyksille jaon jälkeen kaikki neljä alkuperäistä kättä, jotta virheellinen jako voidaan toistaa. Tätä ei koskaan lähetetä tavallisessa tilassa.</li>
+</ol>
+
+<p class="done-when">Valmis, kun nykyinen Edge-testi pelaa jaon kolmella robotilla alle 15 sekunnissa ja kaikki nykyiset yksikkötestit menevät läpi.</p>
+
+<h2 id="rakenne">3. Työkalun rakenne</h2>
+
+<p>Työkalussa on kolme osaa:</p>
+
+<ol class="steps">
+  <li><strong>Simulaatiomoottori</strong> (<code>testityokalu/simulaattori.js</code>). Avaa yhteydet palvelimeen, luo pöydän, istuttaa ihmispelaajat, pelaa jaot ja kerää kaikki tapahtumat. Tiedosto toimii sekä selaimessa että Nodessa, kuten <code>public/js/dd-review.js</code>, jota käytetään jo molemmissa.</li>
+  <li><strong>Tarkistimet</strong> (<code>testityokalu/tarkistimet.js</code>). Puhtaita funktioita, jotka saavat yhden jaon tapahtumalokin ja palauttavat löydetyt virheet. Niille kirjoitetaan omat yksikkötestit, jotta tarkistimet itse eivät ole virheellisiä.</li>
+  <li><strong>Käyttöliittymät</strong>:
+    <ul>
+      <li>testisivu <code>testityokalu/index.html</code> selaimeen</li>
+      <li>komentorivityökalu, esimerkiksi <code>npm run simuloi -- --robotit 0-3 --jakoja 100</code>, jota voi käyttää myös GitHub Actionsissa</li>
+    </ul>
+  </li>
+</ol>
+
+<p>Testityökalun kansio on projektin juuressa, ei <code>public</code>-kansiossa. Näin se ei päädy automaattisesti julkiseksi (ks. <a href="#turvallisuus">Turvallisuus</a>).</p>
+
+<p><strong>Huom:</strong> projektissa on jo <code>public/testi.html</code>. Se on käyttöliittymän ulkoasun testinäkymä, ei pelin testityökalu, joten tämä ei korvaa sitä.</p>
+
+<h2 id="sivu">4. Testisivu</h2>
+
+<h3>Asetukset</h3>
+<div class="table-wrap">
+<table>
+  <caption>Testisivun lomake</caption>
+  <thead><tr><th scope="col">Asetus</th><th scope="col">Vaihtoehdot</th><th scope="col">Oletus</th></tr></thead>
+  <tbody>
+    <tr><td>Kokoonpanot</td><td>Valintaruudut: 0, 1, 2 ja 3 robottia</td><td>Kaikki</td></tr>
+    <tr><td>Ihmisten paikat</td><td>Kokoonpanokohtaisesti, esimerkiksi kahdella ihmisellä "etelä + länsi" (vastustajat) tai "etelä + pohjoinen" (partnerit). Myös "kaikki vaihtoehdot".</td><td>Vaihtelee jaoittain</td></tr>
+    <tr><td>Jakojen määrä</td><td>1–1000 kokoonpanoa kohden</td><td>100</td></tr>
+    <tr><td>Rinnakkaiset pöydät</td><td>1–8</td><td>4</td></tr>
+    <tr><td>Pelimuoto</td><td>Bridge, minibridge, pelinviejäharjoitus</td><td>Bridge</td></tr>
+    <tr><td>Ihmispelaajien tyyli</td><td>Ks. <a href="#pelaajat">Simuloidut ihmispelaajat</a></td><td>Sekoitus</td></tr>
+    <tr><td>Väärien siirtojen kokeilu</td><td>Päällä / pois</td><td>Päällä</td></tr>
+    <tr><td>Satunnaisluvun siemen</td><td>Numero. Sama siemen tuottaa samat pelaajien valinnat, jotta ajon voi toistaa.</td><td>Satunnainen, näytetään raportissa</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Ajon aikana</h3>
+<ul>
+  <li>Edistymispalkki ja teksti, esimerkiksi "Kolme robottia: 47/100 jakoa, 0 virhettä".</li>
+  <li>Edistyminen luetaan ruudunlukijalle harvakseltaan (<code>aria-live="polite"</code>), esimerkiksi joka kymmenennen jaon kohdalla ja aina virheen löytyessä, ettei puhetta tule liikaa.</li>
+  <li>Pysäytä-painike. Pysäytys pelaa meneillään olevat jaot loppuun ja poistuu pöydistä siististi.</li>
+</ul>
+
+<h3>Saavutettavuus</h3>
+<ul>
+  <li>Kaikki asetukset ovat tavallisia lomakekenttiä otsikoineen, ja niitä voi käyttää näppäimistöllä.</li>
+  <li>Tulokset näytetään taulukkona, jossa on otsikkorivi ja otsikkosarake.</li>
+  <li>Kun virhe valitaan listasta, kohdistus siirtyy sen tietoihin.</li>
+  <li>Värit ja tumma tila kuten tässä dokumentissa, eikä tieto ole pelkän värin varassa.</li>
+</ul>
+
+<h2 id="pelaajat">5. Simuloidut ihmispelaajat</h2>
+
+<p>Jokainen ihmispelaaja on oma socket-yhteytensä ja toimii kuten oikean selaimen koodi: se lähettää samat viestit (<code>createTable</code>, <code>selectPosition</code>, <code>startGame</code>, <code>makeBid</code>, <code>playCard</code>, <code>requestNextDeal</code>) ja näkee vain ne kortit, jotka palvelin sille lähettää.</p>
+
+<p>Pelaajille annetaan erilaisia tyylejä, jotta harvinaisetkin polut tulevat ajetuiksi:</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Pelaajatyylit</caption>
+  <thead><tr><th scope="col">Tyyli</th><th scope="col">Tarjoaminen</th><th scope="col">Pelaaminen</th><th scope="col">Mitä testaa</th></tr></thead>
+  <tbody>
+    <tr><td>Satunnainen</td><td>Satunnainen sallittu tarjous, painotettuna passiin</td><td>Satunnainen sallittu kortti</td><td>Laaja kattavuus</td></tr>
+    <tr><td>Passaaja</td><td>Passaa aina</td><td>Satunnainen</td><td>Kaikki passaavat, robottien tarjoaminen</td></tr>
+    <tr><td>Kahdentaja</td><td>Kahdentaa ja vastakahdentaa aina kun sallittua</td><td>Satunnainen</td><td>X- ja XX-sopimukset ja niiden pisteet</td></tr>
+    <tr><td>Kiipeäjä</td><td>Korottaa aina, joskus 6–7 tasolle</td><td>Satunnainen</td><td>Slammit, korkeat sopimukset, suuret pisteet</td></tr>
+    <tr><td>Keskeyttäjä</td><td>Satunnainen</td><td>Painaa joskus Next Deal kesken jaon (vain pöydän luoja)</td><td>Hylätyn jaon siivous (<code>dealEpoch</code>)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Kun väärien siirtojen kokeilu on päällä, pelaajat yrittävät välillä tahallaan laittomia siirtoja ja tarkistavat, että palvelin hylkää ne eikä pelin tila muutu. Esimerkkejä: kortti väärällä vuorolla, maan seuraamatta jättäminen, kortti jota ei ole kädessä, liian matala tarjous, kahdennus ilman vastustajan tarjousta sekä tarjous tai kortti toisen pelaajan paikalta.</p>
+
+<h2 id="tarkistukset">6. Tarkistukset</h2>
+
+<p>Tarkistimet ajetaan jokaiselle jaolle tapahtumalokista. Ensimmäiset kuusi tarkistusta ovat jo mukana nykyisessä Edge-testissä.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Jokaisesta jaosta tehtävät tarkistukset</caption>
+  <thead><tr><th scope="col">Tarkistus</th><th scope="col">Sääntö</th></tr></thead>
+  <tbody>
+    <tr><td>Tarjousvuorot</td><td>Jakaja aloittaa, ja tarjoukset kulkevat myötäpäivään.</td></tr>
+    <tr><td>Pelivuorot</td><td>Pelinviejän vasemmalla puolella oleva aloittaa. Sen jälkeen tikin voittaja aloittaa, ja kortit kulkevat myötäpäivään.</td></tr>
+    <tr><td>Maan seuraaminen</td><td>Jos pelaaja ei seurannut maata, hän ei saa pelata sitä maata myöhemmin samassa jaossa.</td></tr>
+    <tr><td>Kortit</td><td>Tasan 52 korttia, jokainen kerran.</td></tr>
+    <tr><td>Tikin voittaja</td><td>Lasketaan itse valtin ja aloitusmaan perusteella ja verrataan palvelimen ilmoittamaan.</td></tr>
+    <tr><td>Sama tulos kaikille</td><td>Jokainen ihmispelaaja saa saman lopputuloksen ja tikkimäärät.</td></tr>
+    <tr><td>Sopimus ja pelinviejä</td><td>Sopimus on viimeinen tarjous ja X/XX oikein. Pelinviejä on se puolen pelaaja, joka nimesi maan ensimmäisenä.</td></tr>
+    <tr><td>Pisteet</td><td>Lasketaan itse vyöhykkeen (jakonumeron mukaan), sopimuksen, kahdennuksen ja tikkien perusteella ja verrataan jaon pisteisiin ja kokonaispisteisiin. Uusintajako ei saa muuttaa kokonaispisteitä.</td></tr>
+    <tr><td>Tietosuoja</td><td>Kukin pelaaja saa vain omat korttinsa ja lepääjän kortit ensimmäisen kortin jälkeen. Robotin pelinviejän käden saa vain sitä ohjaava ihmislepääjä, ei koskaan puolustaja.</td></tr>
+    <tr><td>Ohjausoikeus</td><td>Lepääjän kortit pelaa pelinviejä. Jos pelinviejä on robotti ja lepääjä ihminen, ihminen pelaa molemmat kädet. Muut yritykset hylätään.</td></tr>
+    <tr><td>Jakaja ja jakonumero</td><td>Jakaja kiertää myötäpäivään, ja jakonumero kasvaa yhdellä.</td></tr>
+    <tr><td>Hylätyt siirrot</td><td>Jokaisesta laittomasta yrityksestä tulee virheviesti, eikä pelin tila muutu.</td></tr>
+    <tr><td>Jumittuminen</td><td>Jos peli ei etene määräajassa (esimerkiksi 30 s testitilassa), jako merkitään jumittuneeksi ja sen tila tallennetaan.</td></tr>
+    <tr><td>Palvelimen virheet</td><td>Odottamattomat virheviestit ja <code>dealError</code>-viestit kirjataan.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Minibridge ja pelinviejäharjoitus</h3>
+<ul>
+  <li><strong>Minibridge:</strong> pistelaskenta, pelinviejän valinta (puolen suurin pistemäärä, tasatilanteessa jakajasta lukien ensimmäinen), uusintajako tasapisteillä, sopimustason oikeellisuus ja minibridgen pisteet.</li>
+  <li><strong>Pelinviejäharjoitus:</strong> luoja on aina pelinviejä, sopimus vastaa valittua harjoitustyyppiä, tarjousvaihetta ei ole ja tilastot päivittyvät.</li>
+</ul>
+
+<h2 id="raportti">7. Tulokset ja raportti</h2>
+
+<ul>
+  <li><strong>Yhteenveto</strong> kokoonpanoittain: jakojen määrä, virheiden määrä, keskimääräinen kesto, kuinka monesti ihminen ohjasi robottia, kahdennettujen sopimusten, slammien ja kaikki passaavat -jakojen määrä. Määristä näkee, tulivatko harvinaiset tilanteet oikeasti testatuiksi.</li>
+  <li><strong>Virhelista:</strong> jokaisesta virheestä kokoonpano, jakonumero, tarkistuksen nimi, selitys sekä koko jaon tiedot (kädet, tarjoukset, pelatut kortit ja tapahtumaloki).</li>
+  <li><strong>Lataus:</strong> koko ajon tulos JSON-tiedostona. Komentorivityökalu kirjoittaa saman tiedoston ja palauttaa virhekoodin, jos virheitä löytyi, jotta GitHub Actions voi pysäyttää julkaisun.</li>
+  <li><strong>Toisto:</strong> virheellisen jaon voi pelata uudelleen samoilla käsillä ja samalla siemenellä. Tämä vaatii testitilan valinnaisen kohdan 4.</li>
+</ul>
+
+<h2 id="turvallisuus">8. Turvallisuus</h2>
+
+<ul>
+  <li>Testisivu ja testitilan muutokset ovat käytössä vain, kun <code>TEST_MODE=1</code>. Azuren tuotantoasetuksissa muuttujaa ei aseteta.</li>
+  <li>Testityökalun kansio ei ole <code>public</code>-kansiossa, koska kaikki sieltä tarjotaan automaattisesti myös tuotannossa.</li>
+  <li>Testityökalu poistuu pöydistä ajon lopuksi (<code>leaveTable</code>). Muuten palvelin pitäisi paikkoja varattuina uudelleenliittymistä varten jopa 5 minuuttia.</li>
+  <li>Yksikkötesti varmistaa, ettei <code>/testityokalu/</code> vastaa ilman testitilaa.</li>
+</ul>
+
+<h2 id="vaiheet">9. Toteutusvaiheet</h2>
+
+<div class="phase">
+  <h3>Vaihe 1: Testitila palvelimeen</h3>
+  <p>Odotukset <code>DELAYS</code>-olioon, <code>TEST_MODE</code> ja <code>ROBOT_BIDDER</code>. Nopeuden mittaus: kuinka kauan jako kestää, kun robotit käyttävät paikallista ratkaisijaa (double dummy). Tämä on arvion suurin tuntematon.</p>
+  <p class="done-when">Valmis, kun yksikkötestit menevät läpi ja jakoon kuluva aika on mitattu.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 2: Simulaatiomoottori ja tarkistimet</h3>
+  <p>Moottori, satunnainen pelaajatyyli ja nykyisen Edge-testin tarkistukset siirrettynä omiksi funktioikseen yksikkötesteineen. Komentorivityökalu.</p>
+  <p class="done-when">Valmis, kun komentorivi pelaa 100 jakoa kullakin neljällä kokoonpanolla ja tulostaa yhteenvedon.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 3: Testisivu</h3>
+  <p>Lomake, edistyminen, tulostaulukko, virhelista ja JSON-lataus. Tarkistetaan NVDA:lla ja pelkällä näppäimistöllä.</p>
+  <p class="done-when">Valmis, kun ajon voi käynnistää, seurata ja lukea ruudunlukijalla.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 4: Lisätarkistukset</h3>
+  <p>Pisteet ja vyöhykkeet, tietosuoja, hylättävät siirrot, muut pelaajatyylit, Next Deal kesken jaon, minibridge ja pelinviejäharjoitus.</p>
+  <p class="done-when">Valmis, kun jokaisella taulukon tarkistuksella on toteutus ja yksikkötesti.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 5 (valinnainen): Toisto ja automaatio</h3>
+  <p>Jaon käsien tallennus ja virheellisen jaon toisto. Lyhyt ajo (esimerkiksi 20 jakoa kokoonpanoa kohden) GitHub Actionsiin ennen julkaisua.</p>
+</div>
+
+<h2 id="riskit">10. Riskit ja rajoitukset</h2>
+
+<ul>
+  <li><strong>Käyttöliittymä jää testin ulkopuolelle.</strong> Simulaatio ohittaa painikkeet ja ruudunlukijailmoitukset. Kaikki passaavat -virhe oli juuri käyttöliittymässä, eikä tämä työkalu olisi löytänyt sitä. Siksi nykyinen Edge-testi säilytetään pienellä jakomäärällä, ja siihen lisätään ruudunlukija-alueen ilmoitusten tarkistus.</li>
+  <li><strong>Robottien ratkaisija voi olla hidas.</strong> Jos double dummy -laskenta kestää kauan ja estää palvelimen muut toiminnot, rinnakkaisten pöytien hyöty jää pieneksi. Mitataan vaiheessa 1.</li>
+  <li><strong>Paikallinen tarjoaja ei vastaa GIB:iä.</strong> Kun <code>ROBOT_BIDDER=local</code>, robottien tarjoukset ovat yksinkertaisempia. Pelin oikeellisuuden testaukseen se riittää, mutta GIB-yhteys kannattaa ajaa erikseen pienellä määrällä.</li>
+  <li><strong>Testi löytää myös tunnettuja asioita.</strong> Palvelin hyväksyy nyt kahdennuksen ja vastakahdennuksen milloin tahansa (<code>isBidValid</code>). Tarkistin merkitsee sen virheeksi, joten asia kannattaa korjata tai merkitä tunnetuksi ennen ensimmäistä isoa ajoa.</li>
+  <li><strong>Testitila muuttaa ajoitusta.</strong> Hyvin lyhyet odotukset voivat paljastaa ajoitusvirheitä, joita oikeassa pelissä ei tapahdu, tai piilottaa sellaisia, jotka tapahtuvat. Siksi odotukset lyhennetään mutta niitä ei poisteta, ja osa ajoista tehdään normaaleilla odotuksilla.</li>
+</ul>
+
+<h2 id="avoimet">11. Avoimet kysymykset</h2>
+
+<ol>
+  <li>Ajetaanko testityökalua vain omalla koneella, vai halutaanko lyhyt ajo myös GitHub Actionsiin ennen julkaisua?</li>
+  <li>Otetaanko minibridge ja pelinviejäharjoitus mukaan heti, vai ensin pelkkä bridge?</li>
+  <li>Korjataanko kahdennuksen sääntö (<code>isBidValid</code>) ennen ensimmäistä isoa ajoa?</li>
+  <li>Tarvitaanko virheellisen jaon toistoa (vaihe 5), vai riittääkö, että jaon tiedot näkyvät raportissa?</li>
+</ol>
+
+</main>
+
+<footer>
+  <p>Laadittu 11.10.2026 Edge-testin pohjalta.</p>
+</footer>
+</body>
+</html>

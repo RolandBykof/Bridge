@@ -3840,6 +3840,27 @@ updateWaitingRoomPositions(data.table);
                 announceToScreenReader(`${positionName(data.position)} ${bidText}`);
             });
 
+            // Everyone passed: show the fourth pass and close the bidding
+            // controls until the server's next deal (newDealStarted) arrives.
+            socket.on('allPassed', (data) => {
+                biddingState = data.biddingState;
+                // Nobody is on turn any more, so neither the buttons nor the
+                // P shortcut can send a bid the server would reject.
+                biddingState.currentBidder = null;
+                renderBiddingHistory();
+                updateRobotThinkingIndicator();
+
+                const biddingControls = document.getElementById('game-bidding-controls');
+                if (biddingControls) {
+                    biddingControls.innerHTML = `
+                        <h3>Your Bid</h3>
+                        <p>All players passed. A new deal starts shortly.</p>
+                    `;
+                }
+
+                announceToScreenReader(`${positionName(data.position)} passes. All players passed. A new deal starts shortly.`);
+            });
+
             socket.on('biddingComplete', (data) => {
                 gameState.contract = data.contract;
                 gameState.declarer = data.declarer;
