@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kibitsointi bridgepöytiin – toteutussuunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1.25rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 46rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 38rem; }
+main { padding: 1.5rem 1.25rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 .25rem; }
+p, li { max-width: 40rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--suit-red); outline-offset: 3px;
+}
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 32rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Kibitsointi bridgepöytiin – toteutussuunnitelma</h1>
+    <p>Suunnitelma katsojapaikan (kibitzer) lisäämiseksi moninpelin bridgepöytiin: palvelin <code>server.js</code> ja selainasiakas <code>public/index.html</code>. Koodia ei ole vielä muutettu.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#yhteenveto">Yhteenveto</a></li>
+    <li><a href="#saannot">Toiminnalliset säännöt</a></li>
+    <li><a href="#tietomalli">Tietomalli: miksi kibitserit eivät ole pelipaikoilla</a></li>
+    <li><a href="#palvelin">Palvelimen muutokset</a></li>
+    <li><a href="#asiakas">Selaimen muutokset</a></li>
+    <li><a href="#nappaimet">Näppäinkomennot kibitserille</a></li>
+    <li><a href="#protokolla">Protokollamuutokset</a></li>
+    <li><a href="#reunat">Reunatapaukset</a></li>
+    <li><a href="#vaiheet">Toteutuksen vaiheet ja työmäärä</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+    <li><a href="#avoimet">Avoimet kysymykset</a></li>
+  </ol>
+</nav>
+
+<h2 id="yhteenveto">Yhteenveto</h2>
+
+<div class="verdict">
+  <p><strong>Kibitser on viides vaihtoehto samassa paikanvalinnassa kuin North, East, South ja West.</strong> Kibitser näkee ja kuulee kaikkien neljän käden kortit koko jaon ajan, mutta ei voi tarjota eikä pelata.</p>
+  <p><strong>Pöydän luoja päättää rastilla ”Allow kibitzers”, saako pöytään tulla kibitsereitä.</strong> Jos luoja ottaa rastin pois kesken pelin, kaikki kibitserit poistetaan pöydästä. Jos luoja on itse kibitser, rasti on lukittu päälle.</p>
+  <p><strong>Teknisesti kibitserit tallennetaan omaan listaansa (<code>table.kibitzers</code>), ei neljän pelipaikan joukkoon.</strong> Palvelimen koodi olettaa monessa kohdassa, että <code>table.players</code> sisältää tasan neljä ilmansuuntaa. Erillinen lista pitää nykyisen pelilogiikan koskemattomana.</p>
+  <p><strong>Arvioitu työmäärä:</strong> noin 3–5 työpäivää testeineen. Palvelimeen tulee noin 200–250 riviä, selaimeen noin 250–350 riviä ja testejä noin 150 riviä.</p>
+</div>
+
+<h2 id="saannot">Toiminnalliset säännöt</h2>
+
+<ol class="steps">
+  <li><strong>Paikanvalinta.</strong> Sekä pöydän luonnissa (<code>create-table-view</code>) että liittymisessä (<code>position-selection-view</code>) on viides valinta ”Kibitzer” samassa <code>role="radiogroup"</code>-ryhmässä kuin ilmansuunnat. Liittyjälle se näkyy vain, jos pöytä sallii kibitsoinnin.</li>
+  <li><strong>Kibitsereitä voi olla useita.</strong> Kibitserin paikka ei täyty kuten ilmansuunta. Ehdotettu yläraja on 10 kibitseriä pöytää kohden (ks. <a href="#avoimet">avoimet kysymykset</a>).</li>
+  <li><strong>Rasti ”Allow kibitzers”.</strong>
+    <ul>
+      <li>Luontilomakkeessa rasti on oletuksena pois päältä.</li>
+      <li>Jos luoja valitsee paikaksi Kibitzer, rasti merkitään päälle ja lukitaan (<code>disabled</code>). Vieressä on selite: ”Kibitzing is always allowed when the table creator is a kibitzer.” Sama tarkistus tehdään myös palvelimella.</li>
+      <li>Rasti näkyy pöydän luojalle myös odotushuoneessa ja pelinäkymässä (<code>game-controls</code>), jotta sitä voi muuttaa kesken pelin. Muut pelaajat ja kibitserit eivät näe rastia.</li>
+      <li>Kun rasti otetaan pois, palvelin poistaa kaikki kibitserit heti, myös kesken jaon. Kibitserit palaavat aloitusvalikkoon, ja ruudunlukija ilmoittaa: ”The table creator turned off kibitzing. You were removed from the table.” Pelaajille ilmoitetaan, että kibitserit poistettiin.</li>
+      <li>Kun rasti laitetaan takaisin päälle, uusia kibitsereitä voi taas liittyä.</li>
+    </ul>
+  </li>
+  <li><strong>Liittyminen kesken pelin.</strong> Ilmansuuntiin ei voi liittyä kesken pelin (nykyinen sääntö, <code>server.js:431</code>), mutta kibitseriksi voi. Kibitsoinnin idea on juuri katsoa käynnissä olevaa peliä.</li>
+  <li><strong>Kibitser näkee kaikki kortit.</strong> Kaikki neljä kättä näkyvät heti jaon alusta, myös tarjousvaiheessa. Pelattu kortti poistuu kädestä kuten nytkin.</li>
+  <li><strong>Kibitser kuulee kaikki kortit.</strong> Alt-näppäinkomennot lukevat jokaisen käden milloin tahansa (ks. <a href="#nappaimet">näppäinkomennot</a>). Tämä toimii koko ajan eikä vain double dummy -katselussa.</li>
+  <li><strong>Kibitser ei vaikuta peliin.</strong> Tarjous- ja pelipainikkeita ei näytetä, pelinäppäimet eivät tee mitään, ja palvelin hylkää kibitserin tarjoukset ja kortit.</li>
+  <li><strong>Pöydän luoja voi olla kibitser.</strong> Luoja säilyttää luojan oikeudet: pelin aloitus, seuraava jako, jaon uusinta, automaattinen jako, double dummy -katselu ja kibitsointirasti. Jos kaikki paikat ovat tyhjiä, robotit täyttävät ne pelin alkaessa (nykyinen toiminta, <code>server.js:739–746</code>). Silloin luoja voi katsoa neljän robotin peliä.</li>
+  <li><strong>Pelinviennin harjoituksessa (declarer practice) luoja ei voi olla kibitser</strong>, koska luoja on aina pelinviejä (<code>server.js:790</code>). Muut voivat kibitsoida harjoituspöytää.</li>
+</ol>
+
+<h2 id="tietomalli">Tietomalli: miksi kibitserit eivät ole pelipaikoilla</h2>
+
+<p>Kibitseriä ei kannata tallentaa avaimella <code>table.players.kibitzer</code>. Nykyinen koodi käy <code>table.players</code>-olion läpi monessa kohdassa ja olettaa, että siinä on neljä ilmansuuntaa:</p>
+<ul>
+  <li><code>startGame</code> (<code>server.js:739–752</code>) täyttää tyhjät paikat roboteilla ja vaatii jokaiselta paikalta tyypin <code>human</code> tai <code>robot</code>.</li>
+  <li><code>beginDeal</code> (<code>server.js:879</code>) lähettää kortit jokaiselle paikalle.</li>
+  <li><code>filterTablePlayers</code>, <code>sendActiveTables</code> (pelaajamäärä <code>/4</code>), <code>findReclaimableSeat</code> ja <code>removePlayerFromTable</code> (pöydän poisto, kun paikat ovat tyhjiä) käyttävät samaa oletusta.</li>
+  <li>Selain laskee vapaat paikat suoraan <code>table.players</code>-oliosta (<code>index.html:3665</code>).</li>
+</ul>
+
+<p>Pöytäolioon lisätään siksi kolme kenttää:</p>
+<pre><code>allowKibitzing: false,          // luojan rasti; aina true, jos luoja on kibitser
+kibitzers: new Map(),           // socket.id -&gt; { name, id, token, disconnected, disconnectTime }
+creatorToken: '&lt;uuid&gt;',         // luojan paikka- tai kibitseritunniste (oikeuksien tarkistus)</code></pre>
+
+<p>Pelaajaoliossa (<code>players</code>-Map, <code>server.js:34</code>) kibitserillä on <code>table</code> asetettuna, <code>position: null</code> ja uusi kenttä <code>kibitzer: true</code>. Kun <code>position</code> on <code>null</code>, kibitser ei päädy vahingossa koodipolkuihin, jotka käyttävät lauseketta <code>table.players[player.position]</code>.</p>
+
+<h3>Luojan tunnistus uusiksi</h3>
+<p>Nyt luojan oikeudet tarkistetaan vertaamalla ilmansuuntaa: <code>player.position !== table.creatorPosition</code>. Kohdat ovat <code>server.js:350</code>, <code>733</code>, <code>1927</code>, <code>1975</code> ja <code>2126</code>. Jos luoja on kibitser, ilmansuuntaa ei ole, eikä vertailu toimi. Vertailu ei voi olla myöskään <code>'kibitzer'</code>, koska silloin kaikki kibitserit saisivat luojan oikeudet.</p>
+<p>Ratkaisu on uusi apufunktio <code>isCreator(table, player)</code>. Se vertaa pelaajan paikka- tai kibitseritunnistetta (<code>token</code>) kenttään <code>table.creatorToken</code>. Tunniste säilyy sivun päivityksen ja uudelleenyhdistämisen yli, toisin kuin socket.id. Kenttä <code>creatorPosition</code> säilytetään näyttöä varten. Jos luoja on kibitser, sen arvo on <code>'kibitzer'</code>.</p>
+
+<h2 id="palvelin">Palvelimen muutokset (<code>server.js</code>)</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Muutettavat kohdat palvelimella</caption>
+  <thead>
+    <tr><th scope="col">Kohta</th><th scope="col">Muutos</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>createTable</code> (113–204)</td><td>Ottaa vastaan kentät <code>allowKibitzing</code> ja <code>position: 'kibitzer'</code>. Kibitser-luoja lisätään listaan <code>kibitzers</code>, ja <code>allowKibitzing</code> pakotetaan arvoon true. Harjoitustilassa kibitser-luoja hylätään. <code>creatorToken</code> tallennetaan. Vastaukseen <code>tableCreated</code> tulee kibitserillä <code>playerPosition: 'kibitzer'</code>.</td></tr>
+    <tr><td><code>selectPosition</code> (468–542)</td><td>Uusi haara arvolle <code>position === 'kibitzer'</code>. Se tarkistaa <code>allowKibitzing</code>-asetuksen ja ylärajan, lisää kibitserin, liittää socketin huoneeseen ja lähettää tilan. Odotushuoneessa lähetetään <code>tableInfo</code>, kesken pelin <code>sendKibitzerSnapshot()</code>. Lopuksi muille lähetetään <code>kibitzerJoined</code>.</td></tr>
+    <tr><td><code>getTableInfo</code> (544–658)</td><td>Palaavan kibitserin tunnistus tunnisteen perusteella, kuten <code>findReclaimableSeat</code> tekee pelipaikoille. Kesken pelin ilman paikkaa olevalle lähetetään <code>tableInfo</code>, jossa on <code>allowKibitzing</code>. Selain tarjoaa sen perusteella pelkkää Kibitzer-vaihtoehtoa.</td></tr>
+    <tr><td>Uusi <code>sendKibitzerSnapshot(table, socket)</code></td><td>Lähettää pelinäkymän tilan kuten <code>gameReconnect</code> (rivi 597), mutta arvolla <code>playerPosition: 'kibitzer'</code>. Lisäksi se lähettää <code>kibitzerHands</code>-tapahtumassa kaikki neljä nykyistä kättä (<code>gameState.hands</code>) sekä mahdollisen double dummy -tilan.</td></tr>
+    <tr><td><code>beginDeal</code> (879–889)</td><td>Pelaajien omien korttien (<code>yourCards</code>) lisäksi jokaiselle kibitserille lähetetään <code>kibitzerHands</code> kaikilla neljällä kädellä. Tämä kattaa uuden jaon, uusinnan ja minibridgen uudelleenjaon.</td></tr>
+    <tr><td><code>sendToTablePlayers</code> (2425)</td><td>Lähettää viestin myös kaikille kibitsereille. Kaikki julkiset tapahtumat (tarjoukset, kortit, tikit, chat, äänet, double dummy, jaon loppu) menevät kibitsereille yhdellä muutoksella. Yksityiset viestit (<code>yourCards</code>, <code>declarerHandRevealed</code>) lähetetään suoraan pelaajan socketiin, eivätkä ne mene kibitsereille. Niitä kibitser ei tarvitsekaan, koska se saa kaikki kädet muutenkin.</td></tr>
+    <tr><td>Uusi tapahtuma <code>setAllowKibitzing</code></td><td>Vain luoja (<code>isCreator</code>) voi muuttaa asetusta. Jos luoja on kibitser, asetusta ei voi ottaa pois päältä. Kun se otetaan pois, jokaiselle kibitserille lähetetään <code>kibitzingDisabled</code>, kibitserin socket irrotetaan huoneesta (<code>socket.leave</code>), pelaajaolion <code>table</code> tyhjennetään ja lista <code>kibitzers</code> tyhjennetään. Pelaajille lähetetään <code>allowKibitzingChanged</code>.</td></tr>
+    <tr><td><code>removeFromTable</code> / <code>removePlayerFromTable</code> (664–707)</td><td>Kibitserille oma haara: poisto listasta <code>kibitzers</code> ja tapahtuma <code>kibitzerLeft</code>. Pöytää ei poisteta, jos siinä on vielä kibitser-luoja. Pöytä poistetaan, kun siinä ei ole pelaajia eikä kibitsereitä.</td></tr>
+    <tr><td><code>handleDisconnect</code> (285–324)</td><td>Tavallinen kibitser poistetaan heti, kun yhteys katkeaa. Se voi palata tunnisteella niin kauan kuin kibitsointi on sallittu. Kibitser-luojan tietue pidetään katkenneena samalla aikarajalla kuin pelipaikat (<code>scheduleSeatRemoval</code>), jotta luojan oikeudet säilyvät sivun päivityksen yli.</td></tr>
+    <tr><td>Luojan tarkistukset (350, 733, 1927, 1975, 2126)</td><td>Ilmansuunnan vertailu korvataan funktiolla <code>isCreator(table, player)</code>.</td></tr>
+    <tr><td><code>setAutoNextDeal</code> (1878)</td><td>Nyt kuka tahansa pöydässä oleva voi muuttaa asetuksen. Kibitserit pitää estää. Luoja-kibitser saa muuttaa asetuksen.</td></tr>
+    <tr><td><code>makeBid</code>, <code>playCard</code>, <code>chooseMiniContract</code></td><td>Tarkistetaan ja testataan, että kibitser hylätään. Koska kibitserin <code>position</code> on <code>null</code>, nykyiset paikkatarkistukset hylkäävät sen todennäköisesti jo nyt. Lisätään silti selvä tarkistus <code>if (player.kibitzer) return sendError(...)</code>.</td></tr>
+    <tr><td><code>sendChatMessage</code> (1010)</td><td>Nyt viestin lähettäjällä on oltava paikka. Kibitserit sallitaan, ja viestiin tulee <code>position: 'kibitzer'</code>, jolloin selain näyttää sen muodossa ”Nimi (kibitzer)”. Ks. <a href="#avoimet">avoimet kysymykset</a>.</td></tr>
+    <tr><td><code>filterTable</code> (2536)</td><td>Lisätään <code>allowKibitzing</code> ja <code>kibitzers: [nimet]</code>. Tunnisteita ja socket-tunnuksia ei koskaan lähetetä.</td></tr>
+    <tr><td><code>sendActiveTables</code> (2345)</td><td>Lisätään <code>allowKibitzing</code>, jotta pöytälista voi kertoa asian.</td></tr>
+    <tr><td><code>cleanupProcess</code> (2595)</td><td>Pöytää poistettaessa myös kibitsereiden pelaajaoliot nollataan.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="asiakas">Selaimen muutokset (<code>public/index.html</code>)</h2>
+
+<h3>Tila</h3>
+<ul>
+  <li>Uusi muuttuja <code>isKibitzer</code>. Kibitserillä <code>myPosition</code> on <code>null</code>, jotta se ei koskaan täsmää minkään käden pelaajaan.</li>
+  <li>Uusi apufunktio <code>viewPosition()</code>: kibitserillä <code>'south'</code>, muilla <code>myPosition</code>. Funktio <code>getPositionLayout()</code> (rivi 1272) käyttää sitä, joten kibitser katsoo pöytää Southin takaa: South alhaalla, North ylhäällä, West vasemmalla ja East oikealla.</li>
+  <li>Uusi muuttuja <code>amCreator</code>. Palvelin kertoo sen viesteissä <code>tableInfo</code> ja <code>gameReconnect</code>. Funktio <code>isTableCreator()</code> (rivi 2136) käyttää tätä tietoa eikä vertaa ilmansuuntia.</li>
+</ul>
+
+<h3>Luontilomake</h3>
+<ul>
+  <li>Paikkaryhmään (rivit 59–64) lisätään viides painike <code>create-pos-kibitzer</code> ”Kibitzer”. Funktio <code>selectCreatePosition</code> (rivi 836) käsittelee myös sen.</li>
+  <li>Uusi rasti <code>allow-kibitzers-checkbox</code> ”Allow kibitzers” ja selite <code>aria-describedby</code>-yhteydellä. Kun Kibitzer valitaan, rasti merkitään ja lukitaan, ja ruudunlukija kertoo syyn. Kun valitaan ilmansuunta, lukitus poistuu.</li>
+  <li>Kun pelimuodoksi valitaan declarer practice, Kibitzer-painike poistetaan käytöstä, ja jos se oli valittuna, valinta palaa Southiin. Muutoksesta ilmoitetaan ruudunlukijalle.</li>
+  <li><code>createTable()</code> (rivi 856) lähettää kentän <code>allowKibitzing</code>.</li>
+</ul>
+
+<h3>Paikanvalinta liittyessä</h3>
+<ul>
+  <li><code>showPositionSelection</code> (rivi 935) lisää Kibitzer-painikkeen, jos <code>table.allowKibitzing</code> on päällä.</li>
+  <li><code>socket.on('tableInfo')</code> ohittaa nyt käynnissä olevan pelin tiedot (rivi 3657). Uusi sääntö: jos peli on käynnissä ja kibitsointi on sallittu, näytetään paikanvalinta, jossa on vain Kibitzer ja teksti ”Game in progress. You can join as a kibitzer.” Muussa tapauksessa näytetään virhe ”Game is already in progress”.</li>
+</ul>
+
+<h3>Odotushuone</h3>
+<ul>
+  <li>Uusi ryhmä ”Kibitzers”, jossa on nimilista <code>aria-live="polite"</code>-alueessa.</li>
+  <li>Luojalle näytetään rasti ”Allow kibitzers”, joka lähettää tapahtuman <code>setAllowKibitzing</code>. Jos luoja on kibitser, rasti on lukittu.</li>
+  <li>Kibitser näkee odotushuoneen. Aloituspainike on käytössä vain, jos kibitser on myös luoja.</li>
+  <li>Laskuri ”Players: x/4” ei laske kibitsereitä.</li>
+</ul>
+
+<h3>Pelinäkymä</h3>
+<ul>
+  <li><code>canViewHandCards</code> (rivi 1170) palauttaa kibitserille aina true. Funktio <code>renderAllHands</code> (rivi 1497) näyttää silloin kaikki neljä kättä ilman muita muutoksia.</li>
+  <li>Uusi käsittelijä <code>socket.on('kibitzerHands')</code> asettaa <code>gameState.hands</code>-olioon kaikki neljä kättä ja kutsuu <code>renderAllHands()</code>. Kibitserille ei käytetä tapahtumaa <code>yourCards</code>, koska sen käsittelijä asettaa muuttujan <code>myPosition</code> (rivi 3802).</li>
+  <li>Nykyinen <code>cardPlayed</code>-käsittelijä (rivi 3916) poistaa pelatun kortin kädestä jo sellaisenaan, kun kädet ovat tiedossa.</li>
+  <li>Tarjousohjaimet (<code>renderBiddingUI</code>), minibridgen sopimusvalinta ja pelattavat korttipainikkeet piilotetaan kibitseriltä. Näkyviin tulee teksti ”You are kibitzing. You cannot bid or play.”</li>
+  <li>Kibitseriltä piilotetaan painikkeet Next Deal, Replay ja automaattisen jaon rasti, ellei kibitser ole luoja. Leave Game -painike säilyy.</li>
+  <li>Luojalle tulee rasti ”Allow kibitzers” myös pelinäkymän <code>game-controls</code>-alueelle.</li>
+  <li>Uusi käsittelijä <code>socket.on('kibitzingDisabled')</code> poistaa tallennetun pöytäistunnon, ilmoittaa asiasta kiireellisesti (<code>announceUrgent</code>) ja palaa aloitusvalikkoon.</li>
+  <li>Kibitserin oma pelivuoroilmoitus (”Your turn”) ei saa koskaan tulla. Vuoroa vertaillaan muuttujaan <code>myPosition</code>, joten kun se on <code>null</code>, ilmoitusta ei tule.</li>
+  <li>Istunnon palautus (<code>saveTableSession</code> / <code>pendingRestore</code>) tallentaa tiedon <code>kibitzer: true</code> ja tunnisteen. Sivun päivitys palauttaa kibitserin pöytään.</li>
+</ul>
+
+<h2 id="nappaimet">Näppäinkomennot kibitserille</h2>
+
+<p>Asettelu on sama kuin double dummy -katselussa (<code>handleDdReviewKey</code>, rivi 2288), mutta se on käytössä koko ajan. Kibitser katsoo pöytää Southin takaa. Näppäimet tunnistetaan fyysisen näppäimen mukaan (<code>e.code</code>), joten ne toimivat kaikilla näppäimistöasetteluilla. Komento ohitetaan, jos Ctrl on pohjassa, koska suomalaisella näppäimistöllä AltGr toimii kuten Ctrl+Alt. Jokainen luku alkaa ilmansuunnalla, esimerkiksi ”West: 4 spades: Ace, King, 7, 2”. Muotoa ”your hand” ei käytetä.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Kibitserin käsien lukeminen</caption>
+  <thead>
+    <tr><th scope="col">Käsi</th><th scope="col">Pata</th><th scope="col">Hertta</th><th scope="col">Ruutu</th><th scope="col">Risti</th><th scope="col">Koko käsi</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">West (vasen)</th><td>Alt+1</td><td>Alt+2</td><td>Alt+3</td><td>Alt+4</td><td>Alt+5</td></tr>
+    <tr><th scope="row">East (oikea)</th><td>Alt+7</td><td>Alt+8</td><td>Alt+9</td><td>Alt+0</td><td>Alt+6</td></tr>
+    <tr><th scope="row">North (ylhäällä)</th><td>Alt+Q</td><td>Alt+W</td><td>Alt+E</td><td>Alt+R</td><td>Alt+T</td></tr>
+    <tr><th scope="row">South (alhaalla)</th><td>Alt+A</td><td>Alt+S</td><td>Alt+D</td><td>Alt+F</td><td>Alt+G</td></tr>
+  </tbody>
+</table>
+</div>
+
+<ul>
+  <li>Tilakomennot toimivat kuten pelaajilla: Alt+B tarjoukset, Alt+C tikit, Alt+P pisteet, Alt+V vuorossa oleva, Alt+X pelin tila ja P nykyinen tikki.</li>
+  <li>Pelinäppäimet eivät tee kibitserillä mitään: Ctrl+1–4, nuolinäppäimet, I ja O, maa + arvo, tarjousnäppäimet 1–7 ja P passina. Jos kibitser painaa niitä, ruudunlukija sanoo kerran ”Kibitzers cannot play”, jottei hiljaisuus hämmennä.</li>
+  <li>Toteutus: käsittelijän <code>setupKeyboardListeners</code> (rivi 3152) alkuun lisätään <code>if (isKibitzer &amp;&amp; handleKibitzerKey(e)) return;</code>. Uusi funktio käyttää samoja apufunktioita kuin double dummy -katselu: <code>announceHandSuitWithFocus</code> ja <code>announceEntireHand</code>. Kun double dummy -katselu on auki, sen omat näppäimet ohjaavat edelleen kibitserinkin näppäimiä, koska ne lukevat katseltavan tikin tilanteen.</li>
+  <li><code>handOwnerLabel</code> (rivi 2778) palauttaa kibitserille pelkän ilmansuunnan.</li>
+  <li>Ohjeluetteloon (<code>help-list</code>) tulee kibitserille oma osio.</li>
+</ul>
+
+<h2 id="protokolla">Protokollamuutokset</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Uudet ja muuttuvat Socket.IO-tapahtumat</caption>
+  <thead>
+    <tr><th scope="col">Tapahtuma</th><th scope="col">Suunta</th><th scope="col">Sisältö</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>createTable</code></td><td>selain → palvelin</td><td>Uusi kenttä <code>allowKibitzing</code>. <code>position</code> voi olla <code>'kibitzer'</code>.</td></tr>
+    <tr><td><code>selectPosition</code></td><td>selain → palvelin</td><td><code>position</code> voi olla <code>'kibitzer'</code>.</td></tr>
+    <tr><td><code>setAllowKibitzing</code></td><td>selain → palvelin</td><td><code>{ tableCode, enabled }</code>, vain luoja</td></tr>
+    <tr><td><code>kibitzerHands</code></td><td>palvelin → kibitser</td><td><code>{ hands: { north, east, south, west } }</code>, aina kun jako alkaa ja kun kibitser liittyy tai palaa</td></tr>
+    <tr><td><code>kibitzerJoined</code> / <code>kibitzerLeft</code></td><td>palvelin → pöytä</td><td><code>{ name, kibitzers: [nimet] }</code></td></tr>
+    <tr><td><code>allowKibitzingChanged</code></td><td>palvelin → pöytä</td><td><code>{ enabled }</code></td></tr>
+    <tr><td><code>kibitzingDisabled</code></td><td>palvelin → kibitser</td><td><code>{ message }</code>. Kibitser on jo poistettu pöydästä.</td></tr>
+    <tr><td><code>tableInfo</code>, <code>gameReconnect</code>, <code>tableCreated</code></td><td>palvelin → selain</td><td><code>table.allowKibitzing</code>, <code>table.kibitzers</code>, <code>amCreator</code>. Kibitserillä <code>playerPosition: 'kibitzer'</code>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Yhteensopivuus: kaikki uudet kentät ovat valinnaisia, ja <code>allowKibitzing</code> on oletuksena false. Vanhat selaimet ja mahdollinen erillinen asiakasohjelma toimivat ennallaan, kunhan ne eivät salli kibitsointia.</p>
+
+<h3>Tietoturva</h3>
+<ul>
+  <li>Kaikkien käsien tiedot lähetetään vain kibitsereiden socketeihin, ei koskaan funktiolla <code>sendToTablePlayers</code>.</li>
+  <li>Ennen kuin <code>kibitzerHands</code> lähetetään, palvelin tarkistaa joka kerta, että vastaanottaja on yhä listassa <code>table.kibitzers</code>. Näin poistettu kibitser ei saa enää seuraavaa jakoa.</li>
+  <li>Kibitser voi kertoa pelaajille muiden kortit, esimerkiksi chatissa tai muualla. Teknisesti sitä ei voi estää, ja siksi päätös on luojan rastin takana.</li>
+</ul>
+
+<h2 id="reunat">Reunatapaukset</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Reunatapaukset ja niiden käsittely</caption>
+  <thead>
+    <tr><th scope="col">Tilanne</th><th scope="col">Käsittely</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Luoja on kibitser, eikä kukaan liity</td><td>Pelin alkaessa neljä robottia täyttää paikat, ja luoja katsoo niiden peliä. Robotit pelaavat normaalisti, koska ne eivät tarvitse ihmistä paikalle.</td></tr>
+    <tr><td>Luoja-kibitserin yhteys katkeaa</td><td>Tietue pidetään katkenneena aikarajan <code>RECONNECT_TIMEOUT</code> verran, ja tunnisteella palaava luoja saa oikeutensa takaisin. Jos luoja ei palaa, tilanne on sama kuin nyt, kun luoja poistuu: seuraavaa jakoa ei voi aloittaa käsin. Automaattinen jako toimii edelleen.</td></tr>
+    <tr><td>Kibitsointi kytketään pois kesken tikin tai double dummy -katselun</td><td>Kibitserit poistetaan heti. Peli tai katselu jatkuu pelaajilla ennallaan.</td></tr>
+    <tr><td>Kibitser yrittää valita vapautuneen ilmansuunnan</td><td>Ei mahdollista kesken pelin (nykyinen sääntö). Odotushuoneessa kibitser voi poistua ja liittyä uudelleen ilmansuuntaan. Suoraa paikanvaihtoa ei tehdä ensimmäisessä versiossa.</td></tr>
+    <tr><td>Kibitsereitä on jo enimmäismäärä</td><td>Palvelin vastaa <code>sendError(socket, 'Too many kibitzers at this table')</code>.</td></tr>
+    <tr><td>Sama nimi kuin pelaajalla</td><td>Sallitaan, koska tunnistus tehdään tunnisteella. Chatissa näkyy merkintä ”(kibitzer)”, joten viestit eivät sekoitu.</td></tr>
+    <tr><td>Kibitser palaa sivun päivityksen jälkeen, kun kibitsointi on jo pois päältä</td><td><code>getTableInfo</code> hylkää paluun, ja selain näyttää viestin ”Kibitzing is not allowed at this table”.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="vaiheet">Toteutuksen vaiheet ja työmäärä</h2>
+
+<div class="phase">
+  <h3>Vaihe 1: Palvelimen tietomalli ja luojan tunnistus (noin 1 päivä)</h3>
+  <ul>
+    <li>Kentät <code>allowKibitzing</code>, <code>kibitzers</code> ja <code>creatorToken</code> sekä apufunktio <code>isCreator()</code>, joka korvaa viisi ilmansuuntavertailua.</li>
+    <li>Kibitserin lisäys ja poisto: <code>createTable</code>, <code>selectPosition</code>, <code>removeFromTable</code>, <code>handleDisconnect</code> ja <code>getTableInfo</code>.</li>
+    <li>Kibitsereiden lisäys funktioon <code>sendToTablePlayers</code>.</li>
+  </ul>
+  <p class="done-when">Valmis, kun nykyiset testit menevät läpi ja palvelin hyväksyy kibitserin sekä odotushuoneessa että kesken pelin.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 2: Korttien lähetys ja kibitsoinnin kytkentä (noin 0,5–1 päivää)</h3>
+  <ul>
+    <li><code>kibitzerHands</code> funktioissa <code>beginDeal</code> ja <code>sendKibitzerSnapshot</code>.</li>
+    <li><code>setAllowKibitzing</code> ja kibitsereiden poisto.</li>
+    <li>Kibitserin estot funktioissa <code>makeBid</code>, <code>playCard</code>, <code>chooseMiniContract</code> ja <code>setAutoNextDeal</code>.</li>
+  </ul>
+  <p class="done-when">Valmis, kun integraatiotesti näyttää, että kibitser saa neljä kättä, pelaajat eivät saa niitä, ja kibitserit poistuvat, kun rasti otetaan pois.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 3: Selaimen käyttöliittymä (noin 1–1,5 päivää)</h3>
+  <ul>
+    <li>Kibitzer-vaihtoehto luonnissa ja liittymisessä, rasti ja sen lukitus.</li>
+    <li>Kibitsereiden lista odotushuoneessa.</li>
+    <li>Pelinäkymässä kaikki kädet näkyviin ja peliohjaimet piiloon.</li>
+    <li>Istunnon palautus ja <code>kibitzingDisabled</code>-käsittely.</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 4: Näppäinkomennot ja ruudunlukija (noin 0,5–1 päivää)</h3>
+  <ul>
+    <li>Funktio <code>handleKibitzerKey</code>, käsien luku ilmansuunnan kanssa ja pelinäppäinten esto.</li>
+    <li>Ohjeluettelon päivitys.</li>
+    <li>Testaus NVDA:lla ja JAWSilla.</li>
+  </ul>
+  <p class="done-when">Valmis, kun ruudunlukijan käyttäjä voi liittyä kibitseriksi, kuulla kaikki neljä kättä Alt-komennoilla ja seurata peliä ilman näköä.</p>
+</div>
+
+<div class="table-wrap">
+<table>
+  <caption>Työmääräarvio</caption>
+  <thead>
+    <tr><th scope="col">Osa</th><th scope="col">Rivejä (arvio)</th><th scope="col">Aika</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Palvelin</td><td>200–250</td><td>1,5–2 päivää</td></tr>
+    <tr><td>Selain</td><td>250–350</td><td>1,5–2 päivää</td></tr>
+    <tr><td>Testit</td><td>noin 150</td><td>0,5–1 päivää</td></tr>
+    <tr><th scope="row">Yhteensä</th><td>600–750</td><td>3–5 päivää</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Muihin peleihin (Musta Maija, ristiseiska, hertta) muutos ei vaikuta. Niillä on oma pöytäkoodinsa <code>korttipelit/poydat.js</code>, jossa katsojat ovat jo olemassa.</p>
+
+<h2 id="testaus">Testaus</h2>
+
+<p>Uusi testitiedosto <code>lib/kibitz.test.js</code> tehdään samalla mallilla kuin olemassa olevat integraatiotestit (<code>lib/practice/server.test.js</code>, <code>lib/seat-token.test.js</code>). Testit ajetaan node --testillä ja socket.io-clientillä.</p>
+<ol>
+  <li>Kun luoja on kibitser, <code>allowKibitzing</code> on true eikä sitä voi ottaa pois päältä.</li>
+  <li>Kibitseriksi ei voi liittyä, kun kibitsointi ei ole sallittu.</li>
+  <li>Kibitseriksi voi liittyä kesken pelin, mutta ilmansuuntaan ei.</li>
+  <li>Kibitser saa tapahtuman <code>kibitzerHands</code>, jossa on neljä 13 kortin kättä. Pelaajien socketit eivät saa sitä.</li>
+  <li>Kibitserin <code>makeBid</code> ja <code>playCard</code> hylätään.</li>
+  <li>Toinen kibitser ei saa luojan oikeuksia: <code>startGame</code>, <code>requestNextDeal</code> ja <code>startDoubleDummyReview</code> hylätään.</li>
+  <li>Luoja-kibitser voi aloittaa pelin ja seuraavan jaon.</li>
+  <li>Kun <code>setAllowKibitzing(false)</code> lähetetään kesken jaon, kibitserit saavat <code>kibitzingDisabled</code>-tapahtuman eivätkä saa enää julkisia tapahtumia.</li>
+  <li>Kibitser palaa tunnisteella sivun päivityksen jälkeen ja saa kädet uudelleen.</li>
+  <li>Pöytää ei poisteta, kun luoja-kibitser on yksin odotushuoneessa.</li>
+</ol>
+<p>Lisäksi testataan käsin selaimella ja ruudunlukijalla (NVDA ja JAWS). Erikseen tarkistetaan suomalaisen näppäimistön AltGr-yhdistelmät, joiden ei pidä laukaista Alt+7–0-komentoja.</p>
+
+<h2 id="avoimet">Avoimet kysymykset</h2>
+
+<p>Suunnitelmassa on oletusarvo jokaiselle kysymykselle, joten toteutus voi alkaa ilman vastauksia.</p>
+<ol>
+  <li><strong>Kibitsereiden enimmäismäärä.</strong> Oletus: 10 pöytää kohden.</li>
+  <li><strong>Saako kibitser kirjoittaa chattiin kesken jaon?</strong> Bridgen tavan mukaan kibitser ei kommentoi kättä pelin aikana. Oletus: kibitser saa kirjoittaa, ja viesti merkitään ”(kibitzer)”. Vaihtoehtona kibitsereiden chat näkyisi pelaajille vain jakojen välissä.</li>
+  <li><strong>Mistä kulmasta kibitser katsoo?</strong> Oletus on aina South. Myöhemmin voi lisätä valinnan ”katso Northin takaa” tms., jolloin Alt-näppäinten kädet vaihtuvat samalla.</li>
+  <li><strong>Näytetäänkö pöytälistassa kesken olevat pelit, joihin voi kibitsoida?</strong> Nyt listassa ovat vain odottavat pöydät (<code>server.js:2347</code>). Oletus: ei ensimmäisessä versiossa, vaan kibitser tarvitsee pöytäkoodin.</li>
+  <li><strong>Mahdollinen puheyhteys myöhemmin.</strong> Jos pöytiin tulee puheyhteys, kibitsereiden mikrofoni kannattaa pitää oletuksena kiinni tai estää kokonaan pelin aikana, koska kibitser näkee kaikki kortit.</li>
+</ol>
+
+</main>
+
+<footer>
+  <p>Suunnitelma perustuu nykyiseen koodiin: <code>server.js</code> ja <code>public/index.html</code>. Rivinumerot viittaavat suunnitelman kirjoitushetken versioon.</p>
+</footer>
+</body>
+</html>

@@ -42,6 +42,13 @@ const RECONNECT_TIMEOUT = 300000; // 5 minuuttia
 // paikkaa, mutta pois lähteneen paikka vapautuu muille pian.
 const WAITING_RECONNECT_TIMEOUT = 60000; // 1 minuutti
 
+// Kibitsointi (ks. kibitsointi.html): kibitserit ovat pöydän omassa listassa
+// table.kibitzers eivätkä neljällä pelipaikalla. 'kibitzer' on paikanvalinnan
+// viides vaihtoehto ilmansuuntien rinnalla.
+const SEATS = ['north', 'east', 'south', 'west'];
+const KIBITZER = 'kibitzer';
+const MAX_KIBITZERS = 10;
+
 // Minibridge
 const MINI_GAME_LEVEL = { N: 3, S: 4, H: 4, D: 5, C: 5 };
 const MINI_TRUMP = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs', N: null };
@@ -110,13 +117,25 @@ io.on('connection', (socket) => {
     sendActiveTables(socket);
   });
   
-  socket.on('createTable', ({ playerName, position, tableName, gameMode, practiceType }) => {
+  socket.on('createTable', ({ playerName, position, tableName, gameMode, practiceType, allowKibitzing }) => {
     console.log(`Creating table for ${playerName} at position ${position}`);
 
     // An unknown or missing game mode is plain bridge, so older clients
     // keep working unchanged.
     const MODES = ['bridge', 'minibridge', Practice.MODE];
     const mode = MODES.includes(gameMode) ? gameMode : 'bridge';
+
+    if (!SEATS.includes(position) && position !== KIBITZER) {
+      sendError(socket, 'Invalid position');
+      return;
+    }
+    const creatorIsKibitzer = position === KIBITZER;
+    // Pelinviennin harjoituksessa luoja on aina pelinviejä (beginDeal).
+    if (creatorIsKibitzer && mode === Practice.MODE) {
+      sendError(socket, 'The table creator cannot be a kibitzer in declarer practice');
+      return;
+    }
+
     const practice = mode === Practice.MODE ? Practice.createPracticeState(practiceType) : null;
     if (practice && practiceBank.count(practice.specId) === 0) {
       sendError(socket, 'No practice deals are available for this practice type');
@@ -160,16 +179,31 @@ io.on('connection', (socket) => {
         // call) recognize that the deal it was working on has since been
         // abandoned (via requestNextDeal()) and silently no-op instead of
         // mutating the new deal's state.
-        dealEpoch: 0
+        dealEpoch: 0,
+        // Luojan rasti "Allow kibitzers". Aina päällä, jos luoja on itse kibitser.
+        allowKibitzing: creatorIsKibitzer || !!allowKibitzing,
+        // Kibitserit tunnisteen mukaan: token -> { name, id, token, disconnected, disconnectTime }
+        kibitzers: new Map(),
+        // Kibitser-luojan tunniste. Luojan oikeudet tarkistetaan sillä, koska
+        // kibitserillä ei ole ilmansuuntaa (isCreator).
+        creatorToken: null
     };
 
-    // Add player to table
-    table.players[position] = {
-        name: playerName,
-        id: socket.id,
-        type: 'human',
-        token: createSeatToken()
-    };
+    let token;
+    if (creatorIsKibitzer) {
+        token = createSeatToken();
+        table.kibitzers.set(token, { name: playerName, id: socket.id, token });
+        table.creatorToken = token;
+    } else {
+        // Add player to table
+        table.players[position] = {
+            name: playerName,
+            id: socket.id,
+            type: 'human',
+            token: createSeatToken()
+        };
+        token = table.players[position].token;
+    }
 
     // Store table
     tables.set(tableCode, table);
@@ -180,7 +214,8 @@ io.on('connection', (socket) => {
     if (player) {
         player.table = tableCode;
         player.name = playerName;
-        player.position = position;
+        player.position = creatorIsKibitzer ? null : position;
+        player.kibitzer = creatorIsKibitzer;
     }
 
     // Socket joins room
@@ -191,13 +226,15 @@ io.on('connection', (socket) => {
         tableCode,
         table: filterTable(table),
         playerPosition: position,
-        seatToken: table.players[position].token
+        seatToken: token,
+        amCreator: true
     });
 
     socket.emit('tableInfo', {
         table: filterTable(table),
         playerPosition: position,
-        seatToken: table.players[position].token
+        seatToken: token,
+        amCreator: true
     });
     
     console.log(`Table ${tableCode} created successfully`);
@@ -267,6 +304,10 @@ io.on('connection', (socket) => {
     closeDoubleDummyReview(socket, playerId, data);
   });
 
+  socket.on('setAllowKibitzing', (data) => {
+    setAllowKibitzing(socket, playerId, data);
+  });
+
   // Disconnect handling
   socket.on('disconnect', () => {
     console.log('Client disconnected:', playerId);
@@ -291,7 +332,15 @@ function handleDisconnect(playerId) {
   // Jos pelaaja on pöydässä
   if (player.table) {
     const table = tables.get(player.table);
-    if (table) {
+    if (table && player.kibitzer) {
+      // Kibitser pidetään hetken listassa, jotta sivun päivitys palauttaa sen.
+      const kibitzer = kibitzerOf(table, playerId);
+      if (kibitzer) {
+        kibitzer.disconnected = true;
+        kibitzer.disconnectTime = Date.now();
+        scheduleKibitzerRemoval(table, kibitzer, playerId);
+      }
+    } else if (table) {
       // Pelaajaa ei poisteta heti, vaan paikka pidetään hetken varattuna, jotta
       // sivun päivitys (sama tunniste) palauttaa sen sekä pelissä että odotushuoneessa.
       // Paikan on voinut jo ottaa uusi yhteys: silloin vanhan yhteyden katkeaminen
@@ -360,6 +409,215 @@ function scheduleSeatRemoval(table, position, player, playerId) {
     }
   };
   setTimeout(check, limit());
+}
+
+// Poistaa katkenneen kibitserin, jos se ei palaa ajoissa. Kibitser-luoja
+// saa saman ajan kuin pelipaikat, muut kibitserit odotushuoneen ajan.
+function scheduleKibitzerRemoval(table, kibitzer, playerId) {
+  const isCreatorKibitzer = () => kibitzer.token === table.creatorToken;
+  const limit = () => (isCreatorKibitzer() && table.state === 'playing' ? RECONNECT_TIMEOUT : WAITING_RECONNECT_TIMEOUT);
+
+  const check = () => {
+    if (tables.get(table.code) !== table) return;
+    if (table.kibitzers.get(kibitzer.token) !== kibitzer) return;
+    if (!kibitzer.disconnected || kibitzer.id !== playerId) return;
+    const remaining = kibitzer.disconnectTime + limit() - Date.now();
+    if (remaining > 0) {
+      setTimeout(check, remaining);
+      return;
+    }
+    console.log(`Kibitzer ${kibitzer.name} reconnect timeout - removing from table ${table.code}`);
+    const wasCreator = isCreatorKibitzer();
+    removeKibitzer(table, kibitzer);
+    if (wasCreator && table.ddReview && tables.get(table.code) === table) {
+      endDoubleDummyReview(table);
+    }
+  };
+  setTimeout(check, limit());
+}
+
+// Kibitser, jonka yhteys (socket.id) on playerId, tai null.
+function kibitzerOf(table, playerId) {
+  if (!table.kibitzers) return null;
+  for (const kibitzer of table.kibitzers.values()) {
+    if (kibitzer.id === playerId) return kibitzer;
+  }
+  return null;
+}
+
+function kibitzerNames(table) {
+  return table.kibitzers ? Array.from(table.kibitzers.values(), k => k.name) : [];
+}
+
+// Onko pöydässä vielä ihmisiä (pelipaikalla tai kibitserinä)? Pelkkien
+// robottien pöytää ei jätetä pelaamaan keskenään.
+function tableHasHumans(table) {
+  return SEATS.some(pos => table.players[pos] && table.players[pos].type === 'human') ||
+    (!!table.kibitzers && table.kibitzers.size > 0);
+}
+
+function deleteTable(table) {
+  if (table.pendingNextDealTimeout) {
+    clearTimeout(table.pendingNextDealTimeout);
+    table.pendingNextDealTimeout = null;
+  }
+  tables.delete(table.code);
+}
+
+/**
+ * Onko yhteys pöydän luoja? Istuva luoja tunnistetaan ilmansuunnasta kuten
+ * ennenkin, kibitser-luoja tunnisteesta. Muut kibitserit eivät ole koskaan
+ * luojia, vaikka pöydällä ei olisi luojan paikkaa.
+ */
+function isCreator(table, playerId) {
+  const player = players.get(playerId);
+  if (!player || player.table !== table.code) return false;
+  if (player.kibitzer) {
+    const kibitzer = kibitzerOf(table, playerId);
+    return table.creatorPosition === KIBITZER && !!kibitzer && kibitzer.token === table.creatorToken;
+  }
+  if (!table.creatorPosition) return true;
+  return player.position === table.creatorPosition;
+}
+
+// Lisää yhteyden pöydän kibitseriksi (uutena tai palaavana).
+function attachKibitzer(table, socket, playerId, kibitzer) {
+  // Vanha yhteys irrotetaan, kuten takeOverSeat tekee pelipaikoille.
+  if (kibitzer.id && kibitzer.id !== playerId) {
+    const old = players.get(kibitzer.id);
+    if (old && old.table === table.code && old.kibitzer) {
+      old.table = null;
+      old.kibitzer = false;
+      if (old.socket) old.socket.leave(table.code);
+    }
+  }
+  kibitzer.id = playerId;
+  kibitzer.disconnected = false;
+  delete kibitzer.disconnectTime;
+  table.kibitzers.set(kibitzer.token, kibitzer);
+
+  let player = players.get(playerId);
+  if (!player) {
+    player = { socket, connected: Date.now() };
+    players.set(playerId, player);
+  }
+  player.table = table.code;
+  player.position = null;
+  player.kibitzer = true;
+  player.name = kibitzer.name;
+  socket.join(table.code);
+}
+
+/**
+ * Lähettää kibitserille pöydän tilan: odotushuoneessa tableInfo, pelin
+ * aikana pelinäkymä (gameReconnect), kaikki neljä kättä ja mahdollinen
+ * double dummy -katselu.
+ */
+function sendKibitzerState(table, socket, kibitzer) {
+  const amCreator = kibitzer.token === table.creatorToken;
+  if (table.state !== 'playing' || !table.gameState) {
+    socket.emit('tableInfo', {
+      table: filterTable(table),
+      playerPosition: KIBITZER,
+      seatToken: kibitzer.token,
+      amCreator
+    });
+    return;
+  }
+
+  socket.emit('gameReconnect', {
+    ...gameReconnectPayload(table, KIBITZER, kibitzer.token),
+    amCreator
+  });
+  socket.emit('kibitzerHands', { hands: table.gameState.hands });
+  if (table.ddReview) {
+    socket.emit('ddReviewStarted', ddReviewPayload(table, { rejoined: true }));
+  }
+}
+
+// Kaikkien neljän käden lähetys kibitsereille. Vain kibitsereiden omiin
+// yhteyksiin, ei koskaan sendToTablePlayers-funktiolla.
+function sendHandsToKibitzers(table) {
+  if (!table.gameState || !table.kibitzers) return;
+  for (const kibitzer of table.kibitzers.values()) {
+    if (kibitzer.disconnected || !kibitzer.id) continue;
+    const player = players.get(kibitzer.id);
+    if (player && player.socket && player.kibitzer && player.table === table.code) {
+      player.socket.emit('kibitzerHands', { hands: table.gameState.hands });
+    }
+  }
+}
+
+/**
+ * Poistaa kibitserin pöydästä. disabled = luoja otti kibitsoinnin pois,
+ * jolloin kibitserille kerrotaan syy eikä muille ilmoiteta jokaisesta erikseen.
+ */
+function removeKibitzer(table, kibitzer, { disabled = false } = {}) {
+  table.kibitzers.delete(kibitzer.token);
+
+  const player = kibitzer.id ? players.get(kibitzer.id) : null;
+  if (player && player.table === table.code && player.kibitzer) {
+    if (disabled && player.socket) {
+      player.socket.emit('kibitzingDisabled', {
+        message: 'The table creator turned off kibitzing. You were removed from the table.'
+      });
+    }
+    if (player.socket) player.socket.leave(table.code);
+    player.table = null;
+    player.position = null;
+    player.kibitzer = false;
+  }
+
+  if (!tableHasHumans(table)) {
+    deleteTable(table);
+    console.log(`Table ${table.code} removed (no humans left)`);
+    return;
+  }
+
+  if (!disabled) {
+    sendToTablePlayers(table, {
+      type: 'kibitzerLeft',
+      name: kibitzer.name,
+      kibitzers: kibitzerNames(table)
+    });
+  }
+}
+
+/**
+ * Luoja kytkee kibitsoinnin päälle tai pois. Pois kytkettäessä kaikki
+ * kibitserit poistetaan heti, myös kesken jaon. Kibitser-luojalla
+ * kibitsointi on aina päällä.
+ */
+function setAllowKibitzing(socket, playerId, data) {
+  const { tableCode, enabled } = data || {};
+  const table = tables.get(tableCode);
+  if (!table) {
+    sendError(socket, 'Table not found');
+    return;
+  }
+  if (!isCreator(table, playerId)) {
+    sendError(socket, 'Only the table creator can change kibitzing');
+    return;
+  }
+  if (table.creatorPosition === KIBITZER && !enabled) {
+    sendError(socket, 'Kibitzing is always allowed when the table creator is a kibitzer');
+    return;
+  }
+
+  table.allowKibitzing = !!enabled;
+  table.lastActivity = Date.now();
+
+  if (!table.allowKibitzing) {
+    for (const kibitzer of Array.from(table.kibitzers.values())) {
+      removeKibitzer(table, kibitzer, { disabled: true });
+    }
+  }
+
+  sendToTablePlayers(table, {
+    type: 'allowKibitzingChanged',
+    enabled: table.allowKibitzing,
+    kibitzers: kibitzerNames(table)
+  });
 }
 
 // Salainen paikkatunniste. Pöytään palaava selain tunnistetaan sillä eikä pelkällä
@@ -467,20 +725,37 @@ function joinTable(socket, playerId, data) {
  */
 function selectPosition(socket, playerId, data) {
     const { tableCode, position, playerName, seatToken } = data;
-    
+
     console.log(`selectPosition: ${playerName} wants ${position} in table ${tableCode}`);
-    
+
     if (!tableCode || !position || !playerName) {
         sendError(socket, 'Incomplete information');
         return;
     }
-    
+
     const table = tables.get(tableCode);
     if (!table) {
         sendError(socket, 'Table not found');
         return;
     }
-    
+
+    if (position === KIBITZER) {
+        selectKibitzer(socket, playerId, table, playerName);
+        return;
+    }
+
+    if (!SEATS.includes(position)) {
+        sendError(socket, 'Invalid position');
+        return;
+    }
+
+    // Kibitser ei siirry suoraan pelipaikalle, vaan poistuu ensin pöydästä.
+    const asKibitzer = players.get(playerId);
+    if (asKibitzer && asKibitzer.kibitzer && asKibitzer.table === tableCode) {
+        sendError(socket, 'Leave the table first to take a seat');
+        return;
+    }
+
     // Check if same player is trying to rejoin
     const existingPlayer = table.players[position];
     if (existingPlayer) {
@@ -541,6 +816,45 @@ function selectPosition(socket, playerId, data) {
     console.log(`Player ${playerName} joined table ${tableCode} at position ${position}`);
 }
 
+/**
+ * Liittyminen kibitseriksi. Toisin kuin pelipaikalle, kibitseriksi voi
+ * liittyä myös kesken pelin.
+ */
+function selectKibitzer(socket, playerId, table, playerName) {
+    const player = players.get(playerId);
+
+    const existing = kibitzerOf(table, playerId);
+    if (existing) {
+        sendKibitzerState(table, socket, existing);
+        return;
+    }
+    if (player && player.table === table.code && player.position) {
+        sendError(socket, 'You are already seated at this table');
+        return;
+    }
+    if (!table.allowKibitzing) {
+        sendError(socket, 'Kibitzing is not allowed at this table');
+        return;
+    }
+    if (table.kibitzers.size >= MAX_KIBITZERS) {
+        sendError(socket, 'Too many kibitzers at this table');
+        return;
+    }
+
+    const kibitzer = { name: playerName, token: createSeatToken() };
+    attachKibitzer(table, socket, playerId, kibitzer);
+    table.lastActivity = Date.now();
+    sendKibitzerState(table, socket, kibitzer);
+
+    sendToTablePlayers(table, {
+        type: 'kibitzerJoined',
+        name: playerName,
+        kibitzers: kibitzerNames(table)
+    });
+
+    console.log(`${playerName} joined table ${table.code} as a kibitzer`);
+}
+
 function getTableInfo(socket, playerId, data) {
     const { tableCode, playerName, seatToken } = data;
     
@@ -568,10 +882,29 @@ function getTableInfo(socket, playerId, data) {
         console.log(`Updated player ${playerId} name to ${playerName}`);
     }
     
+    // Palaava kibitser: sama yhteys tai tunniste. Pelkällä nimellä vain
+    // katkenneen kibitserin paikalle ja vasta, jos nimellä ei löydy pelipaikkaa.
+    const kibitzerById = kibitzerOf(table, playerId) ||
+        (seatToken && table.kibitzers.get(seatToken)) || null;
+    if (kibitzerById) {
+        attachKibitzer(table, socket, playerId, kibitzerById);
+        sendKibitzerState(table, socket, kibitzerById);
+        return;
+    }
+
     // Paikka, johon tämä yhteys palaa: sama yhteys, salainen tunniste tai sama
     // nimi paikalle, jonka pelaajan yhteys on katkennut. Yhteydessä olevan
     // pelaajan paikkaa ei voi ottaa pelkällä nimellä.
     const existingPosition = findReclaimableSeat(table, playerId, playerName, seatToken);
+    if (!existingPosition && playerName) {
+        const kibitzerByName = Array.from(table.kibitzers.values())
+            .find(k => k.disconnected && k.name === playerName);
+        if (kibitzerByName) {
+            attachKibitzer(table, socket, playerId, kibitzerByName);
+            sendKibitzerState(table, socket, kibitzerByName);
+            return;
+        }
+    }
     if (existingPosition && table.players[existingPosition].id !== playerId) {
         const seatName = table.players[existingPosition].name;
         console.log(`Player ${seatName} returns to position ${existingPosition}`);
@@ -595,20 +928,8 @@ function getTableInfo(socket, playerId, data) {
         console.log(`Reconnecting ${playerId} to game ${tableCode} as ${existingPosition}`);
         
         socket.emit('gameReconnect', {
-            table: filterTable(table),
-            playerPosition: existingPosition,
-            seatToken: ownSeatToken,
-            gameState: filterGameState(table.gameState, existingPosition),
-            biddingState: table.biddingState,
-            dealNumber: table.dealNumber || 1,
-            dealer: table.currentDealer || 'south',
-            gameMode: table.gameMode || 'bridge',
-            miniState: table.miniState || null,
-            miniScore: table.miniScore || { ns: 0, ew: 0 },
-            bridgeScore: table.bridgeScore || { ns: 0, ew: 0 },
-            autoNextDeal: !!table.autoNextDeal,
-            // Contract and statistics only -- never the deal itself.
-            practice: Practice.practicePublic(table.practice)
+            ...gameReconnectPayload(table, existingPosition, ownSeatToken),
+            amCreator: isCreator(table, playerId)
         });
 
         // Lähetä pelaajan kortit
@@ -651,10 +972,31 @@ function getTableInfo(socket, playerId, data) {
     socket.emit('tableInfo', {
         table: filterTable(table),
         playerPosition: existingPosition,
-        seatToken: ownSeatToken
+        seatToken: ownSeatToken,
+        amCreator: existingPosition ? isCreator(table, playerId) : false
     });
 
     console.log(`Sent tableInfo for ${tableCode} to ${playerId}`);
+}
+
+// Pelinäkymän tila palaavalle pelaajalle tai kibitserille. Ei sisällä käsiä.
+function gameReconnectPayload(table, position, seatToken) {
+    return {
+        table: filterTable(table),
+        playerPosition: position,
+        seatToken,
+        gameState: filterGameState(table.gameState, position),
+        biddingState: table.biddingState,
+        dealNumber: table.dealNumber || 1,
+        dealer: table.currentDealer || 'south',
+        gameMode: table.gameMode || 'bridge',
+        miniState: table.miniState || null,
+        miniScore: table.miniScore || { ns: 0, ew: 0 },
+        bridgeScore: table.bridgeScore || { ns: 0, ew: 0 },
+        autoNextDeal: !!table.autoNextDeal,
+        // Contract and statistics only -- never the deal itself.
+        practice: Practice.practicePublic(table.practice)
+    };
 }
 
 
@@ -672,9 +1014,25 @@ function removeFromTable(socket, playerId) {
   if (!table) {
     player.table = null;
     player.position = null;
+    player.kibitzer = false;
     return;
   }
-  
+
+  if (player.kibitzer) {
+    const kibitzer = kibitzerOf(table, playerId);
+    if (kibitzer) {
+      const wasCreator = kibitzer.token === table.creatorToken;
+      removeKibitzer(table, kibitzer);
+      if (wasCreator && table.ddReview && tables.get(table.code) === table) {
+        endDoubleDummyReview(table);
+      }
+    } else {
+      player.table = null;
+      player.kibitzer = false;
+    }
+    return;
+  }
+
   removePlayerFromTable(player, table);
 }
 
@@ -698,10 +1056,10 @@ function removePlayerFromTable(player, table) {
   player.table = null;
   player.position = null;
   
-  // If table is empty, remove it
-  const activePlayers = Object.values(table.players).filter(p => p !== null);
-  if (activePlayers.length === 0) {
-    tables.delete(table.code);
+  // Pöytä poistetaan, kun siinä ei ole enää ihmisiä pelipaikoilla eikä
+  // kibitsereinä. Pelkät robotit eivät jää pelaamaan keskenään.
+  if (!tableHasHumans(table)) {
+    deleteTable(table);
     console.log(`Table ${table.code} removed (empty)`);
   }
 }
@@ -730,7 +1088,7 @@ function startGame(socket, playerId, data) {
     return;
   }
 
-  if (table.creatorPosition && player.position !== table.creatorPosition) {
+  if (!isCreator(table, playerId)) {
     sendError(socket, 'Only the player who created the table can start the game');
     return;
   }
@@ -887,6 +1245,7 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
       }
     }
   }
+  sendHandsToKibitzers(table);
 
   // Minibridge: reveal dummy right after points, before the contract is chosen
   if (table.gameMode === 'minibridge' && table.miniState && table.miniState.phase === 'contract') {
@@ -1020,14 +1379,14 @@ function sendChatMessage(socket, playerId, data) {
   }
   
   const player = players.get(playerId);
-  if (!player || !player.position) {
+  if (!player || player.table !== tableCode || !(player.position || player.kibitzer)) {
     return;
   }
-  
+
   sendToTablePlayers(table, {
     type: 'chatMessage',
     sender: player.name,
-    position: player.position,
+    position: player.kibitzer ? KIBITZER : player.position,
     message,
     timestamp: Date.now()
   });
@@ -1889,6 +2248,11 @@ function setAutoNextDeal(socket, playerId, data) {
         return;
     }
 
+    if (player.kibitzer && !isCreator(table, playerId)) {
+        sendError(socket, 'Kibitzers cannot change this setting');
+        return;
+    }
+
     table.autoNextDeal = !!enabled;
 
     // If a deal has already ended and the automatic next-deal countdown is
@@ -1924,7 +2288,7 @@ function requestNextDeal(socket, playerId, data) {
         return;
     }
 
-    if (table.creatorPosition && player.position !== table.creatorPosition) {
+    if (!isCreator(table, playerId)) {
         sendError(socket, 'Only the player who created the table can start the next deal');
         return;
     }
@@ -1972,7 +2336,7 @@ function replayDeal(socket, playerId, data) {
         return;
     }
 
-    if (table.creatorPosition && player.position !== table.creatorPosition) {
+    if (!isCreator(table, playerId)) {
         sendError(socket, 'Only the player who created the table can replay a deal');
         return;
     }
@@ -2123,7 +2487,7 @@ function getReviewTableForCreator(socket, playerId, data) {
         return null;
     }
 
-    if (table.creatorPosition && player.position !== table.creatorPosition) {
+    if (!isCreator(table, playerId)) {
         sendError(socket, 'Only the table creator can control the double dummy review');
         return null;
     }
@@ -2352,7 +2716,8 @@ function sendActiveTables(socket) {
         players: playerCount,
         created: table.created,
         gameMode: table.gameMode || 'bridge',
-        practiceType: table.practice ? table.practice.specId : null
+        practiceType: table.practice ? table.practice.specId : null,
+        allowKibitzing: !!table.allowKibitzing
       };
     });
   
@@ -2427,6 +2792,17 @@ function sendToTablePlayers(table, message) {
     if (playerData && playerData.id) {
       const player = players.get(playerData.id);
       if (player && player.socket) {
+        player.socket.emit(message.type, message);
+      }
+    }
+  }
+  // Julkiset viestit myös kibitsereille. Yksityiset (yourCards ym.)
+  // lähetetään suoraan pelaajan yhteyteen eivätkä kulje tätä kautta.
+  if (table.kibitzers) {
+    for (const kibitzer of table.kibitzers.values()) {
+      if (kibitzer.disconnected || !kibitzer.id) continue;
+      const player = players.get(kibitzer.id);
+      if (player && player.socket && player.kibitzer && player.table === table.code) {
         player.socket.emit(message.type, message);
       }
     }
@@ -2542,7 +2918,9 @@ function filterTable(table) {
     gameMode: table.gameMode || 'bridge',
     practiceType: table.practice ? table.practice.specId : null,
     practiceLabel: table.practice ? Practice.practiceTypeLabel(table.practice.specId) : null,
-    creatorPosition: table.creatorPosition || null
+    creatorPosition: table.creatorPosition || null,
+    allowKibitzing: !!table.allowKibitzing,
+    kibitzers: kibitzerNames(table)
   };
 }
 
@@ -2611,8 +2989,15 @@ function cleanupProcess() {
           }
         }
       }
-      
-      tables.delete(code);
+      for (const kibitzer of table.kibitzers ? table.kibitzers.values() : []) {
+        const player = kibitzer.id ? players.get(kibitzer.id) : null;
+        if (player && player.table === code) {
+          player.table = null;
+          player.kibitzer = false;
+        }
+      }
+
+      deleteTable(table);
       console.log(`Table ${code} removed due to inactivity`);
     }
   }

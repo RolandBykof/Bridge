@@ -61,9 +61,16 @@
                         <button type="button" id="create-pos-east" role="radio" aria-checked="false" onclick="selectCreatePosition('east')">East</button>
                         <button type="button" id="create-pos-south" role="radio" aria-checked="true" onclick="selectCreatePosition('south')">South</button>
                         <button type="button" id="create-pos-west" role="radio" aria-checked="false" onclick="selectCreatePosition('west')">West</button>
+                        <button type="button" id="create-pos-kibitzer" role="radio" aria-checked="false" onclick="selectCreatePosition('kibitzer')">Kibitzer</button>
                     </div>
                     <p><strong>Selected:</strong> <span id="create-selected-position-name">South</span></p>
                 </fieldset>
+
+                <div>
+                    <input type="checkbox" id="allow-kibitzers-checkbox" aria-describedby="allow-kibitzers-hint">
+                    <label for="allow-kibitzers-checkbox">Allow kibitzers</label>
+                    <p id="allow-kibitzers-hint">Kibitzers watch the game and see all four hands, but cannot bid or play.</p>
+                </div>
                 
                 <label for="table-name-input">Table Name (optional):</label>
                 <input type="text" id="table-name-input" placeholder="Table name" maxlength="100">
@@ -145,6 +152,17 @@
             </div>
             
             <p>Players: <span id="waiting-player-count">0</span>/4</p>
+
+            <div role="group" aria-labelledby="waiting-kibitzers-heading">
+                <h4 id="waiting-kibitzers-heading">Kibitzers</h4>
+                <p id="waiting-kibitzers-list" aria-live="polite">None</p>
+            </div>
+
+            <div id="waiting-allow-kibitzers" hidden>
+                <input type="checkbox" id="waiting-allow-kibitzers-checkbox" onchange="setAllowKibitzing(this.checked)" aria-describedby="waiting-allow-kibitzers-hint">
+                <label for="waiting-allow-kibitzers-checkbox">Allow kibitzers</label>
+                <span id="waiting-allow-kibitzers-hint"></span>
+            </div>
 
             <button onclick="startGameFromWaiting()" id="start-game-button" disabled>Start Game</button>
             <button onclick="leaveTableFromWaiting()">Leave</button>
@@ -248,10 +266,16 @@
                 <button onclick="replayDealFromGame()" id="replay-deal-button" disabled>Replay This Deal</button>
                 <button type="button" onclick="startDdReview()" id="show-dd-button" hidden>Show Double Dummy</button>
                 <span id="next-deal-status" aria-hidden="true"></span>
-                <div>
+                <div id="auto-next-deal-control">
                     <input type="checkbox" id="auto-next-deal-checkbox" onchange="setAutoNextDealFromGame(this.checked)">
                     <label for="auto-next-deal-checkbox">Start next deal automatically</label>
                 </div>
+                <div id="game-allow-kibitzers" hidden>
+                    <input type="checkbox" id="game-allow-kibitzers-checkbox" onchange="setAllowKibitzing(this.checked)" aria-describedby="game-allow-kibitzers-hint">
+                    <label for="game-allow-kibitzers-checkbox">Allow kibitzers</label>
+                    <span id="game-allow-kibitzers-hint"></span>
+                </div>
+                <p id="kibitzer-note" hidden>You are kibitzing. You see all four hands but cannot bid or play.</p>
                 <button onclick="startNewGameFromGame()" id="game-new-game-button" style="display: none;">New Game</button>
                 <button onclick="leaveGameFromGame()">Leave Game</button>
             </div>
@@ -296,6 +320,13 @@
         let bridgeScore = { ns: 0, ew: 0 };
         let tablePlayers = null; // { north: {name, type}, ... } -- type is 'human' or 'robot'
         let tableCreatorPosition = null;
+        // Kibitsointi: kibitserin myPosition on KIBITZER. Palvelin kertoo
+        // amCreator-kentässä, onko tämä yhteys pöydän luoja (kibitser-luojalla
+        // ei ole ilmansuuntaa, johon verrata).
+        const KIBITZER = 'kibitzer';
+        let amTableCreator = false;
+        let tableAllowsKibitzing = false;
+        let tableKibitzers = [];
         let autoNextDeal = false;
         let dealIsReplay = false;
         let myPosition = null;
@@ -535,6 +566,15 @@
             const table = data.table;
             const code = pendingRestore.tableCode;
 
+            // Kibitser, jonka tietue ehti poistua palvelimelta: liitytään
+            // uudelleen kibitseriksi, jos pöytä yhä sallii sen (myös kesken pelin).
+            const savedPosition = pendingRestore.position;
+            if (savedPosition === KIBITZER && !data.playerPosition && table.allowKibitzing) {
+                myPosition = KIBITZER;
+                socket.emit('selectPosition', { tableCode: code, position: KIBITZER, playerName: myName });
+                return;
+            }
+
             if (table.state === 'playing') {
                 failTableRestore(`Could not rejoin table ${code}: the game continued without you.`);
                 return;
@@ -546,15 +586,20 @@
             if (data.playerPosition) {
                 pendingRestore = null;
                 myPosition = data.playerPosition;
+                amTableCreator = !!data.amCreator;
                 showWaitingRoom();
                 updateWaitingRoomPositions(table);
                 announceToScreenReader(`Rejoined table ${code} as ${positionName(myPosition)}.`);
                 return;
             }
 
+            if (savedPosition === KIBITZER) {
+                failTableRestore(`Could not rejoin table ${code}: kibitzing is not allowed at this table.`);
+                return;
+            }
+
             // Refreshing in the waiting room frees the seat on the server,
             // so take it again if nobody else has.
-            const savedPosition = pendingRestore.position;
             if (savedPosition && !table.players[savedPosition]) {
                 selectedJoinPosition = savedPosition;
                 myPosition = savedPosition;
@@ -728,6 +773,7 @@
             }
             
             selectCreatePosition('south');
+            updateCreateKibitzerOption();
             setTimeout(() => document.getElementById('create-name-input').focus(), 100);
         }
 
@@ -774,17 +820,21 @@
                 'position-selection': 'Select your position',
                 'waiting-room': () => {
                     const playerCount = parseInt(document.getElementById('waiting-player-count').textContent);
-                    const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+                    const isCreator = isTableCreator();
                     if (!isCreator) {
                         return playerCount === 4
                             ? 'Waiting for the table creator to start the game.'
                             : `Waiting for the table creator to start the game (will fill ${4 - playerCount} seat(s) with robots).`;
                     }
                     if (playerCount === 4) return 'Ready to start!';
-                    if (playerCount >= 1) return `Ready to start with ${4 - playerCount} robot${4 - playerCount > 1 ? 's' : ''}, or wait for more players`;
+                    if (playerCount >= 1 || isKibitzer()) return `Ready to start with ${4 - playerCount} robot${4 - playerCount > 1 ? 's' : ''}, or wait for more players`;
                     return `Waiting for ${4 - playerCount} more players`;
                 },
                 'game': () => {
+                    if (gameState && isKibitzer()) {
+                        if (gameState.gamePhase === 'play') return `Kibitzing: ${formatContract(gameState.contract)} by ${positionName(gameState.declarer)}`;
+                        return 'Kibitzing';
+                    }
                     if (gameState) {
                         if (gameState.gamePhase === 'bidding') return 'Bidding phase';
                         if (gameState.gamePhase === 'contract') {
@@ -834,7 +884,11 @@
 
         // CREATE TABLE
         function selectCreatePosition(position) {
-            ['north', 'east', 'south', 'west'].forEach(pos => {
+            if (position === KIBITZER && isPracticeSelectedInCreateForm()) {
+                announceToScreenReader('The table creator cannot be a kibitzer in declarer practice.');
+                return;
+            }
+            ['north', 'east', 'south', 'west', KIBITZER].forEach(pos => {
                 const elem = document.getElementById(`create-pos-${pos}`);
                 if (elem) {
                     elem.classList.remove('selected');
@@ -849,7 +903,49 @@
                 selectedCreatePosition = position;
                 
                 document.getElementById('create-selected-position-name').textContent = positionName(position);
-                announceToScreenReader(`Selected: ${positionName(position)}`);
+                announceToScreenReader(`Selected: ${positionName(position)}${updateCreateKibitzerCheckbox()}`);
+            }
+        }
+
+        function isPracticeSelectedInCreateForm() {
+            const input = document.querySelector('input[name="game-mode"]:checked');
+            return !!input && input.value === PRACTICE_MODE;
+        }
+
+        /**
+         * Kibitser-luojalla "Allow kibitzers" on aina päällä ja lukittu.
+         * Palauttaa lisäselityksen ruudunlukijan ilmoitukseen, kun lukitus
+         * menee päälle.
+         */
+        function updateCreateKibitzerCheckbox() {
+            const checkbox = document.getElementById('allow-kibitzers-checkbox');
+            const hint = document.getElementById('allow-kibitzers-hint');
+            const creatorIsKibitzer = selectedCreatePosition === KIBITZER;
+            const wasLocked = checkbox.disabled;
+            if (creatorIsKibitzer) {
+                if (!wasLocked) checkbox.dataset.previous = checkbox.checked ? '1' : '';
+                checkbox.checked = true;
+                checkbox.disabled = true;
+                hint.textContent = 'Kibitzing is always allowed when the table creator is a kibitzer.';
+                return wasLocked ? '' : '. Allow kibitzers is on and locked.';
+            }
+            if (wasLocked) {
+                checkbox.checked = checkbox.dataset.previous === '1';
+                checkbox.disabled = false;
+            }
+            hint.textContent = 'Kibitzers watch the game and see all four hands, but cannot bid or play.';
+            return '';
+        }
+
+        // Pelinviennin harjoituksessa luoja on aina pelinviejä, joten
+        // kibitser-vaihtoehto ei ole silloin käytössä.
+        function updateCreateKibitzerOption() {
+            const practice = isPracticeSelectedInCreateForm();
+            const button = document.getElementById('create-pos-kibitzer');
+            button.setAttribute('aria-disabled', practice ? 'true' : 'false');
+            if (practice && selectedCreatePosition === KIBITZER) {
+                selectCreatePosition('south');
+                announceToScreenReader('The table creator cannot be a kibitzer in declarer practice. Position changed to South.');
             }
         }
 
@@ -882,7 +978,8 @@
                     position: selectedCreatePosition,
                     tableName: tableName || null,
                     gameMode: selectedGameMode,
-                    practiceType: selectedGameMode === PRACTICE_MODE ? practiceType : undefined
+                    practiceType: selectedGameMode === PRACTICE_MODE ? practiceType : undefined,
+                    allowKibitzing: document.getElementById('allow-kibitzers-checkbox').checked
                 });
             } else {
                 showErrorWithAnnouncement('Connection failed');
@@ -945,15 +1042,18 @@
             document.getElementById('join-table-gamemode').textContent = `Game type: ${gameModeLabel()}`;
 
             const playerCount = Object.values(tableInfo.players || {}).filter(p => p !== null).length;
-            document.getElementById('join-table-status').textContent =
-                `${playerCount}/4 players. Choose position:`;
-            
+            document.getElementById('join-table-status').textContent = tableInfo.state === 'playing'
+                ? 'Game in progress. You can join as a kibitzer.'
+                : `${playerCount}/4 players. Choose position:`;
+
             const container = document.getElementById('join-available-positions-container');
             container.innerHTML = '';
-            
+
             positions.forEach(position => {
                 const button = document.createElement('button');
-                button.textContent = positionName(position);
+                button.textContent = position === KIBITZER
+                    ? 'Kibitzer (watch, see all hands)'
+                    : positionName(position);
                 button.setAttribute('role', 'radio');
                 button.setAttribute('aria-checked', 'false');
                 button.onclick = () => selectJoinPosition(position);
@@ -1024,12 +1124,14 @@
             }
 
             document.getElementById('waiting-player-count').textContent = playerCount;
+            updateKibitzingFromTable(table);
             updateStatus();
 
-            const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+            const isCreator = isTableCreator();
             const startButton = document.getElementById('start-game-button');
             startButton.style.display = isCreator ? '' : 'none';
-            startButton.disabled = playerCount < 1;
+            // Kibitser-luoja voi aloittaa, vaikka yhtään pelaajaa ei olisi: robotit pelaavat.
+            startButton.disabled = playerCount < 1 && !isKibitzer();
             const startLabel = gameMode === 'minibridge' ? 'Start minibridge'
                 : isPracticeMode() ? 'Start practice' : 'Start bridge';
             const emptySeats = 4 - playerCount;
@@ -1038,6 +1140,93 @@
             if (playerCount === 4 && isCreator) {
                 announceToScreenReader(`All players joined. Ready to ${startLabel.toLowerCase()}.`);
             }
+        }
+
+        // KIBITZING
+        function isKibitzer() {
+            return myPosition === KIBITZER;
+        }
+
+        function updateKibitzingFromTable(table) {
+            if (!table) return;
+            if (table.allowKibitzing !== undefined) tableAllowsKibitzing = !!table.allowKibitzing;
+            if (Array.isArray(table.kibitzers)) tableKibitzers = table.kibitzers;
+            renderKibitzingControls();
+        }
+
+        /**
+         * Kibitsereiden nimilista odotushuoneessa, luojan "Allow kibitzers"
+         * -rastit (odotushuone ja pelinäkymä) sekä kibitserin oma huomautus
+         * pelinäkymässä.
+         */
+        function renderKibitzingControls() {
+            const list = document.getElementById('waiting-kibitzers-list');
+            if (list) {
+                const names = tableKibitzers.map(name => (isKibitzer() && name === myName) ? `${name} (You)` : name);
+                const text = names.length > 0 ? names.join(', ') : 'None';
+                if (list.textContent !== text) list.textContent = text;
+            }
+
+            const creator = isTableCreator();
+            const locked = isKibitzer();
+            const hintText = locked ? 'Always on when the table creator is a kibitzer.' : '';
+            ['waiting', 'game'].forEach(prefix => {
+                const box = document.getElementById(`${prefix}-allow-kibitzers`);
+                const checkbox = document.getElementById(`${prefix}-allow-kibitzers-checkbox`);
+                const hint = document.getElementById(`${prefix}-allow-kibitzers-hint`);
+                if (!box || !checkbox) return;
+                box.hidden = !creator;
+                checkbox.checked = tableAllowsKibitzing;
+                checkbox.disabled = locked;
+                if (hint) hint.textContent = hintText;
+            });
+
+            const note = document.getElementById('kibitzer-note');
+            if (note) note.hidden = !isKibitzer();
+
+            // Automaattisen jaon asetusta ei näytetä muille kibitsereille kuin luojalle.
+            const autoControl = document.getElementById('auto-next-deal-control');
+            if (autoControl) autoControl.hidden = isKibitzer() && !creator;
+        }
+
+        function setAllowKibitzing(enabled) {
+            if (!tableCode || !socket) return;
+            if (!enabled && tableKibitzers.length > 0 &&
+                !confirm('Turning off kibitzing removes all kibitzers from the table. Continue?')) {
+                renderKibitzingControls();
+                return;
+            }
+            socket.emit('setAllowKibitzing', { tableCode: tableCode, enabled: enabled });
+        }
+
+        /** Järjestelmäviesti odotushuoneen tai pelin chattiin ja ruudunlukijalle. */
+        function addTableSystemMessage(message) {
+            if (currentView === 'waiting-room') {
+                addWaitingSystemMessage(message);
+            } else if (currentView === 'game') {
+                addGameChatLine(null, message);
+            }
+            announceToScreenReader(message);
+        }
+
+        /**
+         * Rivi pelin chattiin. Teksti asetetaan textContentilla, joten
+         * nimet ja viestit eivät voi sisältää HTML:ää.
+         */
+        function addGameChatLine(label, message) {
+            const chatArea = document.getElementById('game-chat-messages');
+            if (!chatArea) return;
+            const messageElement = document.createElement('div');
+            messageElement.className = label ? 'chat-message' : 'chat-message system-message';
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const header = document.createElement('span');
+            header.textContent = label ? `${label}: [${timestamp}]` : `[${timestamp}]`;
+            const body = document.createElement('div');
+            body.textContent = message;
+            messageElement.appendChild(header);
+            messageElement.appendChild(body);
+            chatArea.appendChild(messageElement);
+            chatArea.scrollTop = chatArea.scrollHeight;
         }
 
         function copyTableCode() {
@@ -1098,12 +1287,16 @@
             messageElement.className = 'chat-message';
             
             const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            messageElement.innerHTML = `
-                <span>${sender} (${positionName(position)}): [${timestamp}]</span>
-                <div>${message}</div>
-            `;
-            
+
+            // Nimi ja viesti tulevat toisilta käyttäjiltä: aina textContent,
+            // ei innerHTML, jottei viestiin kirjoitettu HTML tai skripti suoritu.
+            const header = document.createElement('span');
+            header.textContent = `${sender} (${positionName(position)}): [${timestamp}]`;
+            const body = document.createElement('div');
+            body.textContent = message;
+            messageElement.appendChild(header);
+            messageElement.appendChild(body);
+
             chatArea.appendChild(messageElement);
             chatArea.scrollTop = chatArea.scrollHeight;
             
@@ -1122,12 +1315,15 @@
             messageElement.className = 'chat-message system-message';
             
             const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            messageElement.innerHTML = `
-                <span>[${timestamp}]</span>
-                <div>${message}</div>
-            `;
-            
+
+            // Viestissä voi olla pelaajan nimi, joten textContent.
+            const header = document.createElement('span');
+            header.textContent = `[${timestamp}]`;
+            const body = document.createElement('div');
+            body.textContent = message;
+            messageElement.appendChild(header);
+            messageElement.appendChild(body);
+
             chatArea.appendChild(messageElement);
             chatArea.scrollTop = chatArea.scrollHeight;
         }
@@ -1169,6 +1365,9 @@
 
         function canViewHandCards(position) {
             if (position === myPosition) return true;
+
+            // Kibitser näkee kaikki neljä kättä koko jaon ajan.
+            if (isKibitzer()) return true;
 
             if (gameState &&
                 (gameState.gamePhase === 'play' || gameState.gamePhase === 'contract') &&
@@ -1533,7 +1732,8 @@ function renderHand(position, hand, targetElement) {
         function renderPlayerNameOnly(element, position) {
     const playerName = gameState?.players?.[position]?.name;
     const posName = positionName(position);
-    const displayText = playerName ? `${posName} – ${playerName}` : posName;
+    // Pelaajan nimi on käyttäjän syöte ja menee innerHTML:ään, joten se escapoidaan.
+    const displayText = playerName ? `${posName} – ${escapeHtml(playerName)}` : posName;
     const count = remainingCardCount(position);
 
     element.innerHTML = `<div class="position-name">${displayText}${turnTagHtml(position)}</div>` +
@@ -2097,7 +2297,7 @@ function updateContractDisplay() {
          * finished deal to replay.
          */
         function updateNextDealButtonState() {
-            const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+            const isCreator = isTableCreator();
             const dealHasEnded = !!gameState && gameState.gamePhase === 'end';
 
             const nextButton = document.getElementById('next-deal-button');
@@ -2134,6 +2334,9 @@ function updateContractDisplay() {
         // and broadcasts every change; this client only renders what it gets.
 
         function isTableCreator() {
+            // Kibitsereitä voi olla useita, joten kibitserin kohdalla luojuus
+            // tulee palvelimelta (amCreator) eikä ilmansuuntien vertailusta.
+            if (isKibitzer()) return amTableCreator;
             return !tableCreatorPosition || tableCreatorPosition === myPosition;
         }
 
@@ -2355,9 +2558,87 @@ function updateContractDisplay() {
             return false;
         }
 
+        /**
+         * Kibitserin näppäimet pelinäkymässä. Kibitser katsoo pöytää Southin
+         * takaa (getPositionLayout), ja jokaisen käden voi lukea koko ajan:
+         * Alt+1-5 vasen (West), Alt+7-0 ja 6 oikea (East), Alt+Q-T ylhäällä
+         * (North) ja Alt+A-G alhaalla (South). Sama asettelu kuin double dummy
+         * -katselussa. Pelinäppäimet eivät tee mitään. Palauttaa true, kun
+         * näppäin käsiteltiin.
+         */
+        function handleKibitzerKey(e) {
+            if (e.ctrlKey && e.altKey) return false; // AltGr is Ctrl+Alt on Windows
+
+            const handKeys = {
+                Digit1: ['left', 'spades'], Digit2: ['left', 'hearts'],
+                Digit3: ['left', 'diamonds'], Digit4: ['left', 'clubs'], Digit5: ['left', null],
+                Digit7: ['right', 'spades'], Digit8: ['right', 'hearts'],
+                Digit9: ['right', 'diamonds'], Digit0: ['right', 'clubs'], Digit6: ['right', null],
+                KeyQ: ['top', 'spades'], KeyW: ['top', 'hearts'],
+                KeyE: ['top', 'diamonds'], KeyR: ['top', 'clubs'], KeyT: ['top', null],
+                KeyA: ['bottom', 'spades'], KeyS: ['bottom', 'hearts'],
+                KeyD: ['bottom', 'diamonds'], KeyF: ['bottom', 'clubs'], KeyG: ['bottom', null]
+            };
+            if (e.altKey && !e.shiftKey && e.code in handKeys) {
+                e.preventDefault();
+                const [side, suit] = handKeys[e.code];
+                const position = getPositionLayout()[side];
+                if (suit) announceHandSuitWithFocus(position, suit, true);
+                else announceEntireHand(position);
+                return true;
+            }
+
+            if (e.ctrlKey && !e.altKey && ['1', '2', '3', '4'].includes(e.key)) {
+                e.preventDefault();
+                announceKibitzerCannotPlay();
+                return true;
+            }
+
+            if (e.altKey || e.ctrlKey || e.shiftKey) return false;
+            const target = document.activeElement;
+            const tag = (target && target.tagName) || '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || (target && target.isContentEditable)) return false;
+
+            // Nuolinäppäimet jätetään selaimelle (sivun vieritys), kun niillä
+            // ei kibitserillä pelata.
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') return true;
+
+            const key = e.key.toLowerCase();
+            const phase = gameState && gameState.gamePhase;
+            const isPlayKey = phase === 'play' &&
+                (key === 'i' || key === 'o' || !!SUIT_NAME_KEYS[key] || !!CARD_RANK_KEYS[key]);
+            const isBidKey = (phase === 'bidding' || phase === 'contract') &&
+                (/^[1-7]$/.test(e.key) || ['s', 'h', 'd', 'c', 'n'].includes(key));
+            if (isPlayKey || isBidKey) {
+                e.preventDefault();
+                announceKibitzerCannotPlay();
+                return true;
+            }
+            return false;
+        }
+
+        // Kerrotaan, miksi pelinäppäin ei tee mitään, mutta ei joka painalluksella.
+        function announceKibitzerCannotPlay() {
+            const now = Date.now();
+            if (now - (uiState.kibitzerNoticeAt || 0) < 3000) return;
+            uiState.kibitzerNoticeAt = now;
+            announceToScreenReader('Kibitzers cannot bid or play.');
+        }
+
         // UTILITY FUNCTIONS
+
+        // Käyttäjän syöte (nimet, chat) HTML-merkkijonoon upotettavaksi.
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function positionName(position) {
-            const names = { north: 'North', east: 'East', south: 'South', west: 'West' };
+            const names = { north: 'North', east: 'East', south: 'South', west: 'West', kibitzer: 'Kibitzer' };
             return names[position] || position || 'Unknown';
         }
 
@@ -2459,6 +2740,10 @@ function formatContract(contract, asHtml = false) {
             myPosition = null;
             myName = null;
             mySeatToken = null;
+            amTableCreator = false;
+            tableAllowsKibitzing = false;
+            tableKibitzers = [];
+            renderKibitzingControls();
             selectedCreatePosition = 'south';
             selectedJoinPosition = null;
             availableJoinPositions = [];
@@ -2603,6 +2888,14 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Alt + 9', desc: 'Announce right player\'s diamonds' },
                 { key: 'Alt + 0', desc: 'Announce right player\'s clubs' },
                 { key: 'Alt + 6', desc: 'Announce right player\'s entire hand' },
+
+                { key: '', desc: '--- Kibitzing ---' },
+                { key: '', desc: 'A kibitzer watches the game and sees all four hands from the start of the deal, but cannot bid or play. Choose Kibitzer in the position selection. The table creator decides with Allow kibitzers whether kibitzers may join; turning it off removes all kibitzers. The table creator can also be a kibitzer, and then empty seats are played by robots.' },
+                { key: '', desc: 'A kibitzer sees the table from behind South. These keys work all the time:' },
+                { key: 'Alt + 1/2/3/4, 5', desc: 'West (left): spades, hearts, diamonds, clubs; entire hand' },
+                { key: 'Alt + 7/8/9/0, 6', desc: 'East (right): spades, hearts, diamonds, clubs; entire hand' },
+                { key: 'Alt + Q/W/E/R, T', desc: 'North (top): spades, hearts, diamonds, clubs; entire hand' },
+                { key: 'Alt + A/S/D/F, G', desc: 'South (bottom): spades, hearts, diamonds, clubs; entire hand' },
 
                 { key: '', desc: '--- Game: Double Dummy Review (after the deal) ---' },
                 { key: '', desc: 'The table creator starts the review with the Show Double Dummy button. Everyone sees the same trick; only the table creator can change it.' },
@@ -2777,6 +3070,7 @@ function getSuitNameWithCount(suit, count) {
          */
         function handOwnerLabel(position) {
             if (position === myPosition) return 'Your hand';
+            if (isKibitzer()) return positionName(position);
             const layout = getPositionLayout();
             if (position === layout.left) return `${positionName(position)}, left opponent`;
             if (position === layout.right) return `${positionName(position)}, right opponent`;
@@ -3162,6 +3456,7 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                     // Double dummy review keys first: Alt+Shift+P would
                     // otherwise reach the Alt+P handler below.
                     if (ddReviewState && handleDdReviewKey(e)) return;
+                    if (isKibitzer() && handleKibitzerKey(e)) return;
 
                     // Card viewing shortcuts (Own cards)
                     if (e.altKey && e.key.toLowerCase() === 'a') {
@@ -3503,8 +3798,10 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
             socket.on('tableCreated', (data) => {
                 tableCode = data.tableCode;
                 if (data.seatToken) mySeatToken = data.seatToken;
+                amTableCreator = !!data.amCreator;
                 gameMode = normalizeGameMode(data.table && data.table.gameMode);
                 setPracticeFromTable(data.table);
+                updateKibitzingFromTable(data.table);
                 resetCreateTableUI();
                 announceToScreenReader(`Table ${tableCode} created!`);
                 showWaitingRoom();
@@ -3528,7 +3825,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                         const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         messageElement.innerHTML = `
                             <span>[${timestamp}] ⚠️ CONNECTION LOST</span>
-                            <div>${message}</div>
+                            <div>${escapeHtml(message)}</div>
                         `;
                         
                         chatArea.appendChild(messageElement);
@@ -3561,7 +3858,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                         const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         messageElement.innerHTML = `
                             <span>[${timestamp}] ✓ RECONNECTED</span>
-                            <div>${message}</div>
+                            <div>${escapeHtml(message)}</div>
                         `;
                         
                         chatArea.appendChild(messageElement);
@@ -3593,7 +3890,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                         const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         messageElement.innerHTML = `
                             <span>[${timestamp}] ⏱️ TIMEOUT</span>
-                            <div>${message}</div>
+                            <div>${escapeHtml(message)}</div>
                         `;
                         
                         chatArea.appendChild(messageElement);
@@ -3654,30 +3951,51 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                     return;
                 }
                 if (data && data.table) {
-                    if (data.table.state === 'playing') {
-                        console.warn('Received tableInfo for playing game - ignoring');
+                    // Liittyminen kibitseriksi odotushuoneessa: palvelin vahvistaa
+                    // paikan tällä viestillä (pelin aikana tulee gameReconnect).
+                    if (data.playerPosition === KIBITZER && currentView !== 'waiting-room') {
+                        myPosition = KIBITZER;
+                        amTableCreator = !!data.amCreator;
+                        tableCode = data.table.code;
+                        gameMode = normalizeGameMode(data.table.gameMode);
+                        setPracticeFromTable(data.table);
+                        showWaitingRoom();
+                        updateWaitingRoomPositions(data.table);
+                        announceToScreenReader(`You joined table ${tableCode} as a kibitzer.`);
                         return;
                     }
+
                     if (currentView === 'join-table' && data.table) {
                         resetJoinTableUI();
-                        
+                        const playing = data.table.state === 'playing';
+                        const allowsKibitzing = !!data.table.allowKibitzing;
+
+                        // Pelipaikalle ei voi liittyä kesken pelin, kibitseriksi voi.
                         const availablePositions = [];
-                        for (const [position, player] of Object.entries(data.table.players)) {
-                            if (!player) {
-                                availablePositions.push(position);
+                        if (!playing) {
+                            for (const [position, player] of Object.entries(data.table.players)) {
+                                if (!player) {
+                                    availablePositions.push(position);
+                                }
                             }
                         }
-                        
+                        if (allowsKibitzing) availablePositions.push(KIBITZER);
+
                         if (availablePositions.length === 0) {
-                            showErrorWithAnnouncement('Table full');
+                            showErrorWithAnnouncement(playing ? 'Game is already in progress' : 'Table full');
                             return;
                         }
-                        
+
                         tableCode = data.tableCode || document.getElementById('table-code-input').value.trim();
                         showPositionSelection(tableCode, availablePositions, data.table);
                         return;
                     }
-                    
+
+                    if (data.table.state === 'playing') {
+                        console.warn('Received tableInfo for playing game - ignoring');
+                        return;
+                    }
+
                     if (currentView === 'waiting-room') {
                         updateWaitingRoomPositions(data.table);
                     }
@@ -3708,9 +4026,16 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                 if (data.table && data.table.players) tablePlayers = data.table.players;
                 if (data.table && data.table.creatorPosition) tableCreatorPosition = data.table.creatorPosition;
                 if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
+                amTableCreator = !!data.amCreator;
+                updateKibitzingFromTable(data.table);
+                // Kibitserin liittyminen kesken pelin tulee myös tätä kautta.
+                const joinedAsKibitzer = isKibitzer() && currentView !== 'game';
 
                 showGameView();
                 updateDealInfo();
+                if (joinedAsKibitzer) {
+                    announceToScreenReader(`You are kibitzing table ${tableCode}. You see all four hands. Alt+H lists the keys for reading them.`);
+                }
 
                 document.getElementById('game-bidding-area').style.display = 'none';
                 document.getElementById('mini-contract-area').style.display = 'none';
@@ -3727,7 +4052,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                     const currentPlayerName = positionName(gameState.currentPlayer || 'unknown');
                     announceToScreenReader(`Reconnected to game. Playing ${formatContract(gameState.contract)}. ${currentPlayerName}'s turn.`);
                 } else if (gameState.gamePhase === 'end') {
-                    const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+                    const isCreator = isTableCreator();
                     document.getElementById('game-new-game-button').style.display = isCreator ? 'block' : 'none';
                     announceToScreenReader('Reconnected to game. Game has ended.');
                 }
@@ -3784,6 +4109,7 @@ updateWaitingRoomPositions(data.table);
                 document.getElementById('next-deal-status').textContent = '';
 
                 showGameView();
+                renderKibitzingControls();
                 updateGameUI();
                 updateAutoNextDealCheckbox();
                 handleDealStartUI();
@@ -3998,7 +4324,7 @@ socket.on('trickComplete', (data) => {
                 }
 
                 if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
-                const isCreator = !tableCreatorPosition || tableCreatorPosition === myPosition;
+                const isCreator = isTableCreator();
 
                 if (autoNextDeal) {
                     message += ' Next deal starts automatically in 10 seconds.';
@@ -4056,7 +4382,55 @@ socket.on('trickComplete', (data) => {
             socket.on('chatMessage', (data) => {
                 if (currentView === 'waiting-room') {
                     addWaitingChatMessage(data.sender, data.position, data.message);
+                } else if (currentView === 'game') {
+                    addGameChatLine(`${data.sender} (${positionName(data.position)})`, data.message);
+                    announceToScreenReader(`${data.sender}: ${data.message}`);
                 }
+            });
+
+            // Kaikki neljä kättä, vain kibitsereille (jaon alussa ja liityttäessä).
+            socket.on('kibitzerHands', (data) => {
+                if (!isKibitzer() || !data || !data.hands) return;
+                if (!gameState) gameState = {};
+                gameState.hands = data.hands;
+                renderAllHands();
+            });
+
+            socket.on('kibitzerJoined', (data) => {
+                if (!data) return;
+                tableKibitzers = data.kibitzers || tableKibitzers;
+                renderKibitzingControls();
+                if (!(isKibitzer() && data.name === myName)) {
+                    addTableSystemMessage(`${data.name} joined as a kibitzer.`);
+                }
+            });
+
+            socket.on('kibitzerLeft', (data) => {
+                if (!data) return;
+                tableKibitzers = data.kibitzers || tableKibitzers;
+                renderKibitzingControls();
+                addTableSystemMessage(`Kibitzer ${data.name} left.`);
+            });
+
+            socket.on('allowKibitzingChanged', (data) => {
+                if (!data) return;
+                const wasAllowed = tableAllowsKibitzing;
+                tableAllowsKibitzing = !!data.enabled;
+                tableKibitzers = data.kibitzers || [];
+                renderKibitzingControls();
+                if (wasAllowed !== tableAllowsKibitzing) {
+                    addTableSystemMessage(tableAllowsKibitzing
+                        ? 'Kibitzers are now allowed at this table.'
+                        : 'Kibitzing was turned off. Kibitzers were removed from the table.');
+                }
+            });
+
+            // Luoja otti kibitsoinnin pois: palvelin on jo poistanut meidät pöydästä.
+            socket.on('kibitzingDisabled', (data) => {
+                const message = (data && data.message) || 'Kibitzing was turned off. You were removed from the table.';
+                showStartMenu();
+                showError(message);
+                announceUrgent(message);
             });
 
             socket.on('ddReviewStarted', (data) => {
@@ -4172,6 +4546,7 @@ socket.on('trickComplete', (data) => {
             document.querySelectorAll('input[name="game-mode"]').forEach(radio => {
                 radio.addEventListener('change', () => {
                     practiceOptions.hidden = !document.querySelector(`input[name="game-mode"][value="${PRACTICE_MODE}"]`).checked;
+                    updateCreateKibitzerOption();
                 });
             });
             
