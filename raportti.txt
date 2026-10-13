@@ -1,0 +1,183 @@
+RAPORTTI: VALMIIT JAOT JA JAON TALLENNUS
+Päivämäärä: 13.10.2026
+Suunnitelma: jaot.html (päivitetty)
+
+
+1. TEHTÄVÄ
+
+Tehtävänä oli tarkistaa jakojen tuontisuunnitelma kahdesta näkökulmasta:
+- Onko hyvä, että tallennettuun jakoon tallentuu aina myös tarjousvaihe?
+- Pelataanko tuodut jaot aina ilman ennalta määrättyä tarjousvaihetta eli
+  puhtaalta pöydältä?
+
+Sen jälkeen suunnitelma piti päivittää ja toteuttaa sen oletuksin.
+
+Johtopäätökset:
+- Tarjousten tallentaminen kannattaa säilyttää. PBN-tiedosto ilman
+  tarjouksia on muissa ohjelmissa vajaa, ja jaon jälkikäsittely perustuu
+  usein juuri tarjouksiin. Tallennetut tarjoukset eivät haittaa
+  uudelleenpelaamista, koska tuonti ohittaa ne.
+- Puhdas pöytä oli suunnitelmassa jo valmiiksi, mutta se luki vain
+  taulukon "Ohitetaan"-riveillä. Nyt se on kirjattu suunnitelmaan
+  periaatteeksi, toteutettu ja varmistettu testeillä.
+
+
+2. SUUNNITELMAN PÄIVITYKSET (jaot.html)
+
+- Yhteenvetoon lisättiin periaate: tuotu jako alkaa aina tyhjästä
+  tarjousvaiheesta. Tiedostosta otetaan vain kädet, jakaja, vaaratilanne ja
+  jaon numero. Lisäksi perusteltiin, miksi tarjoukset tallennetaan aina.
+- Tuontiosioon lisättiin "Puhdas pöytä" -kohta ja latausilmoituksen
+  lisälause, joka kertoo, että tiedoston tarjoukset ja pelatut kortit
+  ohitetaan.
+- Jäsentimen kestävyys: tarjous- ja pelirivit, kommentit ({ }, ; ja %),
+  toistuvat Note-tagit ja taulukkotagit ohitetaan hallitusti.
+- Testauksen listoihin lisättiin puhtaan pöydän testi, edestakainen testi
+  ilman sopimuksen siirtymistä sekä jäsentimen kestävyystestit.
+- Avoimiin kysymyksiin lisättiin kohta 7: tila "pelaa tiedoston
+  sopimuksella". Oletuksena sitä ei ole, ja puhdas pöytä pysyy aina
+  oletuksena.
+- Toteutuksessa tehdyt tarkennukset on merkitty suunnitelmaan sanalla
+  "Toteutuksessa" (ks. kohta 5).
+
+
+3. TOTEUTUS
+
+Uudet tiedostot:
+- lib/pbn.js (239 riviä)
+  * parsePbn: lukee jakosetin. Palauttaa jaot, joissa on vain kädet,
+    jakaja, vaaratilanne ja numero, sekä listan ohitetuista jaoista syineen.
+    Kertoo myös, oliko tiedostossa tarjouksia tai pelattuja kortteja
+    (hadPlayedDeals).
+  * Tukee "#"-periytymistä ja puuttuvien Dealer- ja Vulnerable-tagien
+    johtamista jaon numerosta. Tukee myös pelkkiä jakorivejä ilman tageja
+    ja 200 jaon enimmäismäärää.
+  * formatPbn: kirjoittaa pelatun jaon. Mukana ovat Event, Site, Date,
+    Board, nimet, Dealer, Vulnerable, Deal, Declarer, Contract, Result,
+    Auction (neljä tarjousta riville) ja Play (tikki riville,
+    sarakkeet avaushyökkääjästä alkaen PBN:n mukaisesti).
+  * Vaaratilanteen kierto siirrettiin tänne server.js:stä.
+- lib/pbn.test.js (186 riviä, 13 yksikkötestiä)
+- lib/deal-set.test.js (280 riviä, 3 integraatiotestiä oikeaa palvelinta
+  vastaan)
+
+Muutokset tiedostossa server.js:
+- Pöytään lisättiin kentät dealSet ja dealRecords.
+- Uudet tapahtumat ovat loadDealSet, clearDealSet ja exportLastDeal, ja
+  vain luoja voi käyttää niitä. Pelinviennin harjoituksessa tuonti
+  hylätään.
+- beginDeal ottaa seuraavan jaon setistä silloin, kun käsiä ei ole annettu.
+  Jakaja, vaaratilanne ja jaon numero tulevat setistä. Tarjousvaihe luodaan
+  aina tyhjänä (createBiddingState), joten tiedoston tarjoukset eivät voi
+  päätyä peliin.
+- Uusinta on nyt oma lippunsa (replay: true). Aiemmin uusinta pääteltiin
+  siitä, että kädet annettiin valmiina, jolloin setin jako olisi merkitty
+  uusinnaksi eikä sen tulos olisi tullut kokonaispisteisiin.
+- createGameState tallentaa jaon oman vaaratilanteen, jaon numeron (board)
+  ja setin sijainnin (dealSet: { index, total }).
+- endGame laskee pisteet jaon omalla vaaratilanteella. Aiemmin vaaratilanne
+  laskettiin uudelleen jaon juoksevasta numerosta, mikä olisi mennyt setin
+  jaoissa väärin. endGame ottaa myös tilannekuvan tallennusta varten ennen
+  ensimmäistä odotusta.
+- replayDeal säilyttää jaon numeron, vaaratilanteen ja setin sijainnin
+  eikä kuluta setistä uutta jakoa.
+- Jaon alkuviesteissä kerrotaan board ja dealSet. gameOver-viestissä
+  kerrotaan savedDealBoard. filterTable kertoo setin yhteenvedon (vain
+  määrät, ei koskaan käsiä) ja viimeisimmän tallennettavan jaon numeron.
+
+Muutokset tiedostossa public/index.html:
+- Odotushuoneeseen ja pelinäkymään tuli "Deal set" -osio. Luoja näkee
+  tiedostokentän, jolla on näkyvä nimi "Load deals from file (PBN)", sekä
+  "Remove deal set" -painikkeen ja selitteen reiluudesta ja puhtaasta
+  pöydästä. Muut näkevät vain tilarivin. Pelinviennin harjoituksessa osio
+  on piilotettu.
+- Tiedosto luetaan UTF-8-muodossa. Jos merkit eivät kelpaa, se luetaan
+  uudelleen Windows-1252-muodossa. Kokoraja on 512 kt.
+- Pelinäkymän ohjaimiin tuli painike "Save deal (board N)". Se on aina
+  paikallaan mutta poissa käytöstä, kunnes jako on pelattu loppuun.
+  Tiedosto ladataan selaimen latauskansioon, ja ruudunlukija ilmoittaa
+  tiedostonimen.
+- Jaon alun ilmoitus kertoo setin jaosta esimerkiksi "Board 7, deal 3 of 24.
+  Dealer South. Both sides vulnerable." Kun setti loppuu, sama ilmoitus
+  päättyy lauseeseen "The deal set is finished. Deals are random again."
+- Ohjeeseen (Alt+H) lisättiin osio "Deal Sets and Saving Deals".
+
+package.json: uudet testitiedostot lisättiin npm test -komentoon.
+
+
+4. TESTIEN TULOKSET
+
+- Ennen muutoksia: npm test 174/174 läpi.
+- Muutosten jälkeen: npm test 190/190 läpi (16 uutta testiä).
+- Puhdas pöytä varmistettiin integraatiotestillä. Tuodussa tiedostossa oli
+  sopimus 7NTXX, tarjoussarja, pelattuja kortteja ja tulos. Peli alkoi
+  tyhjästä tarjousvaiheesta, ensimmäinen tarjous tuli tiedoston jakajalta
+  (South) ja robotit tarjosivat pöydässä 1-tason sopimuksen. Pisteet
+  laskettiin tiedoston vaaratilanteella (Both).
+- Samassa testissä varmistettiin myös:
+  * Tallennettu tiedosto sisältää kädet, tarjoukset ja 13 tikkiä, ja sen
+    voi tuoda takaisin.
+  * Uusinta säilyttää jaon numeron ja vaaratilanteen, ei kuluta settiä
+    eikä muuta kokonaispisteitä.
+  * Edellisen jaon tallennus onnistuu, vaikka seuraava jako on jo alkanut.
+  * Setin loppumisesta ilmoitetaan ennen ensimmäistä satunnaista jakoa.
+- Oikeudet ja tietoturva: muut eivät voi ladata, poistaa tai tallentaa.
+  Muut saavat vain määrät, eivät käsiä. Myöhemmin liittyvä näkee tilan.
+- Virheelliset tiedostot hylätään selkeällä syyllä: tyhjä, liian suuri,
+  ei jakoja tai jaossa 12 korttia. Viallinen jako ohitetaan ja muut
+  ladataan.
+- Selaintesti Edgellä (headless, DevTools-protokolla): 19/19 tarkistusta
+  läpi, eikä sivulla ollut JavaScript-virheitä. Testi kattoi tiedostokentän
+  ja latausilmoituksen, jaon alun ilmoitukset, tallennuspainikkeen,
+  latauskansioon tulleen tiedoston sisällön, Windows-1252-tiedoston,
+  lataamisen kesken jaon, setin poiston ja setin loppumisilmoituksen.
+  Testiskripti oli kertaluonteinen, eikä sitä lisätty projektiin.
+
+
+5. POIKKEAMAT JA TARKENNUKSET SUUNNITELMAAN
+
+- Yksittäisen lastDealRecord-kentän sijaan pöytä kerää listan
+  dealRecords (enintään 100 jakoa). "Save deal" tallentaa viimeisen
+  jaon. Lista helpottaa koko illan tallennuksen lisäämistä myöhemmin.
+- Tilariviä ei ole merkitty aria-live-alueeksi. Muutokset ilmoitetaan
+  sovelluksen ilmoitusjonolla ja chatin järjestelmäviestinä, jotta samaa
+  asiaa ei lueta kahdesti.
+- Ladattavan tiedoston tyyppi on text/plain. Suunnitelman
+  application/x-chess-pbn on shakin PGN-tiedostojen tyyppi.
+- Tieto setin loppumisesta (dealSetFinished) lähetetään juuri ennen
+  ensimmäistä satunnaista jakoa. Selain liittää ilmoituksen uuden jaon
+  alun ilmoitukseen, koska jaon alku tyhjentää ilmoitusjonon.
+- Jos tiedostossa on tarjouksia tai pelattuja kortteja, luojalle kerrotaan
+  latauksen yhteydessä, että niitä ei käytetä.
+
+
+6. TEKEMÄTTÄ JA JATKOSSA HUOMIOITAVAA
+
+- Tarkistusta NVDA:lla ei ole tehty. Tarkistettavat kohdat:
+  * tiedostokentän nimi
+  * latausilmoitus
+  * jaon alun ilmoitus setin jaossa
+  * tallennuspainike ja latausilmoitus (Edge ja Chrome näyttävät lisäksi
+    oman latausilmoituksensa)
+- Jaon vaaratilannetta ei välitetä GIB-robotille. Se oli suunnitelmassa
+  vapaaehtoinen ja koskee myös satunnaisia jakoja.
+- Avoimet kysymykset toteutettiin oletuksin:
+  * vain luoja tallentaa
+  * yksi jako kerrallaan
+  * setti alkaa ensimmäisestä jaosta
+  * passattuja jakoja ei tallenneta
+  * vain PBN-muoto
+  * jakoja ei käännetä
+  * tiedoston sopimuksella ei voi pelata
+- Muutoksia ei ole viety versionhallintaan. Koneella ei ollut git-komentoa
+  käytettävissä tässä istunnossa, joten muutokset ovat vain työkansiossa.
+
+
+7. KÄYTTÖ LYHYESTI
+
+1. Luo pöytä. Odotushuoneen tai pelinäkymän "Deal set" -osiossa valitse
+   "Load deals from file (PBN)" ja PBN- tai tekstitiedosto.
+2. Jaot pelataan järjestyksessä seuraavasta jaosta alkaen. Jokainen jako
+   alkaa uudella tarjousvaiheella.
+3. Kun jako on pelattu loppuun, "Save deal (board N)" tallentaa sen
+   latauskansioon. Tallennetun tiedoston voi tuoda takaisin jakosettinä.

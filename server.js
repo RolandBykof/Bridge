@@ -14,6 +14,7 @@ const robot = require('./lib/robot');
 const solver = require('./lib/bridge_solver_wasm');
 const DdReview = require('./public/js/dd-review');
 const { dealCards, countHcp } = require('./lib/deal');
+const Pbn = require('./lib/pbn');
 const Practice = require('./lib/practice/table');
 const practiceBank = require('./lib/practice/bank').createBank();
 
@@ -186,7 +187,13 @@ io.on('connection', (socket) => {
         kibitzers: new Map(),
         // Kibitser-luojan tunniste. Luojan oikeudet tarkistetaan sillä, koska
         // kibitserillä ei ole ilmansuuntaa (isCreator).
-        creatorToken: null
+        creatorToken: null,
+        // Luojan tuoma jakosetti (ks. jaot.html): { deals, next, fileName }.
+        // Kädet ovat vain palvelimella; selaimille lähtee vain yhteenveto.
+        dealSet: null,
+        // Loppuun pelattujen jakojen tilannekuvat tallennusta varten
+        // (endGame), uusin viimeisenä. "Save deal" tallentaa viimeisimmän.
+        dealRecords: []
     };
 
     let token;
@@ -306,6 +313,18 @@ io.on('connection', (socket) => {
 
   socket.on('setAllowKibitzing', (data) => {
     setAllowKibitzing(socket, playerId, data);
+  });
+
+  socket.on('loadDealSet', (data) => {
+    loadDealSet(socket, playerId, data);
+  });
+
+  socket.on('clearDealSet', (data) => {
+    clearDealSet(socket, playerId, data);
+  });
+
+  socket.on('exportLastDeal', (data) => {
+    exportLastDeal(socket, playerId, data);
   });
 
   // Disconnect handling
@@ -1131,7 +1150,7 @@ function startGame(socket, playerId, data) {
  * Deal cards, resolve minibridge roles (if applicable) and notify players.
  * Shared by startGame() and startNextDeal() so both game modes stay in sync.
  */
-function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
+function beginDeal(table, eventType, extraPayload = {}, fixedHands = null, { replay = false, dealMeta = null } = {}) {
   // A new deal (next, replayed or abandoned-and-restarted) always ends any
   // double dummy review of the previous one.
   if (table.ddReview) {
@@ -1140,19 +1159,39 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
   }
   table.ddLineCache = null;
 
-  // Hands given by the caller mean a replay. A practice deal from the bank
-  // also comes as fixed hands, but its first playing is not a replay.
-  const isReplay = !!fixedHands;
+  // Replay comes as its own flag: fixed hands alone do not make a replay,
+  // since a practice deal from the bank and a deal from a deal set also
+  // come as fixed hands, and their first playing counts in the results.
+  const isReplay = !!replay;
   const isPractice = table.gameMode === Practice.MODE;
   if (isPractice) {
     const declarer = table.creatorPosition || 'south';
     if (!fixedHands) fixedHands = Practice.pickPracticeDeal(table.practice, practiceBank, declarer);
     // Declarer deals, so the deal information stays consistent.
     table.currentDealer = table.practice.current.declarer;
+  } else if (!fixedHands && table.dealSet) {
+    // The next deal of the creator's deal set: its hands, dealer,
+    // vulnerability and board number. Only the hands and these three are
+    // ever taken from the file -- the deal always starts from a fresh
+    // auction (createBiddingState below), whatever the file recorded.
+    const set = table.dealSet;
+    if (set.next < set.deals.length) {
+      const deal = set.deals[set.next++];
+      fixedHands = deal.hands;
+      table.currentDealer = deal.dealer;
+      dealMeta = {
+        board: deal.board,
+        vulnerable: deal.vulnerable,
+        dealSet: { index: set.next, total: set.deals.length }
+      };
+    } else {
+      table.dealSet = null;
+      sendToTablePlayers(table, { type: 'dealSetFinished' });
+    }
   }
 
   table.dealEpoch = (table.dealEpoch || 0) + 1;
-  table.gameState = createGameState(table, fixedHands);
+  table.gameState = createGameState(table, fixedHands, dealMeta);
   if (isReplay) table.gameState.isReplay = true;
   table.biddingState = createBiddingState(table);
 
@@ -1206,6 +1245,8 @@ function beginDeal(table, eventType, extraPayload = {}, fixedHands = null) {
     type: eventType,
     dealNumber: table.dealNumber,
     dealer: table.currentDealer,
+    board: table.gameState.board,
+    dealSet: table.gameState.dealSet || null,
     gameState: filterGameState(table.gameState, null),
     biddingState: table.biddingState
   };
@@ -2068,6 +2109,9 @@ async function runRobotTurn(table, expectedPhase, epoch) {
  */
 async function endGame(table) {
     table.gameState.gamePhase = 'end';
+    // Snapshot for "Save deal" before any await: a new deal may start while
+    // the solver below is still working.
+    const dealRecord = recordFinishedDeal(table);
 
     // Calculate result based on contract
     let resultMessage = '';
@@ -2119,7 +2163,8 @@ async function endGame(table) {
                 }
             }
         } else {
-            dealVulnerability = getVulnerability(table.dealNumber || 1);
+            // The deal's own vulnerability: a deal set deal has the file's.
+            dealVulnerability = table.gameState.vulnerable || getVulnerability(table.dealNumber || 1);
             const declarerVulnerable = dealVulnerability === 'Both' ||
                 dealVulnerability === declarerSide.toUpperCase();
             dealScore = scoreContractDeal(table.gameState.contract, madeTricks, declarerVulnerable);
@@ -2184,6 +2229,7 @@ async function endGame(table) {
     }
 
     gameOverPayload.autoNextDeal = !!table.autoNextDeal;
+    if (dealRecord) gameOverPayload.savedDealBoard = dealRecord.board;
 
     sendToTablePlayers(table, gameOverPayload);
     sendTestDealRecord(table, 'end');
@@ -2358,11 +2404,17 @@ function replayDeal(socket, playerId, data) {
     }
 
     const handsToReplay = table.gameState.originalHands;
+    // Same board, vulnerability and deal set position: a replayed deal set
+    // deal does not take the next deal from the set.
+    const { board, vulnerable, dealSet } = table.gameState;
 
     try {
         table.state = 'playing';
         table.lastActivity = Date.now();
-        beginDeal(table, 'newDealStarted', { replayed: true }, handsToReplay);
+        beginDeal(table, 'newDealStarted', { replayed: true }, handsToReplay, {
+            replay: true,
+            dealMeta: { board, vulnerable, dealSet }
+        });
         console.log(`Replaying deal ${table.dealNumber} for table ${table.code}`);
     } catch (error) {
         console.error(`Error replaying deal for table ${table.code}:`, error);
@@ -2375,6 +2427,180 @@ function replayDeal(socket, playerId, data) {
         table.gameState = null;
         table.biddingState = null;
     }
+}
+
+// JAKOSETIT JA JAON TALLENNUS (ks. jaot.html)
+
+const MAX_DEAL_SET_CHARS = 512 * 1024;
+const MAX_DEAL_RECORDS = 100;
+
+/**
+ * Yhteinen tarkistus luojan toiminnoille: lähettäjä on pöydässä ja sen luoja.
+ * Palauttaa pöydän tai null virheen lähettämisen jälkeen.
+ */
+function getTableForCreator(socket, playerId, data, notCreatorMessage) {
+    const { tableCode } = data || {};
+    const table = tables.get(tableCode);
+    if (!table) {
+        sendError(socket, 'Table not found');
+        return null;
+    }
+    const player = players.get(playerId);
+    if (!player || player.table !== tableCode) {
+        sendError(socket, 'You are not seated at this table');
+        return null;
+    }
+    if (!isCreator(table, playerId)) {
+        sendError(socket, notCreatorMessage);
+        return null;
+    }
+    return table;
+}
+
+/** Jakosetin yhteenveto selaimille: määrät, ei koskaan käsiä. */
+function dealSetSummary(table) {
+    const set = table.dealSet;
+    if (!set) return null;
+    return { total: set.deals.length, remaining: set.deals.length - set.next };
+}
+
+function lastDealRecord(table) {
+    const records = table.dealRecords || [];
+    return records.length > 0 ? records[records.length - 1] : null;
+}
+
+/**
+ * Luoja tuo pöytään PBN-tiedoston jaot. Setti alkaa seuraavasta jaosta:
+ * odotushuoneessa ensimmäisestä, pelin aikana käynnissä oleva jako jatkuu.
+ * Uusi tiedosto korvaa edellisen setin.
+ */
+function loadDealSet(socket, playerId, data) {
+    const table = getTableForCreator(socket, playerId, data, 'Only the table creator can load deals');
+    if (!table) return;
+    if (table.gameMode === Practice.MODE) {
+        sendError(socket, 'Deal sets are not available in declarer practice');
+        return;
+    }
+
+    const { text, fileName } = data || {};
+    if (typeof text !== 'string' || text.trim() === '') {
+        sendError(socket, 'The file is empty');
+        return;
+    }
+    if (text.length > MAX_DEAL_SET_CHARS) {
+        sendError(socket, 'The file is too large. The maximum size is 512 KB.');
+        return;
+    }
+
+    const parsed = Pbn.parsePbn(text, { maxDeals: Pbn.MAX_DEALS });
+    if (parsed.deals.length === 0) {
+        const first = parsed.skipped[0];
+        sendError(socket, first
+            ? `No valid deals in the file. Board ${first.board}: ${first.reason}`
+            : 'No deals found in the file');
+        return;
+    }
+
+    const name = String(fileName || 'deals.pbn').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 100);
+    table.dealSet = { deals: parsed.deals, next: 0, fileName: name };
+    table.lastActivity = Date.now();
+
+    socket.emit('dealSetLoaded', {
+        total: parsed.deals.length,
+        firstBoard: parsed.deals[0].board,
+        fileName: name,
+        skipped: parsed.skipped.slice(0, 20),
+        skippedCount: parsed.skipped.length,
+        truncated: parsed.truncated,
+        maxDeals: Pbn.MAX_DEALS,
+        // Tiedoston tarjoukset ja pelatut kortit ohitetaan aina.
+        ignoredPlay: parsed.hadPlayedDeals,
+        dealInProgress: table.state === 'playing' && !!table.gameState && table.gameState.gamePhase !== 'end'
+    });
+    sendToTablePlayers(table, { type: 'dealSetChanged', dealSet: dealSetSummary(table), loaded: true });
+}
+
+function clearDealSet(socket, playerId, data) {
+    const table = getTableForCreator(socket, playerId, data, 'Only the table creator can remove the deal set');
+    if (!table) return;
+    if (!table.dealSet) return;
+    table.dealSet = null;
+    table.lastActivity = Date.now();
+    sendToTablePlayers(table, { type: 'dealSetChanged', dealSet: null, cleared: true });
+}
+
+/**
+ * Tilannekuva loppuun pelatusta jaosta (endGame). Tallentaa alkuperäiset
+ * kädet, tarjoukset, pelatut kortit, sopimuksen ja tuloksen.
+ */
+function recordFinishedDeal(table) {
+    const gs = table.gameState;
+    if (!gs || !gs.contract || !gs.declarer || !gs.originalHands) return null;
+
+    const declarerSide = (gs.declarer === 'north' || gs.declarer === 'south') ? 'ns' : 'ew';
+    // Minibridgessä ja pelinviennin harjoituksessa ei tarjota.
+    const hasAuction = table.gameMode !== 'minibridge' && table.gameMode !== Practice.MODE;
+    const names = {};
+    for (const position of SEATS) {
+        const seat = table.players[position];
+        names[position] = !seat ? '' : (seat.type === 'robot' ? 'Robot' : seat.name);
+    }
+
+    const record = {
+        tableCode: table.code,
+        dealNumber: table.dealNumber || 1,
+        board: gs.board || table.dealNumber || 1,
+        dealer: table.currentDealer || 'south',
+        vulnerable: gs.vulnerable || getVulnerability(table.dealNumber),
+        hands: JSON.parse(JSON.stringify(gs.originalHands)),
+        players: names,
+        auction: hasAuction && table.biddingState
+            ? table.biddingState.bidHistory.map(b => ({ player: b.player, bid: b.bid }))
+            : null,
+        contract: gs.contract,
+        declarer: gs.declarer,
+        declarerTricks: gs.tricks[declarerSide],
+        playedCards: gs.playedCards.map(c => ({ player: c.player, suit: c.suit, card: c.card })),
+        openingLeader: gs.openingLeader || getNextPlayer(gs.declarer),
+        gameMode: table.gameMode || 'bridge',
+        isReplay: !!gs.isReplay,
+        finishedAt: Date.now()
+    };
+
+    if (!table.dealRecords) table.dealRecords = [];
+    table.dealRecords.push(record);
+    if (table.dealRecords.length > MAX_DEAL_RECORDS) table.dealRecords.shift();
+    return record;
+}
+
+/**
+ * Luoja tallentaa viimeisimmän loppuun pelatun jaon PBN-tiedostoksi. Teksti
+ * lähetetään vain pyytäjälle; selain tekee siitä ladattavan tiedoston.
+ */
+function exportLastDeal(socket, playerId, data) {
+    const table = getTableForCreator(socket, playerId, data, 'Only the table creator can save a deal');
+    if (!table) return;
+
+    const record = lastDealRecord(table);
+    if (!record) {
+        sendError(socket, 'No finished deal to save yet');
+        return;
+    }
+
+    const date = new Date(record.finishedAt);
+    const mode = record.gameMode === 'minibridge' ? ' (minibridge)'
+        : record.gameMode === Practice.MODE ? ' (declarer practice)' : '';
+    const pbn = Pbn.formatPbn({
+        ...record,
+        event: `AccessibleBridge, table ${record.tableCode}${mode}${record.isReplay ? ' (replay)' : ''}`,
+        site: 'AccessibleBridge',
+        date
+    });
+    const pad = n => String(n).padStart(2, '0');
+    const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    const fileName = `bridge-${record.tableCode}-board-${record.board}-${day}.pbn`;
+
+    socket.emit('dealExport', { fileName, pbn, board: record.board });
 }
 
 /**
@@ -2397,17 +2623,12 @@ function scoreMiniDeal(contract, tricksMade) {
 
 /**
  * Standard duplicate-bridge vulnerability cycle (16 boards, then repeats),
- * indexed by deal number. There's no separate "board" concept in this app --
- * table.dealNumber IS the board number for this purpose. Returns 'None',
- * 'NS', 'EW' or 'Both'.
+ * indexed by deal number (lib/pbn.js). A random deal's board number is
+ * table.dealNumber; a deal from a deal set brings its own board number and
+ * vulnerability (createGameState()). Returns 'None', 'NS', 'EW' or 'Both'.
  */
-const VULNERABILITY_CYCLE = [
-    'None', 'NS', 'EW', 'Both', 'NS', 'EW', 'Both', 'None',
-    'EW', 'Both', 'None', 'NS', 'Both', 'None', 'NS', 'EW'
-];
 function getVulnerability(dealNumber) {
-    const n = dealNumber && dealNumber > 0 ? dealNumber : 1;
-    return VULNERABILITY_CYCLE[(n - 1) % 16];
+    return Pbn.vulnerabilityForBoard(dealNumber);
 }
 
 /**
@@ -2855,8 +3076,9 @@ function createTableCode() {
 /**
  * Create new game state
  */
-function createGameState(table, fixedHands) {
+function createGameState(table, fixedHands, dealMeta = null) {
   const cards = fixedHands ? JSON.parse(JSON.stringify(fixedHands)) : dealCards();
+  const meta = dealMeta || {};
 
   return {
     players: table.players,
@@ -2881,7 +3103,13 @@ function createGameState(table, fixedHands) {
     // 'None'/'NS'/'EW'/'Both' -- see getVulnerability(). Computed for every
     // deal regardless of game mode, but only meaningful (and announced) for
     // standard bridge; minibridge's own scoring (scoreMiniDeal) ignores it.
-    vulnerable: getVulnerability(table.dealNumber)
+    // A deal from a deal set (and its replay) keeps the file's own value,
+    // and endGame() scores with this field.
+    vulnerable: meta.vulnerable || getVulnerability(table.dealNumber),
+    // Board number: the file's for a deal set deal, otherwise the deal number.
+    board: meta.board || table.dealNumber || 1,
+    // { index, total } when the deal came from the creator's deal set.
+    dealSet: meta.dealSet || null
   };
 }
 
@@ -2920,7 +3148,10 @@ function filterTable(table) {
     practiceLabel: table.practice ? Practice.practiceTypeLabel(table.practice.specId) : null,
     creatorPosition: table.creatorPosition || null,
     allowKibitzing: !!table.allowKibitzing,
-    kibitzers: kibitzerNames(table)
+    kibitzers: kibitzerNames(table),
+    // Jakosetistä vain määrät, ei käsiä (ks. jaot.html).
+    dealSet: dealSetSummary(table),
+    lastDealBoard: lastDealRecord(table) ? lastDealRecord(table).board : null
   };
 }
 

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Valmiit jaot ja jaon tallennus – toteutussuunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1.25rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 46rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 38rem; }
+main { padding: 1.5rem 1.25rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 .25rem; }
+p, li { max-width: 40rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--suit-red); outline-offset: 3px;
+}
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 32rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+footer { color: var(--muted); max-width: 46rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Valmiit jaot ja jaon tallennus – toteutussuunnitelma</h1>
+    <p>Kaksi toisiaan täydentävää ominaisuutta moninpelin bridgepöytään. Pöydän luoja voi tuoda pöytään setin valmiita jakoja tiedostosta ja tallentaa juuri pelatun jaon omalle koneelleen. Toteutettu 13.10.2026 tämän suunnitelman oletuksin. Toteutuksen tulokset ovat tiedostossa <code>raportti.txt</code>, ja toteutuksessa tehdyt tarkennukset on merkitty alle.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#yhteenveto">Yhteenveto</a></li>
+    <li><a href="#formaatti">Tiedostomuoto: PBN</a></li>
+    <li><a href="#tuonti">Jakosetin tuonti: toiminta</a></li>
+    <li><a href="#tallennus">Jaon tallennus: toiminta</a></li>
+    <li><a href="#palvelin">Palvelimen muutokset</a></li>
+    <li><a href="#asiakas">Selaimen muutokset</a></li>
+    <li><a href="#protokolla">Protokollamuutokset</a></li>
+    <li><a href="#reunat">Reunatapaukset</a></li>
+    <li><a href="#vaiheet">Toteutuksen vaiheet ja työmäärä</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+    <li><a href="#avoimet">Avoimet kysymykset</a></li>
+  </ol>
+</nav>
+
+<h2 id="yhteenveto">Yhteenveto</h2>
+
+<div class="verdict">
+  <p><strong>Molemmat ominaisuudet käyttävät bridgen yleistä PBN-tiedostomuotoa (Portable Bridge Notation).</strong> Kilpailujen jakokoneet, tulospalvelut ja useimmat bridgeohjelmat lukevat ja kirjoittavat sitä. Tallennetun jaon voi siis avata muissa ohjelmissa, ja sen voi myös tuoda takaisin pöytään.</p>
+  <p><strong>Tuonti:</strong> Luoja valitsee odotushuoneessa tai pelin aikana PBN-tiedoston. Palvelin tarkistaa jaot ja pitää ne muistissa. Seuraavat jaot pelataan setistä järjestyksessä. Jakaja ja vaaratilanne otetaan tiedostosta. Kun setti loppuu, peli jatkuu satunnaisilla jaoilla.</p>
+  <p><strong>Periaate: tuotu jako pelataan aina puhtaalta pöydältä.</strong> Tiedostosta otetaan vain kädet, jakaja, vaaratilanne ja jaon numero. Jako alkaa aina tyhjästä tarjousvaiheesta jakajasta alkaen. Tiedostoon tallennettuja tarjouksia, pelattuja kortteja, sopimusta tai tulosta ei käytetä, vaikka ne olisivat tiedostossa. Jos tiedostossa on niitä, luojalle kerrotaan latauksen yhteydessä, että ne ohitetaan.</p>
+  <p><strong>Tallennus:</strong> Kun jako on pelattu loppuun, luoja painaa "Save deal". Palvelin muodostaa PBN-tiedoston, jossa ovat kaikki neljä alkuperäistä kättä, tarjoukset, pelatut kortit, sopimus ja tulos. Selain lataa tiedoston koneelle. Tarjoukset tallennetaan aina, koska ilman niitä tiedosto olisi muissa ohjelmissa vajaa ja jaon jälkikäsittely perustuu usein juuri tarjouksiin. Tallennetut tarjoukset eivät haittaa uudelleenpelaamista, koska tuonti ohittaa ne.</p>
+  <p><strong>Pohja on jo olemassa.</strong> Tiedostossa <code>lib/deal.js</code> on PBN-jakorivin luku ja kirjoitus (<code>parseDealString</code>, <code>formatDealString</code>). Funktio <code>beginDeal</code> osaa jo jakaa annetut kädet (uusinta ja pelinviennin harjoitus), ja jaon alkuperäiset kädet ovat tallessa kentässä <code>gameState.originalHands</code>.</p>
+  <p><strong>Arvioitu työmäärä:</strong> noin 3–4 työpäivää testeineen.</p>
+</div>
+
+<h2 id="formaatti">Tiedostomuoto: PBN</h2>
+
+<p>PBN on tekstitiedosto. Siinä jokainen jako on joukko hakasulkeissa olevia tageja, ja jaot erotetaan toisistaan tyhjällä rivillä. Toteutukseen tarvitaan tagien osajoukko:</p>
+
+<pre><code>[Event "AccessibleBridge, table 4821"]
+[Site "AccessibleBridge"]
+[Date "2026.10.13"]
+[Board "7"]
+[West "Robot"]
+[North "Anna"]
+[East "Robot"]
+[South "Pekka"]
+[Dealer "S"]
+[Vulnerable "Both"]
+[Deal "N:AQ86.K73.J5.AT94 T73.Q862.K94.J65 KJ9.AJ4.AQ86.K82 542.T95.T732.Q73"]
+[Declarer "S"]
+[Contract "3NT"]
+[Result "10"]
+[Auction "S"]
+1NT Pass 3NT Pass
+Pass Pass
+[Play "W"]
+S2 SA S3 SJ
+...</code></pre>
+
+<div class="table-wrap">
+<table>
+  <caption>Käytettävät PBN-tagit</caption>
+  <thead>
+    <tr><th scope="col">Tagi</th><th scope="col">Tuonnissa</th><th scope="col">Tallennuksessa</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Deal</code></td><td>Pakollinen. Luetaan funktiolla <code>parseDealString</code>, joka vaatii 4 × 13 korttia ilman toistoja.</td><td>Alkuperäiset kädet (<code>originalHands</code>), muodostetaan funktiolla <code>formatDealString</code>.</td></tr>
+    <tr><td><code>Board</code></td><td>Jaon numero ilmoituksiin. Jos se puuttuu, käytetään järjestysnumeroa setissä.</td><td>Pöydän jaon numero (<code>dealNumber</code>).</td></tr>
+    <tr><td><code>Dealer</code></td><td>N/E/S/W. Jos se puuttuu, johdetaan jaon numerosta (1 = N, 2 = E, 3 = S, 4 = W, ...).</td><td>Jaon jakaja.</td></tr>
+    <tr><td><code>Vulnerable</code></td><td><code>None</code>/<code>Love</code>/<code>-</code>, <code>NS</code>, <code>EW</code>, <code>All</code>/<code>Both</code>. Jos se puuttuu, johdetaan jaon numerosta tavallisella 16 jaon kierrolla.</td><td><code>None</code>, <code>NS</code>, <code>EW</code> tai <code>Both</code>.</td></tr>
+    <tr><td><code>Event</code>, <code>Site</code>, <code>Date</code></td><td>Ohitetaan.</td><td>Pöytä, sovellus ja päivämäärä.</td></tr>
+    <tr><td><code>North</code>, <code>East</code>, <code>South</code>, <code>West</code></td><td>Ohitetaan, koska pöydässä pelaavat sen omat pelaajat.</td><td>Pelaajien nimet, robotit nimellä "Robot".</td></tr>
+    <tr><td><code>Declarer</code>, <code>Contract</code>, <code>Result</code></td><td>Ohitetaan.</td><td>Pelinviejä, sopimus (esim. <code>4SX</code>, <code>3NT</code>) ja pelinviejän tikit.</td></tr>
+    <tr><td><code>Auction</code></td><td>Ohitetaan.</td><td>Tarjoukset jakajasta alkaen, neljä per rivi (<code>Pass</code>, <code>X</code>, <code>XX</code>, <code>1NT</code>). Minibridgessä ja harjoituksessa ei tarjouksia, joten tagi puuttuu.</td></tr>
+    <tr><td><code>Play</code></td><td>Ohitetaan.</td><td>Pelatut kortit tikki per rivi. Sarakkeet ovat aina samassa istumajärjestyksessä avaushyökkääjästä alkaen, kuten PBN vaatii, eivätkä pelausjärjestyksessä.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Tuonnin helpotukset</h3>
+<ul>
+  <li><strong>Periytyvät arvot:</strong> PBN:ssä arvo <code>"#"</code> tarkoittaa samaa kuin edellisessä jaossa. Tämä tuetaan tageissa <code>Dealer</code> ja <code>Vulnerable</code>.</li>
+  <li><strong>Pelkät jakorivit:</strong> Jos tiedostossa ei ole yhtään hakasulkutagia, jokainen rivi, joka alkaa <code>N:</code>, <code>E:</code>, <code>S:</code> tai <code>W:</code>, luetaan yhdeksi jaoksi. Silloin jakaja ja vaaratilanne johdetaan järjestysnumerosta. Itse kirjoitettuja harjoitusjakoja on näin helppo tehdä tavallisella tekstieditorilla.</li>
+  <li><strong>Merkistö:</strong> Tiedosto luetaan ensin UTF-8-muodossa. Jos tekstiin tulee korvausmerkkejä (<code>U+FFFD</code>), se luetaan uudelleen Windows-1252-muodossa, jota vanhat jako-ohjelmat käyttävät. Merkistöllä on väliä vain nimissä, ja nimet tuonnissa ohitetaan, joten tämä on varotoimi.</li>
+  <li><strong>Viallinen jako:</strong> Se ohitetaan, ja luojalle kerrotaan jaon numero ja syy, esimerkiksi "Board 5: north has 12 cards, expected 13". Muut jaot ladataan. Jos yhtään kelvollista jakoa ei löydy, tuonti hylätään ja ensimmäinen syy ilmoitetaan.</li>
+  <li><strong>Pelattujen jakojen tiedostot:</strong> Tallennetuissa tiedostoissa on tagien välissä tarjous- ja pelirivejä (<code>1NT Pass 3NT Pass</code>, <code>S2 SA S3 SJ</code>). Muiden ohjelmien tiedostoissa voi lisäksi olla kommentteja (<code>{ ... }</code>, myös monirivisiä, sekä <code>;</code>- ja <code>%</code>-rivit), toistuvia <code>Note</code>-tageja ja monirivisiä taulukkotageja, kuten <code>OptimumResultTable</code>. Jäsennin ohittaa nämä hallitusti: ne eivät tule jaoiksi eivätkä virheiksi. Jaot erotetaan tyhjästä rivistä tai siitä, että <code>Event</code>-, <code>Site</code>-, <code>Date</code>-, <code>Board</code>- tai <code>Deal</code>-tagi toistuu. <code>Note</code>-tagin toistuminen ei aloita uutta jakoa.</li>
+</ul>
+
+<h2 id="tuonti">Jakosetin tuonti: toiminta</h2>
+
+<ol class="steps">
+  <li><strong>Missä:</strong> Luojalle näkyy osio "Deal set" odotushuoneessa ja pelinäkymässä. Osiossa on painike "Load deals from file (PBN)", joka on tavallinen <code>&lt;input type="file" accept=".pbn,.txt"&gt;</code> näkyvällä nimellä (label), sekä tilateksti <code>aria-live</code>-alueella. Muut pelaajat ja kibitserit näkevät vain tilatekstin.</li>
+  <li><strong>Lataus:</strong> Selain lukee tiedoston tekstinä (<code>FileReader</code>) ja lähettää sen palvelimelle tapahtumassa <code>loadDealSet</code>. Kokoraja on 512 kt, joten tiedosto mahtuu Socket.IO:n oletusrajaan 1 Mt. Selain tarkistaa koon jo ennen lähetystä.</li>
+  <li><strong>Tarkistus palvelimella:</strong> Jaot jäsennetään (uusi moduuli <code>lib/pbn.js</code>), ja enintään 200 jakoa hyväksytään. Setti tallennetaan pöytään kenttään <code>table.dealSet</code>. Pelaajille lähetetään vain yhteenveto, ei käsiä.</li>
+  <li><strong>Ilmoitus:</strong> Luoja kuulee esimerkiksi "Loaded 24 deals from club-2026-10-12.pbn. The next deal is board 1." ja tarvittaessa listan ohitetuista jaoista. Jos tiedostossa on tarjouksia tai pelattuja kortteja, ilmoitukseen lisätään "The file also has auctions or play. They are not used: every deal starts with a new auction." Muut kuulevat "The table creator loaded a set of 24 deals."</li>
+  <li><strong>Puhdas pöytä:</strong> Setin jako aloitetaan samalla tavalla kuin satunnainen jako: uusi tarjousvaihe jakajasta alkaen, ei sopimusta eikä pelattuja kortteja. Minibridgessä pisteet ja pelinviejä lasketaan käsistä tavalliseen tapaan.</li>
+  <li><strong>Milloin setti otetaan käyttöön:</strong> Odotushuoneessa ensimmäinen jako tulee setistä. Pelin aikana käynnissä oleva jako jatkuu, ja setti alkaa seuraavasta jaosta.</li>
+  <li><strong>Jakaja, vaaratilanne ja numero:</strong> Ne otetaan setin jaosta. Ilmoituksessa kerrotaan sekä jaon numero että sijainti setissä: "Board 7, deal 3 of 24. Dealer South. Both vulnerable."</li>
+  <li><strong>Kun setti loppuu:</strong> Ilmoitetaan "The deal set is finished. Deals are random again.", ja peli jatkuu satunnaisilla jaoilla nykyiseen tapaan. <em>Toteutuksessa:</em> palvelin lähettää ilmoituksen, kun seuraava jako tarvitsisi setistä jakoa mutta se on loppunut, eli juuri ennen ensimmäistä satunnaista jakoa. Selain lukee ilmoituksen uuden jaon alun yhteydessä, koska jaon alku tyhjentää ilmoitusjonon.</li>
+  <li><strong>Setin poisto:</strong> Painike "Remove deal set" palauttaa satunnaiset jaot seuraavasta jaosta alkaen. Uuden tiedoston lataus korvaa edellisen setin.</li>
+  <li><strong>Pelinviennin harjoitus:</strong> Siinä tuontia ei tarjota, koska harjoituksella on oma jakopankkinsa ja sopimuksensa.</li>
+</ol>
+
+<h3>Reiluus</h3>
+<p>Luoja on avannut tiedoston, joten hän voi tietää kaikki kädet. Tuontiosioon lisätään siksi selite: "You loaded these deals, so you may know the hands. Deal sets suit teaching, practice, or a creator who is a kibitzer." Tyypillinen käyttö on opetus tai kerhoillan jakojen läpikäynti jälkikäteen, ja silloin luoja on usein kibitseri. Teknistä estoa ei tehdä.</p>
+
+<h2 id="tallennus">Jaon tallennus: toiminta</h2>
+
+<ol class="steps">
+  <li><strong>Painike:</strong> Luojan pelinäkymän ohjaimiin tulee "Save deal (board 7)". Se on käytössä, kun ainakin yksi jako on pelattu loppuun. Painike on aina näkyvissä mutta poissa käytöstä silloin, kun tallennettavaa ei ole, kuten Next Deal -painike nykyään. Näin painikkeen paikka pysyy ennustettavana ruudunlukijalle.</li>
+  <li><strong>Tallennettava jako:</strong> Viimeisin loppuun pelattu jako. Palvelin ottaa siitä tilannekuvan funktiossa <code>endGame</code> (<code>table.lastDealRecord</code>). Tallennus onnistuu siksi myös sen jälkeen, kun automaattinen seuraava jako on jo alkanut 10 sekunnin kuluttua. Painikkeen tekstissä on aina jaon numero, jottei ole epäselvää, mikä jako tallentuu.</li>
+  <li><strong>Mitä tiedostossa on:</strong> Kaikki tagit yllä olevan taulukon tallennussarakkeen mukaan. Kesken jätettyä jakoa (luoja aloitti uuden ennen loppua) tai jakoa, jossa kaikki passasivat, ei tallenneta. Ensimmäisessä tapauksessa käsiä ei ole vielä paljastettu kaikille. Jälkimmäisessä tallennettavaa on vähän, mutta se voidaan lisätä myöhemmin (ks. <a href="#avoimet">avoimet kysymykset</a>).</li>
+  <li><strong>Lataus koneelle:</strong> Palvelin lähettää PBN-tekstin ja tiedostonimen vain pyytäjälle. Selain luo siitä <code>Blob</code>-olion ja käynnistää latauksen piilotetulla <code>&lt;a download&gt;</code>-linkillä. Tiedostonimi on muotoa <code>bridge-4821-board-7-2026-10-13.pbn</code>. Ruudunlukija ilmoittaa: "Deal saved as bridge-4821-board-7-2026-10-13.pbn in your downloads folder." Edge ja Chrome näyttävät lisäksi oman latausilmoituksensa.</li>
+  <li><strong>Uudelleenkäyttö:</strong> Tallennetun tiedoston voi tuoda takaisin pöytään jakosettinä. Kerholla voi siis esimerkiksi koota illan mielenkiintoiset jaot yhteen tiedostoon ja pelata ne myöhemmin uudelleen.</li>
+</ol>
+
+<h2 id="palvelin">Palvelimen muutokset</h2>
+
+<h3>Uusi moduuli <code>lib/pbn.js</code></h3>
+<ul>
+  <li><code>parsePbn(text, { maxDeals })</code> palauttaa <code>{ deals: [{ board, dealer, vulnerable, hands }], skipped: [{ board, reason }] }</code>. Käsien lukuun käytetään olemassa olevaa funktiota <code>parseDealString</code>, ja oletusarvot (<code>"#"</code>, puuttuva jakaja tai vaaratilanne) täydennetään jaon numerosta.</li>
+  <li><code>formatPbn(record)</code> muodostaa tallennustiedoston tilannekuvasta. Se muuntaa tarjoukset ja sopimuksen PBN-muotoon (<code>P</code> → <code>Pass</code>, <code>1N</code> → <code>1NT</code>) ja ryhmittelee pelatut kortit tikeiksi sarakejärjestyksessä. Lainausmerkit ja kenoviivat nimissä escapoidaan.</li>
+  <li><code>dealerForBoard(n)</code> ja <code>vulnerabilityForBoard(n)</code> antavat tavallisen kilpailukierron. Vaaratilanteen kierto on jo olemassa: <code>VULNERABILITY_CYCLE</code> tiedostossa <code>server.js</code> siirretään tähän moduuliin ja otetaan käyttöön molemmissa.</li>
+</ul>
+
+<h3>Muutokset tiedostossa <code>server.js</code></h3>
+<div class="table-wrap">
+<table>
+  <caption>Muutettavat kohdat palvelimella</caption>
+  <thead>
+    <tr><th scope="col">Kohta</th><th scope="col">Muutos</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Pöytäolio (<code>createTable</code>)</td><td>Uudet kentät <code>dealSet: null</code> (<code>{ deals, next, fileName }</code>) ja <code>lastDealRecord: null</code>. <em>Toteutuksessa</em> yksittäisen tilannekuvan sijaan on lista <code>dealRecords</code> (enintään 100, uusin viimeisenä), jotta koko illan tallennus on myöhemmin helppo lisätä. "Save deal" tallentaa listan viimeisen.</td></tr>
+    <tr><td>Uusi <code>loadDealSet</code></td><td>Vain luoja (<code>isCreator</code>), ei harjoitustilassa. Tarkistaa koon (<code>text.length</code> ≤ 512 kt), jäsentää ja tallentaa. Vastaa luojalle tapahtumalla <code>dealSetLoaded</code> (määrä, ensimmäinen jaon numero, ohitetut jaot) ja kaikille tapahtumalla <code>dealSetChanged</code> (vain yhteenveto).</td></tr>
+    <tr><td>Uusi <code>clearDealSet</code></td><td>Vain luoja. Asettaa <code>table.dealSet = null</code> ja lähettää kaikille <code>dealSetChanged</code>.</td></tr>
+    <tr><td><code>beginDeal</code></td><td>
+      <p>Uusi valinnainen parametri <code>dealMeta</code> (<code>{ board, dealer, vulnerable }</code>). Jos kädet puuttuvat (<code>fixedHands</code>), peli ei ole harjoitus ja setissä on jakoja jäljellä, seuraava setin jako otetaan käyttöön: kädet, <code>table.currentDealer = deal.dealer</code> ja <code>dealMeta</code>.</p>
+      <p><strong>Tärkeää:</strong> Nyt uusinta tunnistetaan siitä, että kädet on annettu (<code>const isReplay = !!fixedHands</code>). Setin jako ei saa merkitä jakoa uusinnaksi, koska uusinnan tulos jätetään pois kokonaispisteistä. Uusinta välitetään siksi omana lippunaan (<code>{ replay: true }</code>).</p>
+      <p>Viimeisen setin jaon jälkeen lähetetään <code>dealSetFinished</code>, ja setti poistetaan.</p>
+    </td></tr>
+    <tr><td><code>createGameState</code></td><td>Ottaa vastaan <code>dealMeta</code>-tiedot: <code>vulnerable</code> setin jaosta ja uusi kenttä <code>board</code>. Ilman setin tietoja numero ja vaaratilanne saadaan pöydän jaon numerosta kuten nyt.</td></tr>
+    <tr><td><code>endGame</code></td><td>Pisteet lasketaan jaon omasta vaaratilanteesta (<code>gs.vulnerable</code>). Nyt sitä ei käytetä, vaan vaaratilanne lasketaan uudelleen jaon numerosta (<code>getVulnerability(table.dealNumber)</code>), mikä menisi setin jaoissa väärin. Lisäksi tehdään tilannekuva <code>table.lastDealRecord</code>: kädet, jakaja, vaaratilanne, jaon numero, tarjoukset, pelatut kortit, sopimus, pelinviejä, tikit, nimet, pelimuoto ja uusintalippu.</td></tr>
+    <tr><td><code>replayDeal</code></td><td>Välittää alkuperäiset kädet ja jaon tiedot (<code>{ board, dealer, vulnerable }</code>) sekä uusintalipun. Uusittu setin jako säilyttää siis vaaratilanteensa eikä kuluta setistä uutta jakoa.</td></tr>
+    <tr><td>Uusi <code>exportLastDeal</code></td><td>Vain luoja. Jos tilannekuvaa ei ole, palautetaan virhe "No finished deal to save yet". Muuten vain pyytäjälle lähetetään <code>dealExport</code>, jossa on <code>{ fileName, pbn }</code>.</td></tr>
+    <tr><td>Jaon alkuviestit (<code>gameStarted</code>, <code>newDealStarted</code>)</td><td>Viestissä kerrotaan jaon numero (<code>board</code>) ja tieto setistä <code>dealSet: { index, total }</code>, kun jako on setistä.</td></tr>
+    <tr><td><code>filterTable</code>, <code>gameReconnect</code></td><td>Yhteenveto <code>dealSet: { total, remaining }</code> ja <code>lastDealBoard</code>, jotta palaava luoja näkee oikean tilan. Käsiä ei koskaan lähetetä.</td></tr>
+    <tr><td><code>lib/robot.js</code> (GIB-kutsu)</td><td><em>Ei toteutettu tässä vaiheessa.</em> Ei pakollinen. GIB-pyynnössä lähetetään nyt aina <code>vulnerable: '-'</code>. Kun jaolla on oma vaaratilanne, se kannattaa välittää GIB:lle, jotta robotin tarjoukset huomioivat sen. Tämä on oma pieni muutoksensa ja koskee myös satunnaisia jakoja.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="asiakas">Selaimen muutokset (<code>public/index.html</code>)</h2>
+
+<ul>
+  <li><strong>Osio "Deal set"</strong> odotushuoneeseen ja pelinäkymään (luojalle):
+    <ul>
+      <li>tiedostokenttä ja sen näkyvä nimi</li>
+      <li>tilateksti, esimerkiksi "No deal set. Deals are random." tai "Deal set: 24 deals, 21 left." <em>Toteutuksessa</em> tilariviä ei ole merkitty <code>aria-live</code>-alueeksi. Muutokset ilmoitetaan sovelluksen omalla ilmoitusjonolla ja chatin järjestelmäviestinä, jotta samaa asiaa ei lueta kahdesti.</li>
+      <li>"Remove deal set" -painike, joka on käytössä vain, kun setti on ladattu</li>
+      <li>reiluusselite (<code>aria-describedby</code>)</li>
+    </ul>
+    Muille näytetään vain tilateksti.</li>
+  <li><strong>Lataus:</strong> <code>FileReader.readAsText</code>, koon tarkistus ja merkistön varakeino. Lähetys tapahtumana <code>loadDealSet</code>. Virheistä ja ohitetuista jaoista kerrotaan selkeällä ilmoituksella.</li>
+  <li><strong>Painike "Save deal (board N)"</strong> pelinäkymän ohjaimiin luojalle, Next Deal- ja Replay-painikkeiden viereen. Tila päivitetään samassa funktiossa (<code>updateNextDealButtonState</code>).</li>
+  <li><strong>Tapahtuma <code>dealExport</code>:</strong> <code>new Blob([pbn], { type: 'text/plain;charset=utf-8' })</code> ja lataus <code>&lt;a download&gt;</code>-linkillä. Lopuksi ruudunlukijailmoitus. (Alkuperäinen <code>application/x-chess-pbn</code> on shakin PGN-tyyppi, joten se vaihdettiin.)</li>
+  <li><strong>Jaon alun ilmoitus</strong> (<code>handleDealStartUI</code>, <code>announceMiniDealStart</code>): kun jako on setistä, siinä kerrotaan jaon numero ja sijainti setissä. Vaaratilanne luetaan jo nyt kentästä <code>gameState.vulnerable</code>, joten se toimii suoraan.</li>
+  <li><strong>Ohje (Alt+H):</strong> lyhyt osio jakoseteistä ja tallennuksesta.</li>
+</ul>
+
+<h2 id="protokolla">Protokollamuutokset</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Uudet ja muuttuvat Socket.IO-tapahtumat</caption>
+  <thead>
+    <tr><th scope="col">Tapahtuma</th><th scope="col">Suunta</th><th scope="col">Sisältö</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>loadDealSet</code></td><td>selain → palvelin</td><td><code>{ tableCode, fileName, text }</code>, vain luoja</td></tr>
+    <tr><td><code>clearDealSet</code></td><td>selain → palvelin</td><td><code>{ tableCode }</code>, vain luoja</td></tr>
+    <tr><td><code>exportLastDeal</code></td><td>selain → palvelin</td><td><code>{ tableCode }</code>, vain luoja</td></tr>
+    <tr><td><code>dealSetLoaded</code></td><td>palvelin → luoja</td><td><code>{ total, firstBoard, fileName, skipped: [{ board, reason }] }</code></td></tr>
+    <tr><td><code>dealSetChanged</code></td><td>palvelin → pöytä</td><td><code>{ total, remaining }</code> tai <code>{ total: 0 }</code></td></tr>
+    <tr><td><code>dealSetFinished</code></td><td>palvelin → pöytä</td><td><code>{}</code></td></tr>
+    <tr><td><code>dealExport</code></td><td>palvelin → luoja</td><td><code>{ fileName, pbn }</code></td></tr>
+    <tr><td><code>gameStarted</code>, <code>newDealStarted</code></td><td>palvelin → pöytä</td><td>Uudet kentät <code>board</code> ja <code>dealSet: { index, total }</code> sekä <code>gameState.board</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Tietoturva ja resurssit</h3>
+<ul>
+  <li>Setin kädet ovat vain palvelimen muistissa eivätkä koskaan kulje selaimeen ennen kuin ne jaetaan. Kibitserit saavat ne normaalisti jaon alussa.</li>
+  <li>Tallennus paljastaa kaikki kädet vasta jaon päätyttyä. Double dummy -katselu tekee jo nyt saman.</li>
+  <li>Palvelin rajoittaa tuonnin kokoon 512 kt ja määrään 200 jakoa. Jäsennin käsittelee tekstiä vain rivi kerrallaan säännöllisillä lausekkeilla, joissa ei ole sisäkkäisiä toistoja, joten hidasta erikoissyötettä ei synny.</li>
+  <li>Muistinkäyttö on pieni: 200 jakoa vie muutaman kymmenen kilotavua pöytää kohden. Setti poistuu pöydän mukana.</li>
+  <li>Nimet ja tiedostonimi näytetään selaimessa vain tekstinä (<code>textContent</code>), kuten chatin tietoturvakorjauksen jälkeen.</li>
+</ul>
+
+<h2 id="reunat">Reunatapaukset</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Reunatapaukset ja niiden käsittely</caption>
+  <thead>
+    <tr><th scope="col">Tilanne</th><th scope="col">Käsittely</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Kaikki passaavat setin jaossa</td><td>Siirrytään setin seuraavaan jakoon, kuten kilpailussa, jossa passattu jako on valmis. Tilannekuvaa ei tehdä.</td></tr>
+    <tr><td>Minibridgen 20–20-uudelleenjako setin jaossa</td><td>Siirrytään setin seuraavaan jakoon ja ilmoitetaan se.</td></tr>
+    <tr><td>Luoja aloittaa uuden jaon kesken (Next Deal)</td><td>Seuraava setin jako. Keskeytetty jako ei palaa settiin.</td></tr>
+    <tr><td>Uusinta (Replay This Deal)</td><td>Sama jako samalla jakajalla ja vaaratilanteella. Setin seuraava jako ei muutu.</td></tr>
+    <tr><td>Uusi tiedosto kesken setin</td><td>Korvaa vanhan setin seuraavasta jaosta alkaen.</td></tr>
+    <tr><td>Luoja poistuu</td><td>Setti jää pöytään, ja sitä pelataan loppuun. Muut eivät voi muuttaa sitä, koska heillä ei ole luojan oikeuksia.</td></tr>
+    <tr><td>Tallennus uusitusta jaosta</td><td>Tallennetaan normaalisti, ja <code>Event</code>-tagiin lisätään "(replay)".</td></tr>
+    <tr><td>Pelinviennin harjoituksen jako</td><td>Tallennus sallitaan. Tarjouksia ei ole, mutta sopimus, pelinviejä, pelatut kortit ja tulos tallentuvat.</td></tr>
+    <tr><td>Tiedosto, jossa on sama jako useaan kertaan</td><td>Sallitaan, koska se voi olla tarkoituksellista.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="vaiheet">Toteutuksen vaiheet ja työmäärä</h2>
+
+<div class="phase">
+  <h3>Vaihe 1: <code>lib/pbn.js</code> ja yksikkötestit (noin 1 päivä)</h3>
+  <ul>
+    <li><code>parsePbn</code>, <code>formatPbn</code> ja kiertofunktiot.</li>
+    <li>Testit: tagit, periytyvät <code>"#"</code>-arvot, puuttuvat tagit, eri vaaratilannekirjoitusasut, pelkät jakorivit, viallisten jakojen ohitus ja raja-arvot.</li>
+    <li>Edestakainen testi: <code>formatPbn</code> → <code>parsePbn</code> antaa samat kädet, jakajan ja vaaratilanteen.</li>
+  </ul>
+  <p class="done-when">Valmis, kun kerhon oikea PBN-tiedosto ja itse kirjoitettu jakorivitiedosto jäsentyvät oikein.</p>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 2: Jaon tallennus (noin 0,5–1 päivää)</h3>
+  <ul>
+    <li>Tilannekuva funktiossa <code>endGame</code>, tapahtuma <code>exportLastDeal</code>, painike ja selaimen lataus.</li>
+    <li>Tämä vaihe on itsenäinen, ja sen voi julkaista ennen tuontia.</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 3: Jakosetin tuonti (noin 1–1,5 päivää)</h3>
+  <ul>
+    <li>Muutokset funktioihin <code>beginDeal</code> ja <code>createGameState</code>, uusintalipun erottaminen annetuista käsistä ja pisteiden vaaratilanne funktiossa <code>endGame</code>.</li>
+    <li>Tapahtumat ja käyttöliittymän "Deal set" -osio.</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Vaihe 4: Selaintestit ja saavutettavuus (noin 0,5 päivää)</h3>
+  <ul>
+    <li>Edge-testi samalla tekniikalla kuin kibitsoinnissa.</li>
+    <li>Tarkistus NVDA:lla: tiedostokenttä, ilmoitukset ja latausilmoitus.</li>
+  </ul>
+</div>
+
+<div class="table-wrap">
+<table>
+  <caption>Työmääräarvio</caption>
+  <thead>
+    <tr><th scope="col">Osa</th><th scope="col">Rivejä (arvio)</th><th scope="col">Aika</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>lib/pbn.js</code></td><td>200–250</td><td>0,5–1 päivää</td></tr>
+    <tr><td>Palvelin</td><td>120–160</td><td>1 päivä</td></tr>
+    <tr><td>Selain</td><td>120–160</td><td>0,5–1 päivää</td></tr>
+    <tr><td>Testit</td><td>250–300</td><td>1 päivä</td></tr>
+    <tr><th scope="row">Yhteensä</th><td>700–870</td><td>3–4 päivää</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="testaus">Testaus</h2>
+
+<h3>Yksikkötestit: <code>lib/pbn.test.js</code></h3>
+<ol>
+  <li>Monen jaon PBN, jossa tagit <code>Board</code>, <code>Dealer</code> ja <code>Vulnerable</code>, sekä <code>"#"</code>-periytyminen.</li>
+  <li>Puuttuvat <code>Dealer</code> ja <code>Vulnerable</code> johdetaan jaon numerosta (1 = N, ei vaaraa; 2 = E, NS vaarassa; ...).</li>
+  <li>Kirjoitusasut <code>All</code>/<code>Both</code>/<code>None</code>/<code>Love</code>/<code>-</code>.</li>
+  <li>Viallinen jako (12 korttia, sama kortti kahdesti) ohitetaan ja raportoidaan jaon numerolla. Muut ladataan.</li>
+  <li>Pelkät jakorivit ilman tageja.</li>
+  <li><code>formatPbn</code>: tarjousrivit neljän ryhmissä, <code>1N</code> → <code>1NT</code>, kahdennettu sopimus, Play-osion sarakejärjestys ja escapoidut nimet.</li>
+  <li>Edestakainen muunnos säilyttää kädet, jakajan ja vaaratilanteen. Takaisin luettuun jakoon ei tule tarjouksia, sopimusta eikä tulosta.</li>
+  <li>Tiedosto, jossa on tarjous- ja pelirivejä, kommentteja (myös monirivisiä ja sellaisia, joiden sisällä on tagin näköistä tekstiä), toistuvia <code>Note</code>-tageja ja taulukkotagi: kaikki ohitetaan, ja jaot ladataan oikein.</li>
+  <li>Jaot ilman tyhjää riviä välissä.</li>
+</ol>
+
+<h3>Integraatiotestit oikeaa palvelinta vastaan: <code>lib/deal-set.test.js</code></h3>
+<ol>
+  <li>Vain luoja voi ladata, poistaa ja tallentaa.</li>
+  <li>Harjoituspöydässä tuonti hylätään.</li>
+  <li>Setin jaot tulevat järjestyksessä oikealla jakajalla ja vaaratilanteella. Pelaaja saa omat korttinsa setin mukaan (<code>yourCards</code>).</li>
+  <li>Setin loputtua tulee <code>dealSetFinished</code>, ja seuraava jako on satunnainen.</li>
+  <li>Uusinta säilyttää setin jaon vaaratilanteen eikä kuluta setistä uutta jakoa.</li>
+  <li>Setin jaon pisteet lasketaan sen omalla vaaratilanteella.</li>
+  <li>Tallennus ennen ensimmäisen jaon loppua palauttaa virheen. Jaon jälkeen tiedostossa on 52 korttia, jotka vastaavat pelattua jakoa, sekä tarjoukset ja 13 tikkiä.</li>
+  <li>Tallennus onnistuu vielä seuraavan jaon jo alettua (tilannekuva).</li>
+  <li>Muut pelaajat eivät koskaan saa setin käsiä (<code>dealSetChanged</code> sisältää vain määrät).</li>
+  <li><strong>Puhdas pöytä:</strong> Tuodaan tiedosto, jossa on <code>Auction</code>, <code>Play</code>, <code>Contract</code> (<code>7NTXX</code>) ja <code>Result</code>. Peli alkaa tarjousvaiheesta tyhjin tarjouksin, ensimmäinen tarjous tulee tiedoston jakajalta, sopimus syntyy pöydässä eikä tiedostosta, ja pisteet lasketaan pelatusta jaosta tiedoston vaaratilanteella.</li>
+  <li>Tallennettu tiedosto tuodaan takaisin: kädet ovat samat, eikä tallennettu sopimus siirry uuteen peliin.</li>
+</ol>
+
+<h3>Selaintesti Edgellä</h3>
+<p>Testi lataa tiedoston tiedostokenttään DevTools-protokollan komennolla <code>DOM.setFileInputFiles</code> ja tarkistaa ilmoitukset. Sitten se pelaa jaon loppuun robottipöydässä, jossa luoja on kibitseri, painaa tallennuspainiketta ja tarkistaa ladatun tiedoston sisällön latauskansiosta (<code>Browser.setDownloadBehavior</code>).</p>
+<p><em>Toteutuksessa</em> testi ajettiin kertaluonteisesti Edgellä (headless). Kaikki 19 tarkistusta menivät läpi, mukaan lukien Windows-1252-tiedosto ja setin loppumisilmoitus. Testiskriptiä ei lisätty projektiin, koska projektissa ei ole selaintestien ajoympäristöä. Tarkistus NVDA:lla on vielä tekemättä.</p>
+
+<h2 id="avoimet">Avoimet kysymykset</h2>
+
+<p>Jokaiselle kysymykselle on oletus, joten toteutus voi alkaa ilman vastauksia.</p>
+<ol>
+  <li><strong>Saavatko myös muut pelaajat tallentaa jaon?</strong> Esimerkiksi BBO:ssa kaikki voivat tallentaa jaon pelin jälkeen. Oletus: vain luoja, kuten pyydettiin. Laajennus on pieni, koska vain oikeustarkistus muuttuu.</li>
+  <li><strong>Koko illan tallennus yhdellä kertaa.</strong> Kaikki pöydän loppuun pelatut jaot yhteen PBN-tiedostoon. Oletus: ei ensimmäisessä versiossa, mutta tilannekuvat kannattaa kerätä listaan, jotta laajennus on helppo.</li>
+  <li><strong>Mistä jaosta setti alkaa?</strong> Oletus: ensimmäisestä. Myöhemmin voi lisätä kentän "Start from board".</li>
+  <li><strong>Passattujen jakojen tallennus.</strong> Oletus: ei tallenneta.</li>
+  <li><strong>Muut tiedostomuodot.</strong> BBO:n LIN-muoto (esimerkiksi omat BBO-jaot) on yleinen. Oletus: ei ensimmäisessä versiossa, mutta <code>lib/pbn.js</code>:n rajapinta (<code>{ deals, skipped }</code>) sopii myös LIN-lukijalle.</li>
+  <li><strong>Jaon kääntäminen.</strong> Opetuskäytössä halutaan usein, että tietty pelaaja on aina pelinviejä tai South. <code>rotateHands</code> on jo olemassa. Oletus: ei ensimmäisessä versiossa.</li>
+  <li><strong>Pelaaminen tiedoston sopimuksella.</strong> Opetuksessa voisi joskus olla hyötyä tilasta, jossa tarjousvaihe ohitetaan ja peli alkaa suoraan tiedostoon tallennetusta sopimuksesta. Pelinviennin harjoituksessa on jo vastaava rakenne (<code>applyPracticeContract</code>). Oletus: ei ensimmäisessä versiossa. Jos tila lisätään, se on luojan erikseen valittava vaihtoehto, ja puhdas pöytä pysyy aina oletuksena.</li>
+</ol>
+
+</main>
+
+<footer>
+  <p>Suunnitelma perustuu nykyiseen koodiin: <code>server.js</code>, <code>public/index.html</code> ja <code>lib/deal.js</code>. Viittaukset ovat funktioiden nimiin, koska rivinumerot ovat muuttuneet kibitsoinnin toteutuksen jälkeen.</p>
+</footer>
+</body>
+</html>

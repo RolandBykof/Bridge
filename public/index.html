@@ -164,6 +164,19 @@
                 <span id="waiting-allow-kibitzers-hint"></span>
             </div>
 
+            <!-- Jakosetti (ks. jaot.html): luoja tuo valmiit jaot PBN-tiedostosta.
+                 Muut näkevät vain tilarivin. -->
+            <div id="waiting-deal-set" role="group" aria-labelledby="waiting-deal-set-heading">
+                <h4 id="waiting-deal-set-heading">Deal set</h4>
+                <p id="waiting-deal-set-status">No deal set. Deals are random.</p>
+                <div id="waiting-deal-set-controls" hidden>
+                    <label for="waiting-deal-set-file">Load deals from file (PBN)</label>
+                    <input type="file" id="waiting-deal-set-file" accept=".pbn,.txt" aria-describedby="waiting-deal-set-hint" onchange="loadDealSetFromFile(this)">
+                    <button type="button" id="waiting-deal-set-clear" onclick="clearDealSet()" disabled>Remove deal set</button>
+                    <p id="waiting-deal-set-hint">Every deal starts with a new auction: auctions and play stored in the file are not used. You loaded these deals, so you may know the hands. Deal sets suit teaching, practice, or a creator who is a kibitzer.</p>
+                </div>
+            </div>
+
             <button onclick="startGameFromWaiting()" id="start-game-button" disabled>Start Game</button>
             <button onclick="leaveTableFromWaiting()">Leave</button>
 
@@ -264,6 +277,7 @@
             <div id="game-controls">
                 <button onclick="requestNextDealFromGame()" id="next-deal-button" disabled>Next Deal</button>
                 <button onclick="replayDealFromGame()" id="replay-deal-button" disabled>Replay This Deal</button>
+                <button type="button" onclick="saveLastDeal()" id="save-deal-button" disabled>Save deal</button>
                 <button type="button" onclick="startDdReview()" id="show-dd-button" hidden>Show Double Dummy</button>
                 <span id="next-deal-status" aria-hidden="true"></span>
                 <div id="auto-next-deal-control">
@@ -274,6 +288,16 @@
                     <input type="checkbox" id="game-allow-kibitzers-checkbox" onchange="setAllowKibitzing(this.checked)" aria-describedby="game-allow-kibitzers-hint">
                     <label for="game-allow-kibitzers-checkbox">Allow kibitzers</label>
                     <span id="game-allow-kibitzers-hint"></span>
+                </div>
+                <div id="game-deal-set" role="group" aria-labelledby="game-deal-set-heading">
+                    <h4 id="game-deal-set-heading">Deal set</h4>
+                    <p id="game-deal-set-status">No deal set. Deals are random.</p>
+                    <div id="game-deal-set-controls" hidden>
+                        <label for="game-deal-set-file">Load deals from file (PBN)</label>
+                        <input type="file" id="game-deal-set-file" accept=".pbn,.txt" aria-describedby="game-deal-set-hint" onchange="loadDealSetFromFile(this)">
+                        <button type="button" id="game-deal-set-clear" onclick="clearDealSet()" disabled>Remove deal set</button>
+                        <p id="game-deal-set-hint">The current deal continues; the deal set starts with the next deal. Every deal starts with a new auction: auctions and play stored in the file are not used. You loaded these deals, so you may know the hands.</p>
+                    </div>
                 </div>
                 <p id="kibitzer-note" hidden>You are kibitzing. You see all four hands but cannot bid or play.</p>
                 <button onclick="startNewGameFromGame()" id="game-new-game-button" style="display: none;">New Game</button>
@@ -343,6 +367,14 @@
         // { index, tricks, originalHands, contract, declarer, trump,
         //   optimumTricks, actualTricks, startedBy }. See "DOUBLE DUMMY REVIEW".
         let ddReviewState = null;
+        // Jakosetti ja tallennus (ks. jaot.html). dealSetInfo on palvelimen
+        // yhteenveto { total, remaining } tai null; käsiä selain ei saa.
+        let dealSetInfo = null;
+        // Viimeisimmän loppuun pelatun jaon numero, jonka "Save deal" tallentaa.
+        let lastDealBoard = null;
+        // Setin loppumisilmoitus luetaan seuraavan jaon alun yhteydessä.
+        let dealSetFinishedNotice = false;
+        const MAX_DEAL_SET_BYTES = 512 * 1024;
 
         const uiState = {
             showHelp: false,
@@ -1125,6 +1157,7 @@
 
             document.getElementById('waiting-player-count').textContent = playerCount;
             updateKibitzingFromTable(table);
+            setDealSetFromTable(table);
             updateStatus();
 
             const isCreator = isTableCreator();
@@ -1187,6 +1220,107 @@
             // Automaattisen jaon asetusta ei näytetä muille kibitsereille kuin luojalle.
             const autoControl = document.getElementById('auto-next-deal-control');
             if (autoControl) autoControl.hidden = isKibitzer() && !creator;
+        }
+
+        // DEAL SET AND SAVING (ks. jaot.html)
+
+        function dealSetStatusText() {
+            if (!dealSetInfo) return 'No deal set. Deals are random.';
+            const total = dealSetInfo.total;
+            if (dealSetInfo.remaining === 0) {
+                return total === 1
+                    ? 'Deal set: its only deal is dealt. Deals are random after this one.'
+                    : `Deal set: all ${total} deals dealt. Deals are random after this one.`;
+            }
+            return `Deal set: ${total} deal${total === 1 ? '' : 's'}, ${dealSetInfo.remaining} left.`;
+        }
+
+        /**
+         * "Deal set" -osiot odotushuoneessa ja pelinäkymässä. Luoja näkee
+         * tiedostokentän ja poistopainikkeen, muut vain tilarivin. Pelinviennin
+         * harjoituksessa osiota ei ole, koska sillä on oma jakopankkinsa.
+         */
+        function renderDealSetControls() {
+            const creator = isTableCreator();
+            const available = !isPracticeMode();
+            ['waiting', 'game'].forEach(prefix => {
+                const box = document.getElementById(`${prefix}-deal-set`);
+                if (!box) return;
+                box.hidden = !available;
+                const status = document.getElementById(`${prefix}-deal-set-status`);
+                const text = dealSetStatusText();
+                if (status && status.textContent !== text) status.textContent = text;
+                document.getElementById(`${prefix}-deal-set-controls`).hidden = !creator;
+                document.getElementById(`${prefix}-deal-set-clear`).disabled = !dealSetInfo;
+            });
+        }
+
+        function setDealSetFromTable(table) {
+            if (!table) return;
+            if (table.dealSet !== undefined) dealSetInfo = table.dealSet;
+            if (table.lastDealBoard !== undefined) lastDealBoard = table.lastDealBoard;
+            renderDealSetControls();
+            updateNextDealButtonState();
+        }
+
+        /** Jaon alun viestin setin tiedot: { total, index } -> jäljellä olevat. */
+        function setDealSetFromDeal(dealSet) {
+            if (dealSet) {
+                dealSetInfo = { total: dealSet.total, remaining: dealSet.total - dealSet.index };
+            }
+            renderDealSetControls();
+        }
+
+        /** "Board 7, deal 3 of 24" setin jaolle, muuten null. */
+        function dealSetBoardText() {
+            const ds = gameState && gameState.dealSet;
+            if (!ds) return null;
+            return `Board ${gameState.board}, deal ${ds.index} of ${ds.total}`;
+        }
+
+        function loadDealSetFromFile(input) {
+            const file = input.files && input.files[0];
+            // Tyhjennys sallii saman tiedoston valinnan uudelleen.
+            input.value = '';
+            if (!file || !tableCode || !socket) return;
+            if (file.size > MAX_DEAL_SET_BYTES) {
+                showErrorWithAnnouncement(`The file ${file.name} is too large. The maximum size is 512 KB.`);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+                const bytes = reader.result;
+                let text = new TextDecoder('utf-8').decode(bytes);
+                // Vanhat jako-ohjelmat kirjoittavat Windows-1252-merkistöllä.
+                if (text.includes('�')) text = new TextDecoder('windows-1252').decode(bytes);
+                socket.emit('loadDealSet', { tableCode: tableCode, fileName: file.name, text: text });
+            };
+            reader.onerror = () => showErrorWithAnnouncement(`Could not read the file ${file.name}.`);
+            reader.readAsArrayBuffer(file);
+        }
+
+        function clearDealSet() {
+            if (!tableCode || !socket) return;
+            socket.emit('clearDealSet', { tableCode: tableCode });
+        }
+
+        function saveLastDeal() {
+            if (!tableCode || !socket) return;
+            socket.emit('exportLastDeal', { tableCode: tableCode });
+        }
+
+        /** Palvelimen muodostama PBN-teksti ladataan koneelle tiedostona. */
+        function downloadTextFile(fileName, text) {
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.hidden = true;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
         }
 
         function setAllowKibitzing(enabled) {
@@ -2159,15 +2293,16 @@ function updateContractDisplay() {
         }
 
         function announceMiniDealStart() {
+            const boardText = dealSetBoardText() || `Board ${dealNumber}`;
             if (!miniState || !miniState.points) {
-                announceToScreenReader(`Board ${dealNumber}.`);
+                announceToScreenReader(`${boardText}.`);
                 return;
             }
             const p = miniState.points;
             const nsTotal = p.north + p.south;
             const ewTotal = p.east + p.west;
 
-            let message = dealIsReplay ? `Replaying deal ${dealNumber}. ` : `Board ${dealNumber}. `;
+            let message = dealIsReplay ? `Replaying ${dealSetBoardText() ? boardText.toLowerCase() : `deal ${dealNumber}`}. ` : `${boardText}. `;
             message += `Points: North ${p.north}, East ${p.east}, South ${p.south}, West ${p.west}. `;
             message += nsTotal >= ewTotal ? `North-South ${nsTotal}. ` : `East-West ${ewTotal}. `;
             message += `${positionName(miniState.declarer)} declares, ${positionName(miniState.dummy)} is dummy.`;
@@ -2215,11 +2350,21 @@ function updateContractDisplay() {
             const dealInfoArea = document.getElementById('deal-info-area');
             if (dealInfoArea) {
                 const dealWord = isPracticeMode() ? 'practice deal' : 'deal';
-                const dealLabel = dealIsReplay ? `Replaying ${dealWord} ${dealNumber}` : `${dealWord.charAt(0).toUpperCase()}${dealWord.slice(1)} ${dealNumber}`;
+                // Setin jaosta kerrotaan jaon numero ja sijainti setissä.
+                const setText = dealSetBoardText();
+                const dealLabel = setText
+                    ? (dealIsReplay ? `Replaying ${setText.charAt(0).toLowerCase()}${setText.slice(1)}` : setText)
+                    : (dealIsReplay ? `Replaying ${dealWord} ${dealNumber}` : `${dealWord.charAt(0).toUpperCase()}${dealWord.slice(1)} ${dealNumber}`);
                 // In practice the declarer deals, so the dealer adds nothing.
                 let dealAriaLabel = isPracticeMode() ? `${dealLabel}.` : `${dealLabel}. Dealer ${positionName(currentDealer)}.`;
                 const vulnText = vulnerabilityAnnouncement(gameState && gameState.vulnerable);
                 if (vulnText) dealAriaLabel += ` ${vulnText}`;
+                // Setti loppui juuri: kerrotaan tässä, koska jonossa odottavat
+                // ilmoitukset tyhjennettiin yllä.
+                if (dealSetFinishedNotice) {
+                    dealAriaLabel += ' The deal set is finished. Deals are random again.';
+                    dealSetFinishedNotice = false;
+                }
                 dealInfoArea.setAttribute('aria-label', dealAriaLabel);
                 dealInfoArea.focus({ preventScroll: true });
             }
@@ -2310,6 +2455,16 @@ function updateContractDisplay() {
             if (replayButton) {
                 replayButton.style.display = isCreator ? '' : 'none';
                 replayButton.disabled = !dealHasEnded;
+            }
+
+            // Save deal tallentaa viimeisimmän loppuun pelatun jaon, myös kun
+            // seuraava jako on jo alkanut. Numero kertoo, mikä jako tallentuu.
+            const saveButton = document.getElementById('save-deal-button');
+            if (saveButton) {
+                saveButton.style.display = isCreator ? '' : 'none';
+                saveButton.disabled = !lastDealBoard;
+                const label = lastDealBoard ? `Save deal (board ${lastDealBoard})` : 'Save deal';
+                if (saveButton.textContent !== label) saveButton.textContent = label;
             }
 
             // Show Double Dummy: only the table creator starts the shared
@@ -2744,6 +2899,10 @@ function formatContract(contract, asHtml = false) {
             tableAllowsKibitzing = false;
             tableKibitzers = [];
             renderKibitzingControls();
+            dealSetInfo = null;
+            lastDealBoard = null;
+            dealSetFinishedNotice = false;
+            renderDealSetControls();
             selectedCreatePosition = 'south';
             selectedJoinPosition = null;
             availableJoinPositions = [];
@@ -2889,6 +3048,10 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Alt + 0', desc: 'Announce right player\'s clubs' },
                 { key: 'Alt + 6', desc: 'Announce right player\'s entire hand' },
 
+                { key: '', desc: '--- Deal Sets and Saving Deals ---' },
+                { key: '', desc: 'The table creator can load ready-made deals from a PBN file with Load deals from file (PBN), in the waiting room or during the game. The deals are played in order from the next deal, with the dealer and vulnerability from the file. Every deal starts with a new auction: auctions, play and results stored in the file are not used. When the set runs out, deals are random again. Remove deal set returns to random deals.' },
+                { key: '', desc: 'Save deal (board N) saves the last finished deal as a PBN file in your downloads folder: all four hands, the auction, the play, the contract and the result. A saved file can be loaded back as a deal set.' },
+
                 { key: '', desc: '--- Kibitzing ---' },
                 { key: '', desc: 'A kibitzer watches the game and sees all four hands from the start of the deal, but cannot bid or play. Choose Kibitzer in the position selection. The table creator decides with Allow kibitzers whether kibitzers may join; turning it off removes all kibitzers. The table creator can also be a kibitzer, and then empty seats are played by robots.' },
                 { key: '', desc: 'A kibitzer sees the table from behind South. These keys work all the time:' },
@@ -2983,7 +3146,10 @@ function formatContract(contract, asHtml = false) {
         }
 
         function updateDealInfo() {
-            document.getElementById('deal-number').textContent = dealNumber;
+            const ds = gameState && gameState.dealSet;
+            document.getElementById('deal-number').textContent = ds
+                ? `${dealNumber} (board ${gameState.board}, ${ds.index} of ${ds.total} in the deal set)`
+                : dealNumber;
             document.getElementById('current-dealer').textContent = positionName(currentDealer);
             document.getElementById('deal-info-area').style.display = 'block';
         }
@@ -3802,6 +3968,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                 gameMode = normalizeGameMode(data.table && data.table.gameMode);
                 setPracticeFromTable(data.table);
                 updateKibitzingFromTable(data.table);
+                setDealSetFromTable(data.table);
                 resetCreateTableUI();
                 announceToScreenReader(`Table ${tableCode} created!`);
                 showWaitingRoom();
@@ -4028,6 +4195,7 @@ if (e.altKey && e.key.toLowerCase() === 'b') {
                 if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
                 amTableCreator = !!data.amCreator;
                 updateKibitzingFromTable(data.table);
+                setDealSetFromTable(data.table);
                 // Kibitserin liittyminen kesken pelin tulee myös tätä kautta.
                 const joinedAsKibitzer = isKibitzer() && currentView !== 'game';
 
@@ -4110,6 +4278,7 @@ updateWaitingRoomPositions(data.table);
 
                 showGameView();
                 renderKibitzingControls();
+                setDealSetFromDeal(data.dealSet);
                 updateGameUI();
                 updateAutoNextDealCheckbox();
                 handleDealStartUI();
@@ -4324,6 +4493,7 @@ socket.on('trickComplete', (data) => {
                 }
 
                 if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
+                if (data.savedDealBoard) lastDealBoard = data.savedDealBoard;
                 const isCreator = isTableCreator();
 
                 if (autoNextDeal) {
@@ -4351,11 +4521,13 @@ socket.on('trickComplete', (data) => {
                 miniState = data.miniState || null;
                 if (data.autoNextDeal !== undefined) autoNextDeal = data.autoNextDeal;
                 dealIsReplay = !!data.replayed;
-                updateDealInfo();
 
                 gameState = data.gameState || {};
                 biddingState = data.biddingState || {};
                 if (!gameState.gamePhase) gameState.gamePhase = 'bidding';
+                // Jaon tiedot vasta pelitilan jälkeen: setin jaon numero on siinä.
+                updateDealInfo();
+                setDealSetFromDeal(data.dealSet);
 
                 document.getElementById('game-new-game-button').style.display = 'none';
                 document.getElementById('next-deal-status').textContent = '';
@@ -4501,6 +4673,61 @@ socket.on('trickComplete', (data) => {
                     if (button && !button.hidden) button.focus();
                 }
                 announceToScreenReader('Double dummy review closed.');
+            });
+
+            // JAKOSETTI JA TALLENNUS (ks. jaot.html)
+
+            // Vain luojalle: tuonnin tulos.
+            socket.on('dealSetLoaded', (data) => {
+                if (!data) return;
+                dealSetInfo = { total: data.total, remaining: data.total };
+                renderDealSetControls();
+                let message = `Loaded ${data.total} deal${data.total === 1 ? '' : 's'} from ${data.fileName}. `;
+                message += data.dealInProgress
+                    ? `The current deal continues. The deal set starts with the next deal, board ${data.firstBoard}.`
+                    : `The next deal is board ${data.firstBoard}.`;
+                if (data.ignoredPlay) {
+                    message += ' The file also has auctions or play. They are not used: every deal starts with a new auction.';
+                }
+                if (data.truncated) message += ` Only the first ${data.maxDeals} deals were loaded.`;
+                if (data.skippedCount > 0) {
+                    const reasons = (data.skipped || []).map(s => `Board ${s.board}: ${s.reason}`).join('. ');
+                    const more = data.skippedCount > (data.skipped || []).length ? ' And more.' : '';
+                    message += ` Skipped ${data.skippedCount} deal${data.skippedCount === 1 ? '' : 's'}. ${reasons}.${more}`;
+                }
+                addTableSystemMessage(message);
+            });
+
+            socket.on('dealSetChanged', (data) => {
+                if (!data) return;
+                const hadSet = !!dealSetInfo;
+                dealSetInfo = data.dealSet || null;
+                renderDealSetControls();
+                if (isTableCreator()) {
+                    // Luoja sai latauksesta oman, tarkemman ilmoituksen.
+                    if (data.cleared) addTableSystemMessage('Deal set removed. Deals are random from the next deal.');
+                    return;
+                }
+                if (data.loaded && dealSetInfo) {
+                    addTableSystemMessage(`The table creator loaded a set of ${dealSetInfo.total} deal${dealSetInfo.total === 1 ? '' : 's'}.`);
+                } else if (data.cleared && hadSet) {
+                    addTableSystemMessage('The table creator removed the deal set. Deals are random from the next deal.');
+                }
+            });
+
+            // Tulee juuri ennen seuraavan jaon alkua, joka tyhjentää
+            // ilmoitusjonon: ilmoitus luetaan jaon alun yhteydessä.
+            socket.on('dealSetFinished', () => {
+                dealSetInfo = null;
+                dealSetFinishedNotice = true;
+                renderDealSetControls();
+                if (currentView === 'game') addGameChatLine(null, 'The deal set is finished. Deals are random again.');
+            });
+
+            socket.on('dealExport', (data) => {
+                if (!data || !data.pbn) return;
+                downloadTextFile(data.fileName, data.pbn);
+                announceUrgent(`Deal saved as ${data.fileName} in your downloads folder.`);
             });
 
             socket.on('error', (data) => {
