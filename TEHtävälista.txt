@@ -1,4 +1,3 @@
-
-opettajan näkymä
-tuplaus sallituksi vain partnerin tarjouksille
-
+koko illan tallentaminen jaoiksi.
+pöydän tallentaminen
+jakogeneraattori annetuilla ehdoilla

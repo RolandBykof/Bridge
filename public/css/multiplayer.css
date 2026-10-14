@@ -301,7 +301,41 @@
     font-size: 1.6em;
     line-height: 1;
     display: block;
-    font-weight: 900;  
+    font-weight: 900;
+}
+
+/* Asetukset (index.html #settings-area) */
+#settings-area {
+    margin: 0.5em 0;
+}
+
+#settings-panel fieldset {
+    margin: 0.5em 0;
+}
+
+#settings-panel fieldset > div,
+#settings-panel fieldset > label {
+    display: block;
+    margin: 0.3em 0;
+}
+
+/* Piirretyt maamerkit (index.html, #suit-icon-*). Fontin lihavoidut ♠ ja ♣
+   muuttuivat suurennettuina möhkäleiksi, kun ristin lehtien raot täyttyivät;
+   piirretyt merkit pysyvät terävinä ja samannäköisinä kaikilla koneilla.
+   Väri tulee tekstin väristä (currentColor). */
+.suit-icon {
+    width: 0.9em;
+    height: 0.9em;
+    vertical-align: -0.1em;
+    fill: currentColor;
+}
+
+/* Kortissa samankokoinen kuin aiempi tekstimerkki (1.6em) */
+.card-suit .suit-icon {
+    display: block;
+    width: 0.85em;
+    height: 0.85em;
+    margin: 0 auto;
 }
 
 .card-rank {
@@ -332,28 +366,52 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Enhanced Suit Styling - Nelivärinen pakka (Four-Color Deck) */
+/* Maavärit. Oletuksena nelivärinen pakka, kaksivärinen on käyttäjän
+   asetus (Settings, html.deck-two-color). Kaikki värit vähintään 5,9:1
+   valkoista vasten. Ruutu on sininen eikä oranssi, jotta se erottuu
+   hertasta myös punavihervärisokealle. *-on-dark-värit ovat tummille
+   pohjille (tumma tila). */
+:root {
+    --suit-spades: #000000;
+    --suit-hearts: #cc0000;
+    --suit-diamonds: #1d4ed8;
+    --suit-clubs: #166534;
+    --suit-notrump: #6d28d9;
+
+    --suit-spades-on-dark: #f3f4f6;
+    --suit-hearts-on-dark: #f87171;
+    --suit-diamonds-on-dark: #93c5fd;
+    --suit-clubs-on-dark: #4ade80;
+    --suit-notrump-on-dark: #c4b5fd;
+}
+
+/* Kaksivärinen pakka: padat ja ristit mustia, hertat ja ruudut punaisia */
+:root.deck-two-color {
+    --suit-diamonds: var(--suit-hearts);
+    --suit-clubs: var(--suit-spades);
+    --suit-diamonds-on-dark: var(--suit-hearts-on-dark);
+    --suit-clubs-on-dark: var(--suit-spades-on-dark);
+}
+
 .suit-spades {
-    color: #000000; /* Musta */
+    color: var(--suit-spades);
 }
 
 .suit-hearts {
-    color: #dc2626; /* Punainen */
+    color: var(--suit-hearts);
 }
 
 .suit-clubs {
-    color: #15803d; /* Vihreä - erottuu Padasta */
+    color: var(--suit-clubs);
 }
 
-/* Ruskeanoranssi: kontrasti valkoisella n. 5:1, joten kortin arvokin täyttää
-   tekstin 4,5:1-vaatimuksen. Aiempi #d97706 jäi n. 3,2:1:een. */
 .suit-diamonds {
-    color: #b45309; /* Ruskeanoranssi - erottuu Hertasta */
+    color: var(--suit-diamonds);
 }
 
-/* CHANGE: Uusi tyyli NT-sopimuksille */
+/* Violetti, jotta NT ei sekoitu siniseen ruutuun */
 .suit-notrump {
-    color: #1e40af; /* Tummansininen (sama kuin pisteissä) */
+    color: var(--suit-notrump);
 }
 
 /* Central Play Area */
@@ -708,26 +766,26 @@
     opacity: 0.6;
 }
 
-/* Maasymbolin värit - sama nelivärinen pakka kuin korteissa */
+/* Maasymbolin värit - samat kuin korteissa */
 .bid-clubs {
-    color: #15803d;
+    color: var(--suit-clubs);
 }
 
 .bid-diamonds {
-    color: #b45309;
+    color: var(--suit-diamonds);
 }
 
 .bid-hearts {
-    color: #dc2626;
+    color: var(--suit-hearts);
 }
 
 .bid-spades {
-    color: #000000;
+    color: var(--suit-spades);
 }
 
 .bid-notrump {
-    color: #1e40af;
-    background: #eff6ff;
+    color: var(--suit-notrump);
+    background: #f5f3ff;
 }
 
 /* Pass, Double, Redouble */
@@ -756,6 +814,15 @@
     padding: 8px;
     order: 4;
     flex-shrink: 0;
+    /* Pitkät tekstiosiot (Deal set) eivät saa venyttää painikkeita korkeiksi. */
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+/* Jakosetti omalle rivilleen painikkeiden alle (ks. jaot.html). */
+#game-deal-set {
+    flex-basis: 100%;
+    max-width: 40rem;
 }
 
 #game-controls button {
@@ -1174,28 +1241,26 @@
         color: #FFFFFF !important;
     }
     
-    /* CHANGE: Dark Mode Four-Color Deck Colors including NT */
-    .suit-hearts { color: #ef4444; }    /* Kirkkaampi punainen */
-    .suit-diamonds { color: #f59e0b; }  /* Kirkkaampi oranssi/kulta */
-    .suit-clubs { color: #22c55e; }     /* Kirkkaampi vihreä */
-    .suit-spades { color: #e5e7eb; }    /* Vaalea harmaa/valkoinen tummalla taustalla */
-    .suit-notrump { color: #93c5fd; }   /* Vaaleansininen Sangi dark modessa */
+    /* Tumman tilan maavärit tummille taustoille, kuten sopimusriville */
+    .suit-hearts { color: var(--suit-hearts-on-dark); }
+    .suit-diamonds { color: var(--suit-diamonds-on-dark); }
+    .suit-clubs { color: var(--suit-clubs-on-dark); }
+    .suit-spades { color: var(--suit-spades-on-dark); }
+    .suit-notrump { color: var(--suit-notrump-on-dark); }
 
     /* Kortit ovat tummassakin tilassa valkoisia, joten niissä käytetään
-       vaalean tilan maavärejä. Ilman tätä pata (#e5e7eb) oli valkoisella
-       kortilla lähes näkymätön. Yllä olevat vaaleat värit jäävät tummille
-       taustoille, kuten sopimusriville. */
-    .card-display.suit-spades, .card-button.suit-spades, .played-card .card.suit-spades { color: #000000; }
-    .card-display.suit-hearts, .card-button.suit-hearts, .played-card .card.suit-hearts { color: #dc2626; }
-    .card-display.suit-diamonds, .card-button.suit-diamonds, .played-card .card.suit-diamonds { color: #b45309; }
-    .card-display.suit-clubs, .card-button.suit-clubs, .played-card .card.suit-clubs { color: #15803d; }
+       vaalean tilan maavärejä. Ilman tätä pata oli valkoisella kortilla
+       lähes näkymätön. */
+    .card-display.suit-spades, .card-button.suit-spades, .played-card .card.suit-spades { color: var(--suit-spades); }
+    .card-display.suit-hearts, .card-button.suit-hearts, .played-card .card.suit-hearts { color: var(--suit-hearts); }
+    .card-display.suit-diamonds, .card-button.suit-diamonds, .played-card .card.suit-diamonds { color: var(--suit-diamonds); }
+    .card-display.suit-clubs, .card-button.suit-clubs, .played-card .card.suit-clubs { color: var(--suit-clubs); }
 
-    /* Tarjousnapit ovat tummassa tilassa tummia, joten maille vaaleat värit
-       nelivärisen pakan mukaan. */
-    .bidding-buttons button.bid-spades { color: #f3f4f6; }
-    .bidding-buttons button.bid-hearts { color: #f87171; }
-    .bidding-buttons button.bid-diamonds { color: #fbbf24; }
-    .bidding-buttons button.bid-clubs { color: #4ade80; }
+    /* Tarjousnapit ovat tummassa tilassa tummia, joten maille vaaleat värit */
+    .bidding-buttons button.bid-spades { color: var(--suit-spades-on-dark); }
+    .bidding-buttons button.bid-hearts { color: var(--suit-hearts-on-dark); }
+    .bidding-buttons button.bid-diamonds { color: var(--suit-diamonds-on-dark); }
+    .bidding-buttons button.bid-clubs { color: var(--suit-clubs-on-dark); }
 
     .played-card {
         background: transparent;
@@ -1203,11 +1268,11 @@
 
     /* Katselunäkymä pysyy vaaleana, joten sopimusrivin maasymbolit
        vaalean tilan väreillä */
-    #dd-review-area .suit-spades { color: #000000; }
-    #dd-review-area .suit-hearts { color: #dc2626; }
-    #dd-review-area .suit-diamonds { color: #b45309; }
-    #dd-review-area .suit-clubs { color: #15803d; }
-    #dd-review-area .suit-notrump { color: #1e40af; }
+    #dd-review-area .suit-spades { color: var(--suit-spades); }
+    #dd-review-area .suit-hearts { color: var(--suit-hearts); }
+    #dd-review-area .suit-diamonds { color: var(--suit-diamonds); }
+    #dd-review-area .suit-clubs { color: var(--suit-clubs); }
+    #dd-review-area .suit-notrump { color: var(--suit-notrump); }
 
     #current-trick-area {
         background: #eef2f7;

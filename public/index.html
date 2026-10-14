@@ -10,6 +10,28 @@
     <meta name="description" content="Bridge multiplayer game">
 </head>
 <body>
+    <!-- Piirretyt maamerkit (suitIconHtml). Muodot Teemun arvioinnin
+         vaihtoehdosta 3 (teemu.html): perinteinen muoto, ristin lehtien
+         välissä selvät raot. Väri tulee tekstin väristä. -->
+    <svg aria-hidden="true" focusable="false" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+        <symbol id="suit-icon-spades" viewBox="0 0 100 100">
+            <path d="M50 4 C50 4 8 40 8 61 C8 77 24 85 38 79 C42 77 45 74 47 71 L41 96 L59 96 L53 71 C55 74 58 77 62 79 C76 85 92 77 92 61 C92 40 50 4 50 4 Z"/>
+        </symbol>
+        <symbol id="suit-icon-hearts" viewBox="0 0 100 100">
+            <path d="M50 92 C20 70 6 52 6 34 C6 18 18 8 31 8 C41 8 47 14 50 22 C53 14 59 8 69 8 C82 8 94 18 94 34 C94 52 80 70 50 92 Z"/>
+        </symbol>
+        <symbol id="suit-icon-diamonds" viewBox="0 0 100 100">
+            <path d="M50 4 L86 50 L50 96 L14 50 Z"/>
+        </symbol>
+        <symbol id="suit-icon-clubs" viewBox="0 0 100 100">
+            <circle cx="50" cy="24" r="19"/>
+            <circle cx="22" cy="59" r="19"/>
+            <circle cx="78" cy="59" r="19"/>
+            <circle cx="50" cy="58" r="9"/>
+            <path d="M46 38 L54 38 L64 96 L36 96 Z"/>
+        </symbol>
+    </svg>
+
     <div class="container" id="multiplayer-app">
         <h1 id="main-title">AccessibleBridge</h1>
         
@@ -24,7 +46,32 @@
             <button onclick="toggleHelp()" id="toggle-help-button" aria-expanded="false">Help</button>
             <button onclick="navigate('/')" id="back-button">Back</button>
         </div>
-        
+
+        <!-- Asetukset pöydässä (odotushuone ja peli), oletuksena suljettu -->
+        <div id="settings-area" hidden>
+            <button type="button" id="settings-toggle" aria-expanded="false" aria-controls="settings-panel" onclick="toggleSettings()">Settings</button>
+            <div id="settings-panel" hidden>
+                <fieldset>
+                    <legend>Sound</legend>
+                    <div>
+                        <input type="checkbox" id="aanetKaytossa" checked>
+                        <label for="aanetKaytossa">Sounds</label>
+                        <span id="aaniStatus" role="status" aria-live="polite">Disabled</span>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="useSynthesizer">
+                        <label for="useSynthesizer">Use synthesizer</label>
+                        <span id="synthStatus" role="status" aria-live="polite">Disabled</span>
+                    </div>
+                </fieldset>
+                <fieldset>
+                    <legend>Card colors</legend>
+                    <label><input type="radio" name="deck-colors" value="four" checked> Four colors: spades black, hearts red, diamonds blue, clubs green</label>
+                    <label><input type="radio" name="deck-colors" value="two"> Two colors: spades and clubs black, hearts and diamonds red</label>
+                </fieldset>
+            </div>
+        </div>
+
         <section id="help-section" style="display: none;" role="dialog" aria-labelledby="help-title">
             <h2 id="help-title" tabindex="-1">Shortcuts</h2>
             <div class="help-content">
@@ -180,18 +227,6 @@
             <button onclick="startGameFromWaiting()" id="start-game-button" disabled>Start Game</button>
             <button onclick="leaveTableFromWaiting()">Leave</button>
 
-            <div>
-                <input type="checkbox" id="aanetKaytossa" checked>
-                <label for="aanetKaytossa">Sounds</label>
-                <span id="aaniStatus" role="status" aria-live="polite">Disabled</span>
-            </div>
-            
-            <div>
-                <input type="checkbox" id="useSynthesizer">
-                <label for="useSynthesizer">Use synthesizer</label>
-                <span id="synthStatus" role="status" aria-live="polite">Disabled</span>
-            </div>
-            
             <div>
                 <h3>Chat</h3>
                 <div id="waiting-chat-messages" aria-live="polite"></div>
@@ -751,6 +786,8 @@
             if (viewElement) {
                 viewElement.style.display = 'block';
                 currentView = viewName.replace('-view', '');
+                document.getElementById('settings-area').hidden =
+                    !['waiting-room', 'game'].includes(currentView);
                 if (isAtTable()) saveTableSession();
                 updateTitle();
                 updateHelpContent();
@@ -1722,7 +1759,6 @@ function renderHand(position, hand, targetElement) {
         
         for (const suit of sideSuits) {
             const cards = hand[suit] || [];
-            const suitSymbol = getSuitSymbol(suit);
             const suitClass = `suit-${suit}`;
             
             if (cards.length > 0) {
@@ -1746,14 +1782,14 @@ function renderHand(position, hand, targetElement) {
                                 onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
                                 aria-label="${cardLabel}"
                             >
-                                <span class="card-suit">${suitSymbol}</span>
+                                <span class="card-suit">${suitIconHtml(suit)}</span>
                                 <span class="card-rank">${card}</span>
                             </span>
                         `;
                     } else {
                         html += `
                             <span class="card-display ${suitClass}" aria-label="${cardLabel}">
-                                <span class="card-suit">${suitSymbol}</span>
+                                <span class="card-suit">${suitIconHtml(suit)}</span>
                                 <span class="card-rank">${card}</span>
                             </span>
                         `;
@@ -1774,7 +1810,6 @@ function renderHand(position, hand, targetElement) {
         
         for (const suit of suits) {
             const cards = hand[suit] || [];
-            const suitSymbol = getSuitSymbol(suit);
             const suitClass = `suit-${suit}`;
             
             if (cards.length > 0) {
@@ -1790,14 +1825,14 @@ function renderHand(position, hand, targetElement) {
                                 onclick="attemptToPlayCard('${suit}', '${card}', '${position}')"
                                 aria-label="${cardLabel}"
                             >
-                                <span class="card-suit">${suitSymbol}</span>
+                                <span class="card-suit">${suitIconHtml(suit)}</span>
                                 <span class="card-rank">${card}</span>
                             </span>
                         `;
                     } else {
                         html += `
                             <span class="card-display ${suitClass}" aria-label="${cardLabel}">
-                                <span class="card-suit">${suitSymbol}</span>
+                                <span class="card-suit">${suitIconHtml(suit)}</span>
                                 <span class="card-rank">${card}</span>
                             </span>
                         `;
@@ -1935,7 +1970,7 @@ function trickGridHtml(trick, winner) {
             <div class="played-card ${gridAreaClass}${isWinner ? ' is-winner' : ''}">
                 <div class="player-label">${positionName(card.player)}</div>
                 <div class="card ${suitClass}">
-                    <span class="card-suit">${getSuitSymbol(card.suit)}</span>
+                    <span class="card-suit">${suitIconHtml(card.suit)}</span>
                     <span class="card-rank">${card.card}</span>
                 </div>
                 ${tagHtml}
@@ -2087,7 +2122,7 @@ function updateContractDisplay() {
             }
 
             for (const row of rows) {
-                html += '<tr>' + row.map(cell => `<td>${cell ? formatBid(cell.bid) : ''}</td>`).join('') + '</tr>';
+                html += '<tr>' + row.map(cell => `<td>${cell ? formatBidHtml(cell.bid) : ''}</td>`).join('') + '</tr>';
             }
 
             html += '</table>';
@@ -2127,19 +2162,11 @@ function updateContractDisplay() {
                 html += `<div class="bid-level-group">`;
                 
                 for (const bid of bidsByLevel[level]) {
-                    const suit = bid.charAt(1);
-                    let suitSymbol, suitClass;
-                    
-                    switch(suit) {
-                        case 'C': suitSymbol = '♣'; suitClass = 'bid-clubs'; break;
-                        case 'D': suitSymbol = '♦'; suitClass = 'bid-diamonds'; break;
-                        case 'H': suitSymbol = '♥'; suitClass = 'bid-hearts'; break;
-                        case 'S': suitSymbol = '♠'; suitClass = 'bid-spades'; break;
-                        case 'N': suitSymbol = 'NT'; suitClass = 'bid-notrump'; break;
-                        default: suitSymbol = suit; suitClass = '';
-                    }
-                    
-                    html += `<button class="${suitClass}" onclick="makeBid('${bid}')">${level}${suitSymbol}</button>`;
+                    const suit = BID_SUITS[bid.charAt(1)];
+                    const suitHtml = suit ? suitIconHtml(suit) : (bid.charAt(1) === 'N' ? 'NT' : bid.charAt(1));
+                    const suitClass = suit ? `bid-${suit}` : (bid.charAt(1) === 'N' ? 'bid-notrump' : '');
+
+                    html += `<button class="${suitClass}" onclick="makeBid('${bid}')">${level}${suitHtml}</button>`;
                 }
                 
                 html += `</div>`;
@@ -2818,9 +2845,28 @@ function updateContractDisplay() {
             return symbols[suit] || suit;
         }
 
+        // Tarjouksen/sopimuksen maakirjain -> maa: 'S' -> 'spades'
+        const BID_SUITS = { C: 'clubs', D: 'diamonds', H: 'hearts', S: 'spades' };
+
+        // Piirretty maamerkki näkyville ja tekstimerkki ruudunlukijalle, joten
+        // ruudunlukija lukee saman kuin ennen ("musta pata").
+        function suitIconHtml(suit) {
+            const symbol = getSuitSymbol(suit);
+            if (symbol === suit) return suit;
+            return `<svg class="suit-icon" aria-hidden="true" focusable="false"><use href="#suit-icon-${suit}"></use></svg>` +
+                `<span class="sr-only">${symbol}</span>`;
+        }
+
+        // Tarjous HTML:nä piirretyllä maamerkillä, esim. '1S' -> 1 + pata
+        function formatBidHtml(bid) {
+            const suit = BID_SUITS[bid.charAt(1)];
+            if (!suit || bid.length !== 2) return formatBid(bid);
+            return `${bid.charAt(0)}<span class="suit-${suit}">${suitIconHtml(suit)}</span>`;
+        }
+
 function formatContract(contract, asHtml = false) {
             if (!contract) return "No contract";
-            
+
             const level = contract.charAt(0);
             const suit = contract.charAt(1);
             let suitSymbol;
@@ -2834,10 +2880,11 @@ function formatContract(contract, asHtml = false) {
                 case 'N': suitSymbol = 'NT'; suitClass = 'suit-notrump'; break;
                 default: suitSymbol = suit;
             }
-            
+
             // Jos pyydetään HTML-muotoa (värejä varten)
             if (asHtml) {
-                let result = `${level}<span class="${suitClass}">${suitSymbol}</span>`;
+                const symbolHtml = BID_SUITS[suit] ? suitIconHtml(BID_SUITS[suit]) : suitSymbol;
+                let result = `${level}<span class="${suitClass}">${symbolHtml}</span>`;
                 
                 if (contract.includes('XX')) {
                     result += ' XX';
@@ -3209,6 +3256,28 @@ function formatContract(contract, asHtml = false) {
             if (useSynthesizerEnabled) {
                 speakMessage('Synthesizer enabled');
             }
+        }
+
+        // SETTINGS
+        function toggleSettings() {
+            const button = document.getElementById('settings-toggle');
+            const open = button.getAttribute('aria-expanded') !== 'true';
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            document.getElementById('settings-panel').hidden = !open;
+        }
+
+        // Korttien värit: 'four' (oletus) tai 'two'. Värit ovat
+        // multiplayer.css:n muuttujissa, html.deck-two-color vaihtaa ne.
+        function applyDeckColors(deckColors) {
+            document.documentElement.classList.toggle('deck-two-color', deckColors === 'two');
+            const radio = document.querySelector(`input[name="deck-colors"][value="${deckColors}"]`);
+            if (radio) radio.checked = true;
+        }
+
+        function muutaKorttienVarit(event) {
+            const deckColors = event.target.value;
+            applyDeckColors(deckColors);
+            localStorage.setItem('deckColors', deckColors);
         }
 
 /**
@@ -4748,6 +4817,10 @@ socket.on('trickComplete', (data) => {
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('aanetKaytossa').addEventListener('change', muutaAaniAsetukset);
             document.getElementById('useSynthesizer').addEventListener('change', muutaSyntetisaattoriAsetukset);
+            document.querySelectorAll('input[name="deck-colors"]').forEach(radio => {
+                radio.addEventListener('change', muutaKorttienVarit);
+            });
+            applyDeckColors(localStorage.getItem('deckColors') === 'two' ? 'two' : 'four');
 
             // Sounds are on by default, but browsers block audio playback
             // until the page has seen a genuine user gesture. Unlock it on
