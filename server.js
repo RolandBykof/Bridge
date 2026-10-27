@@ -29,6 +29,8 @@ require('./maija/socket').attach(io, { app });
 require('./ristiseiska/socket').attach(io, { app });
 // Hertta (englanniksi): nimiavaruus /hertta ja sivu /hertta/ (kansiot hertta/ ja public/hertta/).
 require('./hertta/socket').attach(io, { app });
+// Kasino: nimiavaruus /kasino ja sivu /kasino/ (kansiot kasino/ ja public/kasino/).
+require('./kasino/socket').attach(io, { app });
 
 // Server state
 const tables = new Map(); // Active tables by code

@@ -1,0 +1,22 @@
+2 - 4 pelaajaa. Pelin tavoite
+Pelaajat yrittävät kerätä mahdollisimman paljon kortteja, etenkin patoja ja muita pistekortteja.
+Jako
+Jakakaa neljä korttia pelaajille ja neljä pöytään kuvapuoli ylöspäin. 
+Pelin kulku
+Etukäsi aloittaa. Joka vuoro pelaajien on pakko pelata kädestään pöytään yksi kortti.
+Pelin tarkoitus on kerätä pöydästä kortteja ja se tapahtuu joko pelaamalla samanarvoinen kortti tai summakortti. Esimerkiksi pelaamalla sotilaan voi pöydästä kerätä kaikki sotilaat ja lisäksi kortit, joiden summa on sotilaan arvo eli 11. Kerätyt kortit laitetaan pelatun kortin kanssa omaan pistepinoon kuvapuoli alaspäin.
+Numerokorttien arvo on niiden silmäluvun mukaan. Kuvat ovat sotilas 11, kuningatar 12 ja kuningas 13. Ässä on kädessä 14, mutta pöydässä 1. Patakakkonen eli pieni kasino on kädessä 15 ja pöydässä tavallinen kakkonen, ruutukymppi eli iso kasino on kädessä 16 ja pöydässä 10.
+Jos ei voi tai halua ottaa kortteja, pelattu kortti jää pöytään kuvapuoli ylöspäin. Vuoro siirtyy seuraavalle pelaajalle. edotan, että näppäimistöltä syötetään ensin kortin arvo esimerkiksi s2 = pata 2 ja sen jälkeen painetaan joko l = lyö tai o = ota. jos painetaan l kortti pelataan pöytään, vaikka sillä saisi otettua pöydästä. Jos painetaa o, kortilla otetaan pöydästä, kaikki, mitä saadaan.
+Kun käsikortit on pelattu, pelaajille jaetaan neljä uutta korttia. Pöytään ei lisätä enää kortteja.
+Jos saa yhdellä kortilla tyhjennettyä koko pöydän korteista, tekee mökin. Sen merkiksi laitetaan pistepinoon yksi otetuista korteista kuvapuoli ylöspäin. Jos kaksinpelissä vastapuolella on mökkejä, mökkiä ei oteta itselle vaan sen sijaan kaadetaan yksi vastapuolen mökeistä. Viimeisten korttien aikana, kun pakka on tyhjä, mökkejä ei enää lasketa.
+Kun kaikki kortit on pelattu, jako päättyy. Pöytään jääneet kortit menevät sille, joka otti pöydästä viimeksi jotain.
+Pisteenlasku
+Jaon jälkeen lasketaan pisteet:
+• Eniten kortteja kerännyt pelaaja saa korttivoiton ja 1 pisteen.
+• Eniten pataa kerännyt saa patavoiton ja 2 pistettä.
+• Kaikki ässät ovat 1 pisteen arvoisia.
+• Ruutukymppi on 2 pisteen arvoinen.
+• Patakakkonen on 1 pisteen arvoinen.
+• Mökit ovat 1 pisteen arvoisia.
+Sen jälkeen jakovuoro siirtyy seuraavalle pelaajalle. Peli on 16 pisteeseen asti ja pelaaja voi kesken jaon lopettaa pelin, jos 16 pistettä tulee täyteen. Jos tasapeli uhkaa, pisteet lasketaan siten, että ensin lasketaan pistekorteista saadut pisteet, sitten kortit ja sitten padat.
+Jos korttivoitto tai patavoitto menee tasan, pisteet siirtyvät seuraavaan jakoon. 

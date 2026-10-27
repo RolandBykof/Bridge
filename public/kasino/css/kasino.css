@@ -1,0 +1,78 @@
+/* Kasino. Perustyylit (painikkeet, pelaajat, käsi, kortit, loki) tulevat
+   Maijan tiedostosta ../maija/css/maija.css. Tässä pöytä, pistetaulukot,
+   tallennus ja tallennetun pelin pelaajavalinta (kuten hertassa). */
+
+.ks-table { margin-bottom: 10px; min-height: 0; }
+
+.round-info {
+    margin: 0 0 8px;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+/* Pöydän irtokortit rivissä arvojärjestyksessä. Rivi rivittyy kapealla näytöllä. */
+.ks-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: .5rem;
+    min-height: 90px;
+}
+.ks-cards .card-display { min-width: 48px; }
+.ks-cards .table-empty { align-self: center; font-weight: 700; }
+/* Viimeksi lyöty kortti: paksu reuna, ei pelkkä väri. */
+.ks-cards .card-display.is-last { box-shadow: 0 0 0 4px var(--accent); }
+/* Juuri otetut kortit näkyvät hetken: keltainen pohja ja katkoviiva. */
+.ks-cards .card-display.is-taken {
+    border-style: dashed;
+    background: #fff4c2;
+    color: #4a3b00;
+    opacity: .85;
+}
+@media (prefers-color-scheme: dark) {
+    .ks-cards .card-display.is-taken { background: #4a3b00; color: #fff4c2; }
+}
+
+/* Ei symboleja ruudulla: valittu kortti näkyy nostettuna ja paksulla sinisellä
+   reunalla, joten Maijan tyylien ✓-merkki jätetään pois. */
+.card-display.is-selected::after { content: none; }
+
+.hand .card-display { min-width: 48px; }
+
+.table-wrap { overflow-x: auto; }
+.score-table {
+    border-collapse: collapse;
+    width: 100%;
+    background: var(--surface);
+    margin: .5rem 0;
+}
+.score-table caption { text-align: left; font-weight: 800; padding: .25rem 0; }
+.score-table th, .score-table td {
+    border: 1px solid var(--rule);
+    padding: .35rem .6rem;
+    text-align: right;
+}
+.score-table th[scope="row"], .score-table thead th:first-child { text-align: left; }
+.score-table thead th { background: var(--area-bg); }
+.score-table .total { font-weight: 800; }
+.score-table tr.is-winner th, .score-table tr.is-winner td { background: var(--current-bg); }
+
+/* .creator-tools on flex, mikä ohittaisi hidden-määritteen. */
+.creator-tools[hidden] { display: none; }
+
+/* Pöydän tallennus (tallennus.html) */
+.save-control { margin: .75rem 0; }
+.save-control label { display: inline-flex; align-items: center; gap: .4rem; font-weight: 700; cursor: pointer; }
+.save-control input { width: 1.25rem; height: 1.25rem; }
+.save-info { margin: .25rem 0 0; }
+
+.claim-options { border: 1px solid var(--rule); padding: .5rem 1rem .75rem; margin: 0; }
+.claim-options legend { font-weight: 700; padding: 0 .25rem; }
+.claim-options label { display: flex; align-items: center; gap: .5rem; min-height: 44px; font-weight: 400; }
+.claim-options input { width: 1.25rem; height: 1.25rem; }
+#claim-error { margin-bottom: .75rem; }
+
+@media (forced-colors: active) {
+    .ks-cards .card-display.is-last { outline: 3px solid Highlight; }
+}

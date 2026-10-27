@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kasino – toteutussuunnitelma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --ink: #16211b;
+  --muted: #465a4f;
+  --felt: #1d5a3d;
+  --felt-soft: #e3eee7;
+  --suit-red: #a8221a;
+  --rule: #c5d2c9;
+  --code-bg: #eef2ef;
+  --take: #fff4c2;
+  --take-ink: #4a3b00;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612;
+    --surface: #16201a;
+    --ink: #e7eee9;
+    --muted: #a9bbb0;
+    --felt: #79c9a0;
+    --felt-soft: #1c2d23;
+    --suit-red: #ff8f85;
+    --rule: #2f4337;
+    --code-bg: #1b2820;
+    --take: #4a3b00;
+    --take-ink: #fff4c2;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612;
+  --surface: #16201a;
+  --ink: #e7eee9;
+  --muted: #a9bbb0;
+  --felt: #79c9a0;
+  --felt-soft: #1c2d23;
+  --suit-red: #ff8f85;
+  --rule: #2f4337;
+  --code-bg: #1b2820;
+  --take: #4a3b00;
+  --take-ink: #fff4c2;
+}
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Verdana, Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--felt); color: var(--bg); padding: .5rem 1rem;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+header.page {
+  background: var(--felt);
+  color: #fff;
+  padding: 2.5rem 1rem 2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) header.page { color: #0f1612; }
+}
+:root[data-theme="dark"] header.page { color: #0f1612; }
+header.page .inner, main { max-width: 48rem; margin: 0 auto; }
+header.page h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; margin: 0 0 .75rem; }
+header.page p { margin: 0; font-size: 1.15rem; max-width: 40rem; }
+main { padding: 1.5rem 1rem 4rem; }
+h2 {
+  font-size: 1.6rem; line-height: 1.25;
+  margin: 3rem 0 1rem; padding-top: 1rem;
+  border-top: 3px solid var(--felt);
+}
+h3 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 .25rem; }
+p, li { max-width: 42rem; }
+a { color: var(--felt); text-underline-offset: 3px; }
+a:focus-visible { outline: 3px solid var(--suit-red); outline-offset: 3px; }
+.verdict {
+  background: var(--surface);
+  border-left: 6px solid var(--suit-red);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+.verdict p { margin: .5rem 0; }
+nav.toc { background: var(--felt-soft); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+nav.toc h2 { border: 0; margin: 0 0 .5rem; padding: 0; font-size: 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.4rem; }
+ol.steps > li { margin-bottom: 1rem; }
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; min-width: 30rem; width: 100%; background: var(--surface); }
+caption { text-align: left; font-weight: 700; padding: .5rem 0; }
+th, td { border: 1px solid var(--rule); padding: .5rem .75rem; vertical-align: top; text-align: left; }
+thead th { background: var(--felt-soft); }
+kbd {
+  font-family: Consolas, "Courier New", monospace; font-size: .95em;
+  border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px;
+  padding: 0 .3em; background: var(--surface); white-space: nowrap;
+}
+code { font-family: Consolas, "Courier New", monospace; font-size: .95em; background: var(--code-bg); padding: .05em .3em; }
+pre {
+  background: var(--code-bg); padding: 1rem; overflow-x: auto;
+  font-size: .95rem; line-height: 1.45; border-left: 4px solid var(--felt);
+}
+pre code { background: none; padding: 0; }
+.speech {
+  background: var(--surface); border: 1px solid var(--rule); border-left: 6px solid var(--felt);
+  padding: .5rem 1rem; margin: .75rem 0; font-style: italic;
+}
+.speech::before { content: "Ruudunlukija: "; font-style: normal; font-weight: 700; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: .25rem 1.25rem 1rem;
+  margin: 1.5rem 0;
+}
+.phase h3 { margin-top: 1rem; }
+.done-when { color: var(--muted); font-style: italic; }
+.open-q { background: var(--surface); border: 2px dashed var(--suit-red); padding: .5rem 1.25rem 1rem; margin: 1.5rem 0; }
+
+/* Pöydän malli: irtokortit rivissä arvojärjestyksessä. */
+figure.board { margin: 1.5rem 0; background: var(--surface); border: 1px solid var(--rule); padding: 1rem; }
+figure.board figcaption { font-weight: 700; margin-bottom: .75rem; }
+.board-label { font-weight: 700; margin: .75rem 0 .35rem; font-size: 1rem; }
+.cards { display: flex; flex-wrap: wrap; gap: .5rem; }
+.tcard {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 4.2rem; height: 5.4rem; border-radius: 6px;
+  border: 2px solid var(--ink); background: var(--surface); color: var(--ink);
+  font-weight: 700; line-height: 1.1;
+}
+.tcard .r { font-size: 1.6rem; }
+.tcard.red .r { color: var(--suit-red); }
+/* Otettavat kortit: keltainen pohja ja katkoviiva, ei pelkkä väri. */
+.tcard.take { background: var(--take); border-style: dashed; border-width: 3px; }
+.tcard.take .r { color: var(--take-ink); }
+.tcard.chosen { outline: 3px solid var(--felt); outline-offset: 3px; }
+.board-legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .75rem; font-size: .95rem; color: var(--muted); }
+footer { color: var(--muted); max-width: 48rem; margin: 0 auto; padding: 0 1rem 3rem; }
+</style>
+</head>
+<body>
+<a class="skip" href="#sisalto">Siirry sisältöön</a>
+
+<header class="page">
+  <div class="inner">
+    <h1>Kasino – toteutussuunnitelma</h1>
+    <p>Kasino samaan tyyliin kuin Musta Maija, ristiseiska ja hertta: oma Socket.IO-nimiavaruus, yhteiset pöydät, robotit, näppäinkomennot ja ruudunlukijan ilmoitusjono. Tämä on suunnitelma, ei vielä koodia.</p>
+  </div>
+</header>
+
+<main id="sisalto">
+
+<nav class="toc" aria-labelledby="toc-otsikko">
+  <h2 id="toc-otsikko">Sisällys</h2>
+  <ol>
+    <li><a href="#tiivistelma">Tiivistelmä</a></li>
+    <li><a href="#pohja">Mitä olemassa olevista peleistä käytetään</a></li>
+    <li><a href="#saannot">Säännöt tässä toteutuksessa</a></li>
+    <li><a href="#otto">Ottaminen: mitä O ottaa</a></li>
+    <li><a href="#poyta">Pöytä ja pelinäkymä</a></li>
+    <li><a href="#nappaimet">Näppäinkomennot</a></li>
+    <li><a href="#ilmoitukset">Ilmoitukset</a></li>
+    <li><a href="#pisteet">Jaon loppu ja pisteenlasku</a></li>
+    <li><a href="#palvelin">Palvelin: pelilogiikka ja protokolla</a></li>
+    <li><a href="#robotti">Robotti</a></li>
+    <li><a href="#tiedostot">Tiedostot ja yhteinen koodi</a></li>
+    <li><a href="#testaus">Testaus</a></li>
+    <li><a href="#avoimet">Avoimet kysymykset</a></li>
+    <li><a href="#jarjestys">Toteutusjärjestys</a></li>
+  </ol>
+</nav>
+
+<h2 id="tiivistelma">Tiivistelmä</h2>
+<div class="verdict">
+  <p><strong>Kasino tehdään omaksi peliksi</strong> osoitteeseen <code>/kasino/</code> ja Socket.IO-nimiavaruuteen <code>/kasino</code>. Pöydät tulevat suoraan yhteisestä <code>korttipelit/poydat.js</code>-tiedostosta (2–4 pelaajaa), ja selaimen runko kopioidaan ristiseiskasta. Kieli on suomi kuten Maijassa ja ristiseiskassa.</p>
+  <p><strong>Peli koostuu jaoista kuten hertta.</strong> Jako päättyy, kun pakka ja kädet ovat tyhjät. Pisteet lasketaan, ja pöydän luoja aloittaa seuraavan jaon. Peli päättyy, kun joku saavuttaa 16 pistettä. Hertan <code>round-over</code>-vaihe, <code>next-round</code>-toiminto ja tallennus sopivat sellaisinaan.</p>
+  <p><strong>Siirto on kaksiosainen kuten <code>kasino.txt</code> ehdottaa:</strong> ensin valitaan kortti tutulla tavalla (<kbd>S</kbd> <kbd>2</kbd> = pata 2), sitten <kbd>L</kbd> lyö kortin pöytään tai <kbd>O</kbd> ottaa sillä pöydästä kaiken, minkä saa. Palvelin laskee suurimman mahdollisen oton, joten pelaajan ei tarvitse valita pöydän kortteja yksitellen.</p>
+  <p><strong>Pöytä luetaan arvojärjestyksessä,</strong> jotta summien laskeminen on helpompaa. Korttien arvoja ei lueta, koska pelaajat tietävät ne: <kbd>Alt+P</kbd> sanoo esimerkiksi ”Pöydässä 5 korttia: risti ässä, pata 3, hertta 3, ruutu 8, risti jätkä.”</p>
+</div>
+
+<h2 id="pohja">Mitä olemassa olevista peleistä käytetään</h2>
+
+<p>Kolmessa toteutetussa pelissä on jo kaikki kasinon tarvitsema runko. Kasino on rakenteeltaan lähimpänä herttaa (useita jakoja, kokonaispisteet, tallennus), mutta kieleltään ja näppäimiltään ristiseiskaa.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Olemassa oleva koodi ja sen vastine kasinossa</caption>
+  <thead>
+    <tr><th scope="col">Tiedosto</th><th scope="col">Mitä se tekee</th><th scope="col">Kasinossa</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row"><code>korttipelit/poydat.js</code></th><td>Pöydät, nelinumeroinen koodi, luoja, robotit, jakovuoron kierto, ylläpito ja tallennetun pöydän herättäminen. Peli annetaan parametrina (<code>createGame</code>, <code>restoreGame</code>, <code>minPlayers</code>, <code>maxPlayers</code>, <code>lang</code>).</td><td>Käytetään sellaisenaan: <code>minPlayers: 2</code>, <code>maxPlayers: 4</code>, <code>lang: 'fi'</code>. Tallennusta varten <code>validSnapshot</code> on muutettava, ks. <a href="#tiedostot">tiedostot</a>.</td></tr>
+    <tr><th scope="row"><code>korttipelit/tallennus.js</code></th><td>Pöydän tallennus levylle jakojen välissä (<code>SaveStore</code>).</td><td>Käytetään sellaisenaan, <code>game: 'kasino'</code>.</td></tr>
+    <tr><th scope="row"><code>hertta/game.js</code></th><td>Jakoihin perustuva peli: <code>startRound</code>, <code>finishRound</code>, <code>nextRound</code>, <code>toProgress</code>/<code>applyProgress</code>, <code>history</code>, <code>ranking</code>.</td><td>Malli <code>kasino/game.js</code>-tiedoston jakorakenteelle ja tallennukselle.</td></tr>
+    <tr><th scope="row"><code>hertta/socket.js</code></th><td>Socket.IO-kerros, jossa on tallennus, <code>next-round</code> (vain pöydän luoja) ja robottien ajastus lukuajan mukaan.</td><td>Kopioidaan <code>kasino/socket.js</code>:ksi. Pelitoiminnot vaihdetaan: <code>lay</code> ja <code>take</code>.</td></tr>
+    <tr><th scope="row"><code>public/ristiseiska/js/saannot.js</code></th><td>UMD-sääntömoduuli, jota käyttävät sekä palvelin että selain.</td><td>Uusi <code>public/kasino/js/saannot.js</code>: korttien arvot, oton laskenta ja pisteet.</td></tr>
+    <tr><th scope="row"><code>public/ristiseiska/js/ristiseiska.js</code></th><td>Suomenkielinen selainohjelma: ilmoitusjono (<code>respond</code>, <code>announce</code>, <code>flushOwnMove</code>), korttien valinta <kbd>S</kbd>+<kbd>2</kbd>, <kbd>L</kbd>, Alt-lukukomennot, vahvistusikkuna, odotushuone.</td><td>Kopioidaan <code>kasino.js</code>:ksi. Pöydän piirto, <kbd>O</kbd>-näppäin ja lukukomennot ovat omat. Jaon tulos ja pistetaulukko tulevat <code>hertta.js</code>:stä suomennettuina.</td></tr>
+    <tr><th scope="row"><code>public/korttipelit/kortit.js</code></th><td>Korttien suomenkieliset nimet, <code>cardId</code>, <code>formatCardList</code>, <code>sortCards</code>.</td><td>Käytetään sellaisenaan. Ässä on järjestyksessä ylin, mikä vastaa sen käsiarvoa 14.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Aiemmista peleistä otetaan nämä toimiviksi todetut periaatteet:</p>
+<ul>
+  <li>Palvelin tarkistaa kaikki siirrot. Pelilogiikka (<code>game.js</code>) ei tiedä yhteyksistä eikä ajastimista, joten sen voi testata suoraan.</li>
+  <li>Oman siirron tulos luetaan heti jonon kärjestä. Muiden siirrot luetaan jonossa järjestyksessä. Oma siirto ja sitä seuraava vuoroilmoitus luetaan yhtenä ryhmänä (<code>flushOwnMove</code>).</li>
+  <li>Painikkeet käyttävät <code>aria-disabled</code>-määritettä, joten fokus ei katoa vuoron vaihtuessa.</li>
+  <li>Robotin viive on perusviive plus arvio edellisen ilmoituksen lukuajasta (<code>estimateReadingMs</code>). Kun pöydässä ei ole yhdistettyjä ihmisiä, robotit odottavat.</li>
+  <li>Peli ei kerro, mitä kannattaisi pelata. Pelaaja päättelee sen itse pöydästä ja kädestään, kuten oikeassakin pelissä.</li>
+</ul>
+
+<h2 id="saannot">Säännöt tässä toteutuksessa</h2>
+<p>Säännöt ovat tiedostosta <code>kasino.txt</code>. Kohdat, joita teksti ei ratkaise, on merkitty sanalla <strong>tulkinta</strong>. Ne kootaan vakioiksi tiedoston <code>public/kasino/js/saannot.js</code> alkuun, jotta niitä on helppo muuttaa.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Sääntöpäätökset</caption>
+  <thead><tr><th scope="col">Asia</th><th scope="col">Toteutus</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Pelaajat</th><td>2–4 pelaajaa, jokainen pelaa omaan pinoonsa.</td></tr>
+    <tr><th scope="row">Jako</th><td>Jakaja antaa jokaiselle 4 korttia ja 4 korttia pöytään kuvapuoli ylöspäin. Kun kaikkien kädet ovat tyhjät ja pakassa on kortteja, jokaiselle jaetaan 4 uutta korttia. Pöytään ei lisätä enää kortteja. Pakka loppuu aina tasan: kahdella pelaajalla jakoja on 6, kolmella 4 ja neljällä 3.</td></tr>
+    <tr><th scope="row">Aloitus ja vuorot</th><td>Etukäsi eli jakajaa seuraava aloittaa, ja vuoro kiertää myötäpäivään. Jokainen pelaa vuorollaan tasan yhden kortin. Koska kaikilla on yhtä monta korttia, uusi käsi alkaa aina etukädestä.</td></tr>
+    <tr><th scope="row">Korttien arvot</th><td>Numerokortit silmäluvun mukaan, jätkä 11, rouva 12, kuningas 13. Ässä on kädessä 14 ja pöydässä 1. Patakakkonen (pieni kasino) on kädessä 15 ja pöydässä 2. Ruutukymppi (iso kasino) on kädessä 16 ja pöydässä 10.</td></tr>
+    <tr><th scope="row">Lyönti (<kbd>L</kbd>)</th><td>Kortti jää pöytään kuvapuoli ylöspäin. Lyödä saa aina, vaikka kortilla voisi ottaa.</td></tr>
+    <tr><th scope="row">Otto (<kbd>O</kbd>)</th><td>Kortilla otetaan pöydästä kaikki, minkä sillä saa: kortit, joiden pöytäarvo on sama kuin kortin käsiarvo, sekä erilliset korttiryhmät, joiden pöytäarvojen summa on käsiarvo. Pelattu kortti ja otetut kortit menevät pelaajan pinoon. Tarkemmin kohdassa <a href="#otto">ottaminen</a>. Ässä ottaa vain kortteja, joiden summa on 14, eikä yksittäisiä ässiä. Samoin patakakkonen ottaa vain summan 15 eikä kakkosia, ja ruutukymppi vain summan 16 eikä kymppejä.</td></tr>
+    <tr><th scope="row">Mökki</th><td>Jos otto tyhjentää pöydän, pelaaja tekee mökin. Kaksinpelissä, jos vastustajalla on mökkejä, mökkiä ei saa itselle, vaan yksi vastustajan mökeistä kaatuu. Kun pakka on tyhjä (jaon viimeinen käsi), mökkejä ei lasketa.</td></tr>
+    <tr><th scope="row">Jaon loppu</th><td>Kun kaikki kortit on pelattu, pöytään jääneet kortit menevät sille, joka otti viimeksi. Ne eivät ole mökki. <strong>Tulkinta:</strong> jos kukaan ei ottanut koko jaossa, pöydän kortit jäävät jakamatta.</td></tr>
+    <tr><th scope="row">Pisteet</th><td>Eniten kortteja 1, eniten patoja 2, jokainen ässä 1, ruutukymppi 2, patakakkonen 1, jokainen mökki 1. Jos korttivoitto tai patavoitto menee tasan, sen pisteet siirtyvät seuraavan jaon samaan voittoon.</td></tr>
+    <tr><th scope="row">Jakovuoro</th><td>Jakaja vaihtuu seuraavaan pelaajaan jokaisen jaon jälkeen, kuten hertassa.</td></tr>
+    <tr><th scope="row">Pelin loppu</th><td>Peli on 16 pisteeseen. <strong>Tulkinta:</strong> palvelin tarkistaa jokaisen siirron jälkeen, onko jollakulla varmasti vähintään 16 pistettä, ja päättää pelin automaattisesti. Pelaajan ei tarvitse itse huomata eikä ilmoittaa sitä. Ks. <a href="#pisteet">pisteenlasku</a> ja <a href="#avoimet">avoimet kysymykset</a>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="otto">Ottaminen: mitä O ottaa</h2>
+
+<h3>Laskenta</h3>
+<p>Kun pelaaja painaa <kbd>O</kbd>, palvelin etsii pöydästä mahdollisimman monta korttia, jotka voidaan jakaa erillisiksi ryhmiksi niin, että jokaisen ryhmän pöytäarvojen summa on pelatun kortin käsiarvo. Yksittäinen samanarvoinen kortti on yhden kortin ryhmä. Ottaminen perustuu pelkkään käsiarvoon: ässällä (14) ei voi ottaa pöydän ässää, jonka arvo on 1, vaan ainoastaan kortteja, joiden summa on 14, esimerkiksi ässän ja kuninkaan yhdessä. Jos yhtä suuria ottoja on useita, valitaan se, jossa on eniten pisteitä (ässät, patakakkonen, ruutukymppi) ja sitten eniten patoja. Pelaaja ei siis koskaan menetä kortteja sen takia, että hän ei osannut valita.</p>
+
+<pre><code>// public/kasino/js/saannot.js (UMD, palvelin ja selain)
+handValue(card)             // ässä 14, ♠2 15, ♦10 16, muuten pöytäarvo
+tableValue(card)            // ässä 1, kuvat 11–13, muuten silmäluku
+bestCapture(card, table)    // → { cards: [...], groups: [[...], ...] } tai null
+clearsTable(card, table)    // otto tyhjentää pöydän → mökki
+dealPoints(pile)            // { cards, spades, aces, smallCasino, bigCasino }</code></pre>
+
+<p><code>bestCapture</code> luettelee ensin kaikki pöydän osajoukot, joiden summa on käsiarvo, ja valitsee niistä erillisten ryhmien parhaan yhdistelmän syvyyshaulla. Pöydässä on yleensä alle 10 korttia, joten haku on nopea. Haku katkaistaan, kun summa ylittää käsiarvon, ja tulos on sama sekä palvelimella että selaimessa.</p>
+
+<h3>Esimerkki</h3>
+<p>Pöydässä on risti ässä, pata 3, hertta 3, ruutu 8 ja risti jätkä. Pelaajalla on hertta jätkä (11) ja pata 2 (15).</p>
+
+<figure class="board" aria-labelledby="board-caption">
+  <figcaption id="board-caption">Malli pöydästä: hertta jätkällä otettavat kortit korostettuina</figcaption>
+  <ul class="sr-only">
+    <li>Pöydässä 5 korttia: risti ässä, pata 3, hertta 3, ruutu 8, risti jätkä.</li>
+    <li>Hertta jätkällä O ottaa risti jätkän sekä ruutu 8 ja pata 3. Hertta 3 ja risti ässä jäävät pöytään.</li>
+  </ul>
+  <div aria-hidden="true">
+    <p class="board-label">Pöytä (arvojärjestyksessä)</p>
+    <div class="cards">
+      <span class="tcard"><span class="r">♣A</span></span>
+      <span class="tcard take"><span class="r">♠3</span></span>
+      <span class="tcard red"><span class="r">♥3</span></span>
+      <span class="tcard red take"><span class="r">♦8</span></span>
+      <span class="tcard take"><span class="r">♣J</span></span>
+    </div>
+    <p class="board-label">Oma käsi</p>
+    <div class="cards">
+      <span class="tcard red chosen"><span class="r">♥J</span></span>
+      <span class="tcard"><span class="r">♠2</span></span>
+    </div>
+  </div>
+  <div class="board-legend" aria-hidden="true">
+    <span>Keltainen ja katkoviiva: otetaan</span>
+    <span>Vihreä kehys: valittu kortti</span>
+  </div>
+</figure>
+
+<ul>
+  <li><strong>Hertta jätkä (11), <kbd>O</kbd>:</strong> risti jätkä on oma ryhmänsä, ja ruutu 8 + pata 3 = 11 on toinen. Yhteensä 3 korttia. Jäljelle jää hertta 3 ja risti ässä, joiden summa on 4, joten muuta ei saa. Pata 3 valitaan hertta 3:n sijaan, koska se on pata.</li>
+  <li><strong>Pata 2 (15), <kbd>O</kbd>:</strong> ruutu 8 + pata 3 + hertta 3 + risti ässä = 15 vie neljä korttia. Risti jätkä + 3 + ässä = 15 veisi vain kolme. Valitaan siis neljä korttia, ja risti jätkä jää pöytään.</li>
+  <li><strong>Pata 2, <kbd>L</kbd>:</strong> kortti jää pöytään, ja sen pöytäarvo on 2.</li>
+</ul>
+
+<h3>Virheilmoitukset</h3>
+<ul>
+  <li><kbd>O</kbd>, kun kortilla ei saa mitään: ”Hertta jätkällä ei saa pöydästä mitään.” Kortti ei lähde, ja pelaaja voi valita uudelleen tai lyödä <kbd>L</kbd>:llä.</li>
+  <li><kbd>O</kbd> tyhjään pöytään: ”Pöytä on tyhjä. Lyö kortti L:llä.”</li>
+  <li><kbd>L</kbd> tai <kbd>O</kbd> ilman valintaa: ”Valitse ensin kortti, esimerkiksi S ja 2.”</li>
+</ul>
+<p>Virheilmoitukset kertovat vain pelaajan oman kortin tilanteen, joka on pöydästä pääteltävissä. Ne eivät koskaan ehdota toista korttia.</p>
+
+<h2 id="poyta">Pöytä ja pelinäkymä</h2>
+
+<h3>Pöytä</h3>
+<ul>
+  <li><strong>Irtokortit rivissä arvojärjestyksessä</strong> pienimmästä suurimpaan. Korttien arvoja ei näytetä erikseen, koska pelaajat tietävät ne. Rivi rivittyy kapealla näytöllä, joten vaakavieritystä ei tarvita. Kortti on noin 65 pikseliä leveä, ja maa ja arvo ovat isolla fontilla.</li>
+  <li><strong>Ruudunlukijalle</strong> korttirivi on <code>aria-hidden</code>, ja sen sijaan on lista samoilla lauseilla kuin <kbd>Alt+P</kbd>. Selaustilassa pöydän voi siis lukea nuolinäppäimillä.</li>
+  <li><strong>Viimeisin siirto</strong> näkyy pöydän otsikossa: ”Pöytä – viimeksi Liisa otti hertta jätkällä 3 korttia”. Otetut kortit näytetään hetken (noin 2 sekuntia) korostettuina ennen kuin ne poistuvat, jotta näkevä pelaaja ehtii nähdä oton.</li>
+  <li><strong>Tyhjä pöytä:</strong> ”Pöytä on tyhjä.”</li>
+</ul>
+
+<h3>Muu pelinäkymä</h3>
+<p>Rakenne on sama kuin ristiseiskassa: vuoropalkki, pelaajalista, pöytä, oma käsi, toimintopainikkeet ja tapahtumaloki. Lisäksi on hertan tapaan pistetaulukko.</p>
+<ul>
+  <li><strong>Pelaajalista</strong> istumajärjestyksessä: nimi, kortteja kädessä, kerätyt kortit, padat, mökit ja kokonaispisteet. Robotti ja jakaja merkitään. Vuorossa olevalla on ”▶ VUOROSSA”.</li>
+  <li><strong>Pakka:</strong> ”Pakassa 24 korttia” tai ”Viimeinen käsi – mökkejä ei lasketa”.</li>
+  <li><strong>Oma käsi</strong> maittain kuten muissa peleissä.</li>
+  <li><strong>Toimintopainikkeet:</strong> ”Lyö valittu (L)” ja ”Ota valitulla (O)”. Kumpikin on <code>aria-disabled</code>, kun valintaa ei ole tai vuoro on muualla.</li>
+  <li><strong>Pistetaulukko</strong> jaoittain kuten hertassa, ja lisäksi siirtyvät pisteet. Jaon jälkeen näytetään jaon erittely (ks. <a href="#pisteet">pisteenlasku</a>) ja pöydän luojalle painike ”Seuraava jako”.</li>
+</ul>
+
+<h2 id="nappaimet">Näppäinkomennot</h2>
+<p>Komennot ovat ristiseiskan ja Maijan mukaiset aina, kun merkitys on sama. Uusi toiminto on <kbd>O</kbd>.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Toiminnot</caption>
+  <thead><tr><th scope="col">Näppäin</th><th scope="col">Toiminto</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>S</kbd> <kbd>H</kbd> <kbd>D</kbd> <kbd>C</kbd> + arvo</td><td>Valitse kortti, esimerkiksi <kbd>S</kbd> <kbd>2</kbd> on pata 2. Arvot ovat samat kuin muissa peleissä: <kbd>A</kbd> <kbd>K</kbd> <kbd>Q</kbd> <kbd>J</kbd> <kbd>T</kbd>/<kbd>1</kbd> <kbd>2</kbd>–<kbd>9</kbd>. Valittuna on yksi kortti, ja uusi valinta korvaa edellisen: <span class="speech">Valittu pata 2.</span></td></tr>
+    <tr><td><kbd>L</kbd></td><td>Lyö valittu kortti pöytään.</td></tr>
+    <tr><td><kbd>O</kbd></td><td>Ota valitulla kortilla pöydästä kaikki, minkä sillä saa.</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Poista valinta.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="table-wrap">
+<table>
+  <caption>Lukukomennot</caption>
+  <thead><tr><th scope="col">Näppäin</th><th scope="col">Lukee</th><th scope="col">Muissa peleissä</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>Alt+P</kbd></td><td>Pöytä arvojärjestyksessä: ”Pöydässä 5 korttia: risti ässä, pata 3, hertta 3, ruutu 8, risti jätkä.”</td><td>pöytä</td></tr>
+    <tr><td><kbd>Alt+Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></td><td>Pöydän padat, hertat, ruudut, ristit: ”Pöydässä 2 pataa: 3, kuningas.” Ylärivi on pöytä, keskirivi oma käsi kuten ristiseiskassa.</td><td>sama kuin ristiseiskassa</td></tr>
+    <tr><td><kbd>Alt+A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd></td><td>Oman käden pata, hertta, ruutu, risti.</td><td>sama</td></tr>
+    <tr><td><kbd>Alt+G</kbd></td><td>Koko käsi.</td><td>sama</td></tr>
+    <tr><td><kbd>Alt+O</kbd></td><td>Viimeisin siirto: ”Mikko otti risti 9:llä hertta 4 ja ruutu 5.” tai ”Mikko löi pöytään pata 6.”</td><td>hertassa viimeisin tikki</td></tr>
+    <tr><td><kbd>Alt+V</kbd></td><td>Kenen vuoro.</td><td>sama</td></tr>
+    <tr><td><kbd>Alt+C</kbd></td><td>Kerätyt kortit: ”Sinulla 14 korttia, 5 pataa, ässä, patakakkonen, 1 mökki. Mikko 10 korttia, 3 pataa, 2 ässää.” Kaikki tämä on nähty pelin aikana, joten se on julkista tietoa ja sama kaikille.</td><td>pelikohtainen tieto</td></tr>
+    <tr><td><kbd>Alt+X</kbd></td><td>Pistetilanne: ”Pisteet: sinä 9, Mikko 12. Peli 16 pisteeseen. Siirtyvät pisteet: korttivoitto 1.”</td><td>hertassa pisteet</td></tr>
+    <tr><td><kbd>Alt+Y</kbd></td><td>Yhteenveto: pöytäkoodi, jako, jakaja, pakassa jäljellä, korttimäärät käsissä.</td><td>sama</td></tr>
+    <tr><td><kbd>Alt+I</kbd></td><td>Toista viimeisin ilmoitus.</td><td>sama</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Testattava:</strong> <kbd>Alt+E</kbd>, <kbd>Alt+F</kbd> ja <kbd>Alt+O</kbd> eivät saa avata selaimen valikkoja Chromessa ja Edgessä NVDA:n ja JAWSin kanssa. Ristiseiska ja hertta käyttävät jo näitä samalla <code>preventDefault</code>-tavalla.</p>
+
+<h2 id="ilmoitukset">Ilmoitukset</h2>
+
+<div class="table-wrap">
+<table>
+  <caption>Pelitapahtumat ja niiden tekstit (sinä / muut)</caption>
+  <thead><tr><th scope="col">Tapahtuma</th><th scope="col">Sinulle</th><th scope="col">Muille</th></tr></thead>
+  <tbody>
+    <tr><td><code>start</code>, <code>round-start</code></td><td colspan="2">”Jako 2 alkoi. Jakaja: Mikko. Pöydässä: risti ässä, pata 3, hertta 3, ruutu 8. Vuorossa Liisa.”</td></tr>
+    <tr><td><code>lay</code></td><td>”Löit pöytään pata 6.”</td><td>”Liisa löi pöytään pata 6.”</td></tr>
+    <tr><td><code>take</code></td><td>”Otit hertta jätkällä risti jätkän, ruutu 8 ja pata 3.”</td><td>”Liisa otti hertta jätkällä risti jätkän, ruutu 8 ja pata 3.”</td></tr>
+    <tr><td><code>take</code> + mökki</td><td>”Otit … Mökki!” / kaksinpelissä ”… Kaadoit pelaajan Mikko mökin.”</td><td>”Liisa otti … ja teki mökin.” / ”… ja kaatoi pelaajan Mikko mökin.”</td></tr>
+    <tr><td><code>deal</code> (uudet kortit)</td><td colspan="2">”Uudet kortit. Pakassa 24 korttia.” Viimeisellä kerralla: ”Viimeiset kortit. Mökkejä ei enää lasketa.” Oma uusi käsi luetaan perään: ”Sinulla: pata 2, 9, hertta kuningas, ruutu 5.”</td></tr>
+    <tr><td><code>sweep</code> (jaon loppu)</td><td colspan="2">”Pöytään jääneet 3 korttia menevät pelaajalle Liisa: hertta 3, risti ässä, pata 7.”</td></tr>
+    <tr><td><code>round-over</code></td><td colspan="2">Jaon erittely, ks. <a href="#pisteet">pisteenlasku</a>.</td></tr>
+    <tr><td><code>over</code></td><td colspan="2">”Peli päättyi. Voittaja: Liisa, 17 pistettä. Sijoitukset: 1. Liisa 17, 2. Mikko 13.”</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Vuoroilmoitus</h3>
+<p>Kun oma vuoro alkaa, kuuluu vuoroääni ja ilmoitus ”Sinun vuorosi.” Ilmoitus ei kerro, mitä kannattaisi pelata. Uuden käden jaossa korttien jakoääni (Maijan <code>nosta.mp3</code>) soitetaan kerran.</p>
+
+<h2 id="pisteet">Jaon loppu ja pisteenlasku</h2>
+
+<h3>Jaon erittely</h3>
+<p>Jaon jälkeen jokaiselle luetaan sama erittely ja näytetään se taulukkona:</p>
+<div class="speech">Jako 2 päättyi. Korttivoitto Liisa, 29 korttia, 1 piste. Patavoitto Mikko, 8 pataa, 2 pistettä. Ässät: Liisa 3, Mikko 1. Ruutukymppi Mikko. Patakakkonen Liisa. Mökit: Liisa 1. Jaon pisteet: Liisa 6, Mikko 5. Yhteensä: Liisa 13, Mikko 11.</div>
+<p>Jos korttivoitto tai patavoitto menee tasan: ”Patavoitto tasan, 2 pistettä siirtyy seuraavaan jakoon.” Siirtyvät pisteet kertyvät, jos tasapeli toistuu.</p>
+
+<h3>16 pistettä kesken jaon</h3>
+<p>Säännön mukaan pelin voi lopettaa kesken jaon, kun 16 pistettä tulee täyteen. Palvelin laskee jokaisen oton jälkeen kunkin pelaajan <strong>varmat pisteet</strong>: kokonaispisteet, tämän jaon ässät, patakakkonen, ruutukymppi ja mökit sekä korttivoitto tai patavoitto vain, jos se on jo varma (yli 26 korttia tai vähintään 7 pataa), ja siirtyvät pisteet niiden mukana. Kun joku saavuttaa 16, peli päättyy heti:</p>
+<div class="speech">Liisalla on 16 pistettä. Peli päättyi. Voittaja: Liisa.</div>
+<p>Kaksinpelissä mökin kaatuminen voi pienentää vastustajan pisteitä, joten mökit lasketaan kaatamisen jälkeen.</p>
+
+<h3>Tasapeli</h3>
+<p>Jos jaon lopussa useampi kuin yksi ylittää 16, pisteet lasketaan säännön järjestyksessä: ensin pistekortit ja mökit, sitten korttivoitto ja lopuksi patavoitto. Voittaja on se, joka ensimmäisenä saavuttaa 16. Jos kaksi saavuttaa sen samassa vaiheessa, voittaja on se, jolla on enemmän pisteitä. Täysi tasapeli on <a href="#avoimet">avoin kysymys</a>.</p>
+
+<h2 id="palvelin">Palvelin: pelilogiikka ja protokolla</h2>
+
+<h3><code>kasino/game.js</code></h3>
+<pre><code>class Game {
+  constructor(players, { rng, dealerIndex, progress })  // 2–4 pelaajaa, jakaa ensimmäisen jaon
+  lay(playerId, cardId)       // kortti pöytään
+  take(playerId, cardId)      // bestCapture; virhe, jos ei saa mitään
+  nextRound(playerId, name)   // kuten hertassa: vain round-over-vaiheessa
+  startInfo()                 // { round, table } aloitustapahtumaan
+  toProgress() / applyProgress(progress)   // tallennus jakojen välissä
+  getView(viewerId)
+  static publicEvent(event, viewerId)
+}</code></pre>
+<p>Jokainen metodi palauttaa tapahtumalistan kuten muissa peleissä, esimerkiksi <code>[take, deal]</code> tai <code>[lay, sweep, round-over, over]</code>. Kun viimeinen käsi on pelattu, sama kutsu hoitaa myös pöydän kortit viimeksi ottaneelle (<code>sweep</code>) ja pisteenlaskun. Virheet ovat <code>GameError</code>-olioita, joiden suomenkielinen viesti näytetään sellaisenaan. <code>moves</code>-laskuri kasvaa jokaisesta siirrosta robottien ajastusta varten.</p>
+<p><code>publicEvent</code> poistaa <code>deal</code>-tapahtumasta muiden pelaajien uudet kortit. Muut tapahtumat ovat julkisia, koska otot ja lyönnit tehdään näkyvästi.</p>
+
+<h3>Näkymä (<code>getView</code>)</h3>
+<pre><code>{
+  phase: 'play' | 'round-over' | 'over',
+  round: 2,
+  hand: [...],                        // vain katsojan oma
+  table: [...],                       // pöydän kortit arvojärjestyksessä
+  deckCount: 24,
+  lastHand: false,                    // pakka tyhjä → mökkejä ei lasketa
+  players: [{ id, name, cardCount, pile: { cards, spades, aces, smallCasino, bigCasino },
+              cabins, score, roundPoints }],
+  currentId, dealerId, lastTakerId,
+  lastMove: { type: 'lay' | 'take', playerId, card, taken: [...] },
+  carry: { cards: 0, spades: 2 },     // siirtyvät pisteet
+  roundResult,                        // erittely round-over-vaiheessa
+  history, winnerIds,
+  allowedActions: ['lay', 'take', 'next-round'],
+  moves
+}</code></pre>
+<p>Kerättyjen korttien määrät ovat näkymässä kaikille, koska jokainen otto on julkinen tapahtuma. Pinon kortteja ei lähetetä, vain määrät ja pistekortit.</p>
+
+<h3>Socket.IO-tapahtumat</h3>
+<div class="table-wrap">
+<table>
+  <caption>Selaimelta palvelimelle (odotushuone, tallennus ja jatkaminen kuten hertassa)</caption>
+  <thead><tr><th scope="col">Tapahtuma</th><th scope="col">Data</th><th scope="col">Kutsuu</th></tr></thead>
+  <tbody>
+    <tr><td><code>lay</code></td><td><code>{ cardId }</code></td><td><code>game.lay</code></td></tr>
+    <tr><td><code>take</code></td><td><code>{ cardId }</code></td><td><code>game.take</code></td></tr>
+    <tr><td><code>next-round</code></td><td><code>{}</code></td><td><code>game.nextRound</code>, vain pöydän luoja</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Palvelimelta selaimelle lähtevät samat <code>state</code>, <code>game-event</code>, <code>action-error</code>, <code>joined</code>, <code>choose-player</code> ja muut kuin hertassa.</p>
+
+<h2 id="robotti">Robotti</h2>
+<p>Robotti näkee vain oman näkymänsä. Ensimmäisessä versiossa yksinkertainen pisteytys riittää:</p>
+<ul>
+  <li><strong><code>decideMove</code>:</strong> jokaiselle kädessä olevalle kortille lasketaan <code>bestCapture</code>. Otto pisteytetään: kortit, padat, pistekortit (ruutukymppi ja patakakkonen painavat eniten), mökki. Paras otto tehdään, jos sen arvo ylittää kynnyksen.</li>
+  <li><strong>Lyönti:</strong> jos mitään ei kannata ottaa, lyödään vähiten arvokas kortti. Pistekortteja, patoja ja ässiä ei lyödä, jos muuta on. Vältetään korttia, jonka jälkeen seuraava pelaaja voisi tyhjentää pöydän yhdellä tavallisella kortilla (pöydän summa 2–13).</li>
+  <li><strong>Muisti:</strong> robotti voi käyttää näkymän julkisia tietoja, kuten kerättyjä ässiä ja patoja. Muiden käsiä se ei näe.</li>
+  <li><strong>Varmistus:</strong> jos palvelin hylkää päätöksen, robotti tekee satunnaisen sallitun siirron (<code>randomMove</code>: lyö satunnainen kortti), kuten muissa peleissä.</li>
+</ul>
+
+<h2 id="tiedostot">Tiedostot ja yhteinen koodi</h2>
+
+<pre><code>kasino/
+  game.js            pelilogiikka
+  game.test.js
+  robotti.js
+  robotti.test.js
+  socket.js          attach(io, { app }) → nimiavaruus /kasino
+  socket.test.js
+public/kasino/
+  index.html
+  ohje.html          säännöt ja näppäinkomennot
+  css/kasino.css
+  js/saannot.js      UMD: arvot, bestCapture, pisteet (palvelin + selain)
+  js/kasino.js</code></pre>
+
+<div class="verdict">
+  <p><strong>Yhteiseen koodiin tarvitaan vain yksi muutos.</strong></p>
+  <ul>
+    <li><code>korttipelit/poydat.js</code>: <code>validSnapshot</code> vaatii nyt, että tallennetussa pöydässä on tasan <code>maxPlayers</code> jäsentä. Hertassa pelaajia on aina 4, mutta kasinossa 2–4. Ehto muutetaan muotoon <code>minPlayers ≤ jäseniä ≤ maxPlayers</code>, ja <code>Tables.restore</code> välittää molemmat rajat. Hertan nykyiset testit varmistavat, ettei hertta rikkoudu.</li>
+    <li><code>server.js</code>-tiedostoon lisätään rivi <code>require('./kasino/socket').attach(io, { app });</code>.</li>
+    <li><code>package.json</code>-tiedoston <code>test</code>-komentoon lisätään kasinon testit.</li>
+    <li><code>localStorage</code>-avaimet saavat etuliitteen <code>kasino-</code>, ja pöytäkoodi näkyy osoitteessa muodossa <code>?poyta=1234</code> kuten ristiseiskassa.</li>
+    <li>Etusivulle ja muiden korttipelien aloitussivuille lisätään linkki kasinoon.</li>
+    <li>Toistuva selainkoodi (ilmoitusjono, odotushuone, vahvistusikkuna) kopioidaan nyt neljännen kerran. Sen erottaminen yhteiseksi tiedostoksi kannattaa tehdä omana muutoksenaan kasinon jälkeen, ei tämän työn osana.</li>
+  </ul>
+</div>
+
+<h2 id="testaus">Testaus</h2>
+<ul>
+  <li><strong><code>saannot</code>:</strong> käsi- ja pöytäarvot (ässä 14/1, ♠2 15/2, ♦10 16/10); <code>bestCapture</code> ottaa samanarvoiset ja summat; ässä ei ota pöydän ässää mutta ottaa ässän ja kuninkaan (1 + 13); patakakkonen ei ota kakkosta eikä ruutukymppi kymppiä; erilliset ryhmät eivät jaa kortteja; suurin korttimäärä voittaa (yllä oleva pata 2 -esimerkki); tasatilanteessa pisteet ja padat ratkaisevat; tyhjä pöytä palauttaa <code>null</code>.</li>
+  <li><strong><code>game.test.js</code>:</strong> jako 2–4 pelaajalle ja oikea määrä käsiä (6, 4, 3); uudet kortit jaetaan vasta, kun kaikki kädet ovat tyhjät; etukäsi aloittaa; <code>lay</code> sallitaan, vaikka voisi ottaa; <code>take</code> hylätään, jos ei saa mitään; mökki tehdään, kaatuu kaksinpelissä eikä synny viimeisessä kädessä; pöydän loput menevät viimeksi ottaneelle; pisteet ja siirtyvät pisteet; 16 pisteen tarkistus kesken jaon ja jaon lopussa järjestyksessä pistekortit, kortit, padat; jakaja kiertää; <code>toProgress</code> ja <code>applyProgress</code>.</li>
+  <li><strong>Salaisuus:</strong> <code>getView</code> ei paljasta muiden käsiä eikä pakan järjestystä, ja <code>publicEvent</code> poistaa muiden uudet kortit <code>deal</code>-tapahtumasta.</li>
+  <li><strong>Robotit:</strong> pelkillä roboteilla pelattu peli päättyy aina 2, 3 ja 4 pelaajalla (esim. 1 000 peliä kiinteällä siemenellä), eikä yksikään robotin siirto hylätä.</li>
+  <li><strong><code>socket.test.js</code>:</strong> pöydän luonti, liittyminen, robotit, <code>lay</code>/<code>take</code>, <code>next-round</code> vain luojalta ja tallennus 2- ja 3-pelaajan pöydälle.</li>
+  <li><strong>Käsin NVDA:lla ja JAWSilla:</strong> <kbd>O</kbd> ja <kbd>L</kbd> toimivat selaustilan ulkopuolella; Alt-komennot eivät avaa selaimen valikkoja; oton ilmoitus ja uuden käden ilmoitus eivät katkaise toisiaan; jaon erittely luetaan kokonaan.</li>
+</ul>
+
+<h2 id="avoimet">Avoimet kysymykset</h2>
+<p>Nämä kannattaa lukita ennen koodausta. Ehdotettu oletus on mainittu ensimmäisenä.</p>
+
+<div class="open-q">
+  <h3>1. Saako pelaaja valita, mitä ottaa?</h3>
+  <p><strong>Ehdotus:</strong> ei ensimmäisessä versiossa. <kbd>O</kbd> ottaa aina suurimman mahdollisen oton, kuten <code>kasino.txt</code> ehdottaa. Oikeassa pelissä joskus jätetään kortti tarkoituksella pöytään, mutta se on harvinaista ja vaatisi pöydän korttien valintatilan. Se voidaan lisätä myöhemmin, esimerkiksi niin, että <kbd>Shift+O</kbd> avaa valinnan.</p>
+</div>
+
+<div class="open-q">
+  <h3>2. Lopetetaanko peli automaattisesti 16 pisteessä?</h3>
+  <p><strong>Ehdotus:</strong> kyllä. Palvelin laskee varmat pisteet jokaisen siirron jälkeen ja lopettaa pelin. Vaihtoehtoisesti pelaaja ilmoittaa itse (esim. <kbd>Alt+L</kbd> ”lopetan”), ja väärä ilmoitus hylätään. Automaattinen lopetus on tasapuolinen, koska ruudunlukijan käyttäjän ei tarvitse pitää pisteitä mielessä muita tarkemmin.</p>
+</div>
+
+<div class="open-q">
+  <h3>3. Täysi tasapeli</h3>
+  <p><strong>Ehdotus:</strong> jos kaksi pelaajaa saavuttaa 16 samassa laskuvaiheessa samoilla pisteillä, pelataan vielä yksi jako. Vaihtoehtoisesti tasapeli kirjataan jaetuksi voitoksi kuten hertassa.</p>
+</div>
+
+<div class="open-q">
+  <h3>4. Kerrotaanko pelaajalle, mitä valitulla kortilla saisi?</h3>
+  <p><strong>Ehdotus:</strong> ei. Muissakaan peleissä ei kerrota pelattavia kortteja. Summien laskeminen on kasinon ydin, ja <kbd>Alt+P</kbd> lukee pöydän arvojärjestyksessä, mikä helpottaa laskemista. Jos testaajat pitävät summien muistamista ruudunlukijalla liian raskaana, valinnainen ”apu”-asetus voisi lukea valinnan yhteydessä: ”O ottaisi 3 korttia.”</p>
+</div>
+
+<div class="open-q">
+  <h3>5. Mökit 3–4 pelaajalla</h3>
+  <p><strong>Ehdotus:</strong> sääntöteksti mainitsee kaatamisen vain kaksinpelissä, joten 3–4 pelaajalla mökki tulee aina itselle. Vaihtoehtoisesti kaadetaan sen pelaajan mökki, jolla mökkejä on eniten.</p>
+</div>
+
+<h2 id="jarjestys">Toteutusjärjestys</h2>
+
+<div class="phase">
+  <h3>Vaihe 1: Säännöt ja pelilogiikka</h3>
+  <p><code>public/kasino/js/saannot.js</code>, <code>kasino/game.js</code> ja niiden testit.</p>
+  <p class="done-when">Valmis, kun koko peli 16 pisteeseen voidaan pelata testeissä 2, 3 ja 4 pelaajalla, myös mökit, siirtyvät pisteet ja lopetus kesken jaon.</p>
+</div>
+<div class="phase">
+  <h3>Vaihe 2: Robotti ja Socket.IO</h3>
+  <p><code>kasino/robotti.js</code>, <code>kasino/socket.js</code> (kopio hertasta), liitos <code>server.js</code>-tiedostoon ja testikomentoon.</p>
+  <p class="done-when">Valmis, kun 1 000 pelkkien robottien peliä päättyy ilman hylättyjä siirtoja.</p>
+</div>
+<div class="phase">
+  <h3>Vaihe 3: Selainohjelma</h3>
+  <p>Aloitussivu ja odotushuone kopioidaan ristiseiskasta. Sen jälkeen tehdään pöytä, oma käsi, <kbd>L</kbd>- ja <kbd>O</kbd>-toiminnot, lukukomennot, ilmoitukset ja jaon erittely.</p>
+  <p class="done-when">Valmis, kun peli on pelattavissa pelkällä näppäimistöllä ja ruudunlukijalla robotteja vastaan.</p>
+</div>
+<div class="phase">
+  <h3>Vaihe 4: Tallennus</h3>
+  <p><code>validSnapshot</code>-muutos tiedostoon <code>poydat.js</code>, tallennus ja jatkaminen kuten hertassa.</p>
+  <p class="done-when">Valmis, kun hertan testit menevät läpi muuttamattomina ja 2-pelaajan kasinopöytä jatkuu tallennuksesta.</p>
+</div>
+<div class="phase">
+  <h3>Vaihe 5: Ohje ja linkit</h3>
+  <p><code>ohje.html</code> (säännöt ja näppäinkomennot), linkit etusivulta ja muista korttipeleistä sekä NVDA- ja JAWS-testaus.</p>
+</div>
+
+</main>
+
+<footer>
+  <p>Suunnitelma perustuu tiedostoihin <code>kasino.txt</code>, <code>korttipelit/poydat.js</code>, <code>korttipelit/tallennus.js</code>, <code>hertta/game.js</code>, <code>hertta/socket.js</code>, <code>public/ristiseiska/js/ristiseiska.js</code> ja <code>public/hertta/js/hertta.js</code>. Laadittu 27.10.2026.</p>
+</footer>
+</body>
+</html>

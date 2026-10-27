@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ohje – Kasino</title>
+    <link rel="stylesheet" href="../maija/css/maija.css">
+    <style>
+        .guide p, .guide li { max-width: 42rem; }
+        .guide table { border-collapse: collapse; width: 100%; background: var(--surface); }
+        .guide th, .guide td { border: 1px solid var(--rule); padding: .5rem .75rem; text-align: left; vertical-align: top; }
+        .guide thead th { background: var(--area-bg); }
+        .table-wrap { overflow-x: auto; }
+        kbd { font-family: Consolas, "Courier New", monospace; border: 1px solid var(--area-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 .3em; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Siirry sisältöön</a>
+    <header class="site-header">
+        <h1>Kasino – ohje</h1>
+        <nav aria-label="Takaisin" class="header-tools"><a href="index.html">Takaisin peliin</a></nav>
+    </header>
+    <main id="main" class="guide">
+        <h2>Ruudunlukijan käyttäjille</h2>
+        <p>Peli toimii parhaiten, kun ruudunlukuohjelman <strong>lomaketila</strong> on päällä. Silloin pelin yhden näppäimen komennot, kuten <kbd>S</kbd> ja <kbd>2</kbd>, <kbd>L</kbd> tai <kbd>O</kbd>, menevät peliin eivätkä ruudunlukijalle. NVDA:ssa lomaketila kytketään päälle ja pois näppäimillä <kbd>Insert</kbd>+<kbd>Välilyönti</kbd>, JAWSissa näppäimillä <kbd>Insert</kbd>+<kbd>Z</kbd>.</p>
+
+        <h2>Säännöt lyhyesti</h2>
+        <ul>
+            <li>Peliä pelataan 52 kortin pakalla, ja siihen tarvitaan 2–4 pelaajaa. Tavoitteena on kerätä kortteja, etenkin patoja ja pistekortteja.</li>
+            <li>Jakaja antaa jokaiselle 4 korttia ja 4 korttia pöytään kuvapuoli ylöspäin. Kun kaikkien kädet ovat tyhjät, jokaiselle jaetaan 4 uutta korttia. Pöytään ei lisätä enää kortteja.</li>
+            <li>Jakajaa seuraava aloittaa. Vuorossa pelataan aina yksi kortti kädestä.</li>
+            <li>Numerokorttien arvo on niiden silmäluku. Jätkä on 11, rouva 12 ja kuningas 13. Ässä on kädessä 14 ja pöydässä 1. Patakakkonen (pieni kasino) on kädessä 15 ja pöydässä 2. Ruutukymppi (iso kasino) on kädessä 16 ja pöydässä 10.</li>
+            <li>Kortilla otetaan pöydästä kortit, joiden arvo on sama, ja korttiryhmät, joiden summa on kortin arvo. Esimerkiksi jätkällä saa jätkät ja kortit, joiden summa on 11, kuten 8 ja 3. Otto perustuu käsiarvoon: ässällä ei saa pöydän ässää, vaan kortteja, joiden summa on 14.</li>
+            <li>Jos et voi tai halua ottaa, pelattu kortti jää pöytään.</li>
+            <li>Jos tyhjennät koko pöydän, teet <strong>mökin</strong>. Kaksinpelissä, jos vastustajalla on mökkejä, mökkiä ei saa itselle, vaan yksi vastustajan mökeistä kaatuu. Kun pakka on tyhjä (viimeinen käsi), mökkejä ei lasketa.</li>
+            <li>Kun kaikki kortit on pelattu, pöytään jääneet kortit menevät sille, joka otti viimeksi.</li>
+            <li>Pisteet jaon jälkeen: eniten kortteja 1, eniten patoja 2, jokainen ässä 1, ruutukymppi 2, patakakkonen 1 ja jokainen mökki 1. Jos korttivoitto tai patavoitto menee tasan, sen pisteet siirtyvät seuraavaan jakoon.</li>
+            <li>Peli on 16 pisteeseen. Peli päättyy kesken jaon heti, kun jollakulla on varmasti 16 pistettä. Jos jaon lopussa useampi ylittää 16, pisteet lasketaan järjestyksessä pistekortit ja mökit, kortit, padat, ja ensimmäisenä 16 saavuttanut voittaa.</li>
+            <li>Peli ei kerro, mitä kannattaa pelata. Laske summat itse pöydästä ja kädestäsi.</li>
+        </ul>
+
+        <h2>Pöytä</h2>
+        <p>Pöydän kortit ovat rivissä arvojärjestyksessä pienimmästä suurimpaan. Viimeksi lyöty kortti on korostettu, ja otetut kortit näkyvät hetken keltaisina katkoviivareunuksin ennen kuin ne poistuvat. Pöydän otsikko kertoo viimeisimmän siirron.</p>
+
+        <h2>Pöydät, robotit ja tallennus</h2>
+        <ul>
+            <li><strong>Luo pöytä</strong> antaa nelinumeroisen pöytäkoodin. Muut liittyvät kohdassa <strong>Liity pöytään</strong>.</li>
+            <li>Vain <strong>pöydän luoja</strong> voi lisätä ja poistaa robotteja, aloittaa ja keskeyttää pelin ja aloittaa seuraavan jaon. Pöydässä on enintään neljä pelaajaa ihmiset ja robotit yhteensä.</li>
+            <li><strong>Robottien nopeus</strong> määrää, kauanko robotti odottaa ennen siirtoaan. Odotukseen lisätään edellisen ilmoituksen lukemiseen kuluva aika.</li>
+            <li>Pöydän luoja voi valita <strong>Tallenna pöytä 5 vuorokaudeksi</strong>. Pöytä tallennetaan jokaisen jaon jälkeen, ja peliä voi jatkaa myöhemmin samalla pöytäkoodilla. Kesken jäänyt jako jaetaan uudelleen.</li>
+            <li>Jos lataat sivun uudelleen, palaat samaan pöytään ja samalle paikalle.</li>
+        </ul>
+
+        <h2>Korttien valinta näppäimistöllä</h2>
+        <p>Kortti valitaan painamalla ensin maata ja sitten arvoa. Esimerkiksi <kbd>S</kbd> ja sitten <kbd>2</kbd> valitsee kortin pata 2. Valittuna on kerrallaan yksi kortti. Kun kortti on valittu, paina <kbd>L</kbd> lyödäksesi sen pöytään tai <kbd>O</kbd> ottaaksesi sillä pöydästä.</p>
+        <div class="table-wrap">
+        <table>
+            <caption class="sr-only">Maat ja arvot</caption>
+            <thead><tr><th scope="col">Näppäin</th><th scope="col">Merkitys</th></tr></thead>
+            <tbody>
+                <tr><td><kbd>S</kbd></td><td>pata</td></tr>
+                <tr><td><kbd>H</kbd></td><td>hertta</td></tr>
+                <tr><td><kbd>D</kbd></td><td>ruutu</td></tr>
+                <tr><td><kbd>C</kbd></td><td>risti</td></tr>
+                <tr><td><kbd>A</kbd> <kbd>K</kbd> <kbd>Q</kbd> <kbd>J</kbd></td><td>ässä, kuningas, rouva, jätkä</td></tr>
+                <tr><td><kbd>T</kbd> tai <kbd>1</kbd></td><td>10</td></tr>
+                <tr><td><kbd>2</kbd>–<kbd>9</kbd></td><td>2–9</td></tr>
+            </tbody>
+        </table>
+        </div>
+
+        <h2>Ottaminen</h2>
+        <p><kbd>O</kbd> ottaa valitulla kortilla pöydästä kaiken, minkä sillä saa. Jos saman kortin voi käyttää useaan summaan, peli valitsee yhdistelmän, jossa on eniten kortteja, ja tasatilanteessa eniten pisteitä ja patoja. Esimerkki: pöydässä on risti ässä, pata 3, hertta 3, ruutu 8 ja risti jätkä.</p>
+        <ul>
+            <li>Hertta jätkällä saat risti jätkän sekä ruutu 8:n ja pata 3:n (8 + 3 = 11).</li>
+            <li>Patakakkosella (15) saat ruutu 8:n, pata 3:n, hertta 3:n ja risti ässän (8 + 3 + 3 + 1 = 15).</li>
+        </ul>
+        <p>Jos kortilla ei saa mitään, peli kertoo sen, ja kortti jää käteen valituksi. Voit silloin lyödä sen <kbd>L</kbd>:llä tai valita toisen kortin.</p>
+
+        <h2>Kaikki näppäinkomennot</h2>
+        <p>Komennot eivät toimi, kun kirjoitat tekstikenttään.</p>
+        <div class="table-wrap">
+        <table>
+            <caption class="sr-only">Näppäinkomennot</caption>
+            <thead><tr><th scope="col">Näppäin</th><th scope="col">Toiminto</th></tr></thead>
+            <tbody>
+                <tr><td>Maa + arvo, esim. <kbd>S</kbd> <kbd>2</kbd></td><td>Valitse kortti. Saman kortin valinta uudelleen poistaa valinnan.</td></tr>
+                <tr><td><kbd>L</kbd></td><td>Lyö valittu kortti pöytään. Jaon päätyttyä pöydän luoja aloittaa L:llä seuraavan jaon.</td></tr>
+                <tr><td><kbd>O</kbd></td><td>Ota valitulla kortilla pöydästä kaikki, minkä sillä saa.</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Poista valinta.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>P</kbd></td><td>Pöydän kortit arvojärjestyksessä, esim. "Pöydässä 5 korttia: risti ässä, pata 3, hertta 3, ruutu 8, risti jätkä."</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>Q</kbd></td><td>Pöydän padat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>W</kbd></td><td>Pöydän hertat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>E</kbd></td><td>Pöydän ruudut.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>R</kbd></td><td>Pöydän ristit.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>A</kbd></td><td>Lue omat padat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Lue omat hertat.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>D</kbd></td><td>Lue omat ruudut.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>F</kbd></td><td>Lue omat ristit.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>G</kbd></td><td>Lue koko käsi.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>O</kbd></td><td>Viimeisin siirto.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>V</kbd></td><td>Kenen vuoro on.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>C</kbd></td><td>Kerätyt kortit: kortit, padat, ässät, kasinot ja mökit kaikilta pelaajilta.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>X</kbd></td><td>Pistetilanne ja seuraavaan jakoon siirtyvät pisteet.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>Y</kbd></td><td>Yhteenveto: pöytäkoodi, jako, jakaja, pakassa jäljellä ja korttimäärät käsissä.</td></tr>
+                <tr><td><kbd>Alt</kbd>+<kbd>I</kbd></td><td>Toista viimeisin ilmoitus.</td></tr>
+            </tbody>
+        </table>
+        </div>
+        <p>Ylärivin <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> ovat pöytä ja niiden alla olevat <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> oma käsi, samassa maajärjestyksessä.</p>
+
+        <h2>Hiiri ja kosketusnäyttö</h2>
+        <p>Valitse kortti napauttamalla sitä. Painike <em>Lyö valittu</em> tekee saman kuin <kbd>L</kbd> ja <em>Ota valitulla</em> saman kuin <kbd>O</kbd>. Painikkeet ovat käytettävissä, kun on vuorosi ja olet valinnut kortin.</p>
+
+        <h2>Asetukset</h2>
+        <p><em>Äänet</em> kytkee pelin äänet päälle ja pois. <em>Puhesynteesi</em> lukee ilmoitukset selaimen suomenkielisellä puheella. Jos käytät ruudunlukijaa, puhesynteesi kannattaa pitää pois päältä.</p>
+    </main>
+</body>
+</html>

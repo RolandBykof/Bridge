@@ -1,6 +1,6 @@
 'use strict';
 // Pöydät: jäsenet istumajärjestyksessä, pöydän luoja, robotit ja jakovuoro.
-// Yhteinen Musta Maijalle, ristiseiskalle ja hertalle. Peli annetaan parametrina:
+// Yhteinen Musta Maijalle, ristiseiskalle, hertalle ja kasinolle. Peli annetaan parametrina:
 //
 //   new Tables({ createGame: (players, { rng, dealerIndex }) => new Game(...),
 //                minPlayers: 2, maxPlayers: 5 })
@@ -8,7 +8,7 @@
 // Pelin on tarjottava startInfo(), jonka kentät lisätään aloitustapahtumaan.
 // Ei tiedä mitään yhteyksistä, joten tämän voi testata suoraan.
 //
-// Tallennettava peli (Hertta) antaa lisäksi restoreGame(players, progress, { rng })
+// Tallennettava peli (Hertta, Kasino) antaa lisäksi restoreGame(players, progress, { rng })
 // ja isReserved(code). Jatketun pelin on tarjottava startEvents (jaon aloituksen
 // tapahtumat) ja dealer (jakajan indeksi). Pöydän jäsenet saa talteen toSnapshot()-metodilla, ja
 // Tables.restore() herättää pöydän tilaan, jossa se odottaa tallennetun pelin
@@ -417,8 +417,10 @@ class Table {
     }
 }
 
-function validSnapshot(snapshot, maxPlayers) {
-    return !!snapshot && Array.isArray(snapshot.members) && snapshot.members.length === maxPlayers
+// Tallennetussa pöydässä on pelin pelaajat: minPlayers–maxPlayers jäsentä.
+function validSnapshot(snapshot, minPlayers, maxPlayers) {
+    return !!snapshot && Array.isArray(snapshot.members)
+        && snapshot.members.length >= minPlayers && snapshot.members.length <= maxPlayers
         && snapshot.members.every(m => m && typeof m.id === 'string' && typeof m.name === 'string'
             && (m.type === 'robot' || (m.type === 'human' && typeof m.token === 'string'))
             && Number.isInteger(m.seat))
@@ -451,7 +453,7 @@ class Tables {
     // Herättää tallennetun pöydän muistiin. Ihmiset ovat aluksi poissa, ja pöytä
     // odottaa, että he palaavat (resume). Palauttaa null, jos tallennus ei kelpaa.
     restore(snapshot) {
-        if (!validSnapshot(snapshot, this.gameOptions.maxPlayers)) return null;
+        if (!validSnapshot(snapshot, this.gameOptions.minPlayers, this.gameOptions.maxPlayers)) return null;
         const now = this.now();
         const table = new Table(snapshot.code, { rng: this.rng, now: this.now, ...this.gameOptions });
         table.members = snapshot.members.map(m => ({
