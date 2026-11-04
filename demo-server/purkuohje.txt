@@ -46,14 +46,14 @@ Tee commit (esim. viesti "Poista DAISY Online -demopalvelin") ja push
 main-haaraan. GitHub Actions vie muutoksen Azureen automaattisesti.
 
 
-5. POISTA ASETUKSET AZURESTA
+5. TARKISTA AZUREN ASETUKSET
 ----------------------------
 
 1. Avaa Azure Portalissa Web App "Accessiblebridge".
 2. Valitse Settings > Environment variables > App settings.
-3. Poista demon asetukset, jos niitä on lisätty:
-   DEMO_USERNAME, DEMO_PASSWORD, INITIAL_LOANS, LOAN_DAYS,
-   STATE_RESET_HOURS, SESSION_IDLE_MINUTES, BOOKS_DIR ja PUBLIC_BASE_URL.
+3. Demo ei oletuksena käytä Azuren asetuksia. Jos niitä on kuitenkin
+   lisätty, poista ne: INITIAL_LOANS, LOAN_DAYS, STATE_RESET_HOURS,
+   SESSION_IDLE_MINUTES, BOOKS_DIR ja PUBLIC_BASE_URL.
    Tarkista ennen poistoa, ettei Bridge itse käytä samannimistä asetusta.
 4. Tallenna (Apply).
 

@@ -32,19 +32,28 @@ osoite. Jos kirjoja on 0, kirjat puuttuvat tai ne ovat väärässä kansiossa.
 2. TUNNUS JA SALASANA
 ---------------------
 
-Tunnus ja salasana asetetaan Azuressa, ei koodissa:
+Tunnus ja salasana on sovittu erikseen, eikä niitä ole kirjoitettu
+tähän ohjeeseen eikä koodiin. Kysy ne demon ylläpitäjältä. Tunnuksessa ja
+salasanassa isot ja pienet kirjaimet ovat eri merkkejä.
 
-1. Avaa Azure Portalissa Web App "Accessiblebridge".
-2. Valitse Settings > Environment variables > App settings.
-3. Lisää asetukset:
-   - DEMO_USERNAME: käyttäjätunnus, esimerkiksi appreview
-   - DEMO_PASSWORD: vahva salasana
-4. Tallenna (Apply). Palvelin käynnistyy uudelleen.
+Tiedostossa server.js on tunnuksista vain tiiviste (CREDENTIALS_SALT ja
+CREDENTIALS_HASH). Siitä palvelin voi tarkistaa kirjautumisen, mutta
+tunnuksia ei saa siitä selville. Azureen ei tarvitse lisätä mitään
+asetuksia.
 
-Jos asetuksia ei ole, tunnus ja salasana ovat molemmat "demo". Älä jätä
-oletuksia käyttöön, koska palvelin on julkisesti internetissä.
+Tunnusten vaihtaminen:
 
-Muita valinnaisia asetuksia:
+1. Aja PowerShellissä komento (vaihda tunnus ja salasana omiksi):
+
+   node -e "const c=require('crypto');const s=c.randomBytes(16).toString('hex');console.log(s, c.scryptSync('tunnus:salasana', s, 32).toString('hex'))"
+
+2. Komento tulostaa kaksi arvoa. Kopioi server.js:ssä ensimmäinen
+   kohtaan CREDENTIALS_SALT ja toinen kohtaan CREDENTIALS_HASH.
+3. Tee commit ja push. Komentoa ei tallenneta mihinkään, joten uudet
+   tunnukset eivät mene repoon.
+
+Valinnaisia asetuksia, jotka voi tarvittaessa lisätä Azuressa kohdassa
+Settings > Environment variables > App settings:
    - INITIAL_LOANS: montako kirjaa on alussa valmiiksi lainassa (oletus 1)
    - LOAN_DAYS: lainan pituus päivinä (oletus 30)
    - STATE_RESET_HOURS: lainat palautuvat alkutilaan, kun palvelinta ei ole
@@ -121,7 +130,6 @@ Huomioita:
 
 PowerShellissä Bridge-kansiossa:
 
-  $env:DEMO_PASSWORD = "oma-salasana"
   npm start
 
 Avaa selaimella http://localhost:3000/daisy-demo/ (tai se portti, jonka

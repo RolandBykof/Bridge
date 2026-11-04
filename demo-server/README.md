@@ -59,7 +59,6 @@ käynnistettävä uudelleen.
 PowerShellissä tässä kansiossa:
 
 ```powershell
-$env:DEMO_PASSWORD = "oma-salasana"
 node server.js
 ```
 
@@ -81,14 +80,9 @@ Sama tapa kuin muissakin Node.js-palvelimissa:
      Sovellus odottaa vastausta 30 sekuntia, joten se ei haittaa.
    - Jos haluat varmuuden, käytä B1-tasoa ja kytke päälle
      **Always On**.
-2. Asetukset: Settings > Environment variables > App settings:
-
-   | Nimi | Arvo |
-   |---|---|
-   | `DEMO_USERNAME` | esim. `appreview` (oletus `demo`) |
-   | `DEMO_PASSWORD` | vahva salasana (**pakollinen**, oletus on `demo`) |
-
-   Valinnaiset:
+2. Tunnukset ovat `server.js`:ssä tiivisteenä (`CREDENTIALS_SALT` ja
+   `CREDENTIALS_HASH`), ks. `kayttoohje.txt` kohta 2. Valinnaiset asetukset
+   kohdassa Settings > Environment variables > App settings:
 
    | Nimi | Oletus | Merkitys |
    |---|---|---|
@@ -180,6 +174,7 @@ inactivity.
 
 - Palvelin ei tallenna mitään levylle eikä kerää käyttäjätietoja. Lokiin
   menee vain operaation nimi ja aikaleima, ei tunnuksia.
-- Salasana on vain Azuren App settingsissä, ei koodissa eikä repossa.
+- Tunnukset eivät ole koodissa eivätkä repossa selväkielisinä, vain
+  tiivisteenä.
 - Kirjatiedostot ovat ladattavissa ilman kirjautumista, jos tietää niiden
   osoitteen. Siksi palvelimelle laitetaan vain vapaasti jaettavia kirjoja.

@@ -27,8 +27,13 @@ const crypto = require('crypto');
 // ─── Asetukset ympäristömuuttujista ─────────────────────────────────────────
 
 const PORT = Number(process.env.PORT) || 8080;
-const DEMO_USERNAME = process.env.DEMO_USERNAME || 'demo';
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'demo';
+// Demotunnukset. Repoon tallennetaan vain tiiviste (scrypt) muodosta
+// "tunnus:salasana", jotta tunnukset eivät näy repossa. Uuden tiivisteen saa
+// komennolla (vaihda tunnus ja salasana):
+//   node -e "const c=require('crypto');const s=c.randomBytes(16).toString('hex');console.log(s, c.scryptSync('tunnus:salasana', s, 32).toString('hex'))"
+// Ensimmäinen arvo on CREDENTIALS_SALT, toinen CREDENTIALS_HASH.
+const CREDENTIALS_SALT = 'e653bca453a6371c8b3e944ff92e70ce';
+const CREDENTIALS_HASH = '16a6ac4d1a06b1530da1b4978ef77d96754e5483e40f1e5bc47fd5552d7a977a';
 const BOOKS_DIR = path.resolve(process.env.BOOKS_DIR || path.join(__dirname, 'books'));
 // Julkinen perusosoite, esim. "https://lammio-demo.azurewebsites.net". Jos
 // tyhjä, päätellään pyynnön otsakkeista (Azure välittää X-Forwarded-Proton).
@@ -46,9 +51,10 @@ const SERVICE_PATH = '/daisyonline/service';
 const BOOKS_PATH = '/books/';
 const NS = 'http://www.daisy.org/ns/daisy-online/';
 
-if (!process.env.DEMO_PASSWORD) {
-  console.warn('VAROITUS: DEMO_PASSWORD puuttuu, käytetään oletussalasanaa "demo". ' +
-    'Aseta oma salasana ennen julkaisua.');
+function credentialsOk(username, password) {
+  if (username === null || password === null) return false;
+  const hash = crypto.scryptSync(`${username}:${password}`, CREDENTIALS_SALT, 32);
+  return crypto.timingSafeEqual(hash, Buffer.from(CREDENTIALS_HASH, 'hex'));
 }
 
 // ─── Kirjaluettelo ─────────────────────────────────────────────────────────
@@ -337,8 +343,7 @@ function requireBook(body) {
 
 const operations = {
   logOn(body, ctx) {
-    const ok = param(body, 'username') === DEMO_USERNAME &&
-      param(body, 'password') === DEMO_PASSWORD;
+    const ok = credentialsOk(param(body, 'username'), param(body, 'password'));
     if (ok) {
       const token = crypto.randomBytes(16).toString('hex');
       sessions.set(token, Date.now());
