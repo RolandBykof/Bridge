@@ -1,0 +1,13 @@
+{
+  "name": "lammio-reader-demo-server",
+  "version": "1.0.0",
+  "description": "DAISY Online demo server for Lammio Reader App Store review",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

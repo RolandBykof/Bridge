@@ -1,0 +1,81 @@
+DAISY ONLINE -DEMOPALVELIMEN PURKUOHJE
+======================================
+
+Demopalvelin on tilapäisesti liitetty Accessible Bridge -palvelimeen.
+Kun Applen tarkastus on ohi eikä demoa enää tarvita, se puretaan näin.
+Accessible Bridgen muu toiminta ei muutu.
+
+
+1. POISTA LIITOS PÄÄPALVELIMESTA
+--------------------------------
+
+Avaa Bridge-kansion tiedosto server.js (ei demo-server-kansion samannimistä
+tiedostoa). Etsi kohta, joka alkaa sanalla TILAPÄINEN:
+
+  // TILAPÄINEN: Lammio Readerin DAISY Online -demopalvelin (kansio demo-server/).
+  // Ei linkkiä pääsivulla; toimii vain suoralla osoitteella
+  // /daisy-demo/daisyonline/service/. Poista tämä rivi, kun demoa ei enää tarvita.
+  app.use('/daisy-demo', require('./demo-server/server'));
+
+Poista nämä neljä riviä. Muuta server.js:ään ei tarvitse koskea.
+
+
+2. POISTA KANSIO
+----------------
+
+Poista koko kansio demo-server kirjoineen. Tämä ohje poistuu samalla.
+
+
+3. VARMISTA, ETTÄ BRIDGE KÄYNNISTYY
+-----------------------------------
+
+PowerShellissä Bridge-kansiossa:
+
+  npm test
+  npm start
+
+Palvelimen pitää käynnistyä ilman virheitä. Jos tulee virhe
+"Cannot find module './demo-server/server'", vaiheen 1 rivi on jäänyt
+server.js:ään. Pysäytä palvelin näppäimillä Ctrl+C.
+
+
+4. VIE MUUTOS AZUREEN
+---------------------
+
+Tee commit (esim. viesti "Poista DAISY Online -demopalvelin") ja push
+main-haaraan. GitHub Actions vie muutoksen Azureen automaattisesti.
+
+
+5. POISTA ASETUKSET AZURESTA
+----------------------------
+
+1. Avaa Azure Portalissa Web App "Accessiblebridge".
+2. Valitse Settings > Environment variables > App settings.
+3. Poista demon asetukset, jos niitä on lisätty:
+   DEMO_USERNAME, DEMO_PASSWORD, INITIAL_LOANS, LOAN_DAYS,
+   STATE_RESET_HOURS, SESSION_IDLE_MINUTES, BOOKS_DIR ja PUBLIC_BASE_URL.
+   Tarkista ennen poistoa, ettei Bridge itse käytä samannimistä asetusta.
+4. Tallenna (Apply).
+
+
+6. TARKISTA LOPPUTULOS
+----------------------
+
+- Osoitteen
+  https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/
+  pitää antaa virhe "Cannot GET /daisy-demo/" eikä enää demon
+  tarkistussivua.
+- Accessible Bridgen pääsivu
+  https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/
+  toimii kuten ennenkin.
+
+
+7. MUUTA HUOMIOITAVAA
+---------------------
+
+- Poista Lammio Readerin App Store Connect -tiedoista (App Review
+  Information) demopalvelun osoite ja tunnukset, jos niitä ei enää
+  tarvita. Muuten seuraava tarkastus yrittää käyttää poistettua palvelua.
+- Kirjat jäävät Git-historiaan, vaikka kansio poistetaan. Jos se on
+  ongelma (esim. julkinen repo), historian siivoamisesta kannattaa kysyä
+  erikseen.

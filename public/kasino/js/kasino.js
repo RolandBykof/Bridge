@@ -505,7 +505,7 @@
         } else if (e.type === 'lay') {
             playSound('play');
         } else if (e.type === 'take') {
-            playSound('play');
+            playSound('receive');       // Maijan nostoääni
             // Otetut kortit näytetään hetken korostettuina ennen kuin ne poistuvat pöydästä.
             ui.taken = { cards: e.taken, until: Date.now() + TAKEN_HIGHLIGHT_MS };
             clearTimeout(ui.takenTimer);
@@ -1186,11 +1186,16 @@
         respond([me ? `Sinulla ${pileText(me)}.` : null, ...others].filter(Boolean).join(' '));
     }
 
+    // Pakka ensin, koska sitä kysytään pelin aikana useimmin.
     function readScores() {
         const g = requireGame();
         if (!g) return;
         const scores = g.players.map(p => `${p.id === myId() ? 'sinä' : p.name} ${p.score}`).join(', ');
-        const parts = [`Pisteet: ${scores}. Peli ${GAME_END_SCORE} pisteeseen.`];
+        const parts = [];
+        if (g.phase === 'play') {
+            parts.push(g.lastHand ? 'Pakka on tyhjä, viimeinen käsi.' : `Pakassa ${korttia(g.deckCount)}.`);
+        }
+        parts.push(`Pisteet: ${scores}. Peli ${GAME_END_SCORE} pisteeseen.`);
         const carry = [];
         if (g.carry.cards) carry.push(`korttivoitto ${g.carry.cards}`);
         if (g.carry.spades) carry.push(`patavoitto ${g.carry.spades}`);

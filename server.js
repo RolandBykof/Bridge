@@ -81,6 +81,11 @@ const DELAYS = FAST_DELAYS ? {
   autoNextDeal: 10000
 };
 
+// TILAPÄINEN: Lammio Readerin DAISY Online -demopalvelin (kansio demo-server/).
+// Ei linkkiä pääsivulla; toimii vain suoralla osoitteella
+// /daisy-demo/daisyonline/service/. Poista tämä rivi, kun demoa ei enää tarvita.
+app.use('/daisy-demo', require('./demo-server/server'));
+
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 if (TEST_MODE) {

@@ -1,0 +1,194 @@
+DAISY ONLINE -DEMOPALVELIN: KÄYTTÖOHJE
+=======================================
+
+Tämä on Lammio Readerin DAISY Online -demopalvelin. Sitä tarvitaan Applen
+App Store -tarkastuksessa: tarkastaja kirjautuu sovelluksen DAISY Online
+-osaan demotunnuksella, eikä tarvitse Luetuksen tai Celian tunnuksia.
+
+Demopalvelin on tilapäisesti liitetty Accessible Bridge -palvelimeen.
+Se ei näy Accessible Bridgen pääsivulla, vaan toimii vain suoralla
+osoitteella. Kun demoa ei enää tarvita, se puretaan tiedoston
+purkuohje.txt mukaan.
+
+Tiedosto README.md kertoo, miten demon voi asentaa omaksi erilliseksi
+palvelimekseen. Tätä ei tarvita, kun demo on Accessible Bridgen alla.
+
+
+1. OSOITTEET
+------------
+
+Palvelun osoite, joka annetaan Lammio Readerille:
+
+  https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/daisyonline/service/
+
+Tarkistussivu, jonka voi avata selaimella:
+
+  https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/
+
+Tarkistussivu kertoo, montako kirjaa palvelimella on ja mikä on palvelun
+osoite. Jos kirjoja on 0, kirjat puuttuvat tai ne ovat väärässä kansiossa.
+
+
+2. TUNNUS JA SALASANA
+---------------------
+
+Tunnus ja salasana asetetaan Azuressa, ei koodissa:
+
+1. Avaa Azure Portalissa Web App "Accessiblebridge".
+2. Valitse Settings > Environment variables > App settings.
+3. Lisää asetukset:
+   - DEMO_USERNAME: käyttäjätunnus, esimerkiksi appreview
+   - DEMO_PASSWORD: vahva salasana
+4. Tallenna (Apply). Palvelin käynnistyy uudelleen.
+
+Jos asetuksia ei ole, tunnus ja salasana ovat molemmat "demo". Älä jätä
+oletuksia käyttöön, koska palvelin on julkisesti internetissä.
+
+Muita valinnaisia asetuksia:
+   - INITIAL_LOANS: montako kirjaa on alussa valmiiksi lainassa (oletus 1)
+   - LOAN_DAYS: lainan pituus päivinä (oletus 30)
+   - STATE_RESET_HOURS: lainat palautuvat alkutilaan, kun palvelinta ei ole
+     käytetty näin moneen tuntiin (oletus 12)
+   - SESSION_IDLE_MINUTES: kirjautumisen vanhenemisaika minuutteina
+     (oletus 120)
+
+Accessible Bridgea on ajettava yhdellä instanssilla (Scale out = 1).
+Kirjautumiset ja lainat ovat palvelimen muistissa.
+
+
+3. KIRJOJEN LISÄÄMINEN
+----------------------
+
+Kirjat ovat kansiossa demo-server/books. Jokainen kirja on oma
+alikansionsa. Esimerkki:
+
+  demo-server/
+    books/
+      kirja-1/
+        ncc.html
+        (kirjan .smil- ja .mp3-tiedostot)
+      kirja-2/
+        ncc.html
+        ...
+
+Säännöt:
+
+- Alikansion nimestä tulee kirjan tunniste. Nimessä saa olla vain
+  kirjaimia a-z, numeroita, väliviiva ja alaviiva. Ei ääkkösiä eikä
+  välilyöntejä. Väärin nimetty kansio ohitetaan.
+- DAISY 2.02 -kirja: kansiossa on oltava ncc.html. Kirjan nimi, tekijä
+  ja kieli luetaan automaattisesti ncc.html:n tiedoista.
+- DAISY 3 -kirja: kansiossa on oltava .opf-tiedosto.
+- EPUB-kirja: kansioon laitetaan yksi .epub-tiedosto.
+- Jos haluat muuttaa kirjan nimeä tai muita tietoja, lisää kirjan
+  kansioon tiedosto book.json, esimerkiksi:
+
+    { "title": "Kirjan nimi", "creator": "Tekijä", "language": "fi" }
+
+- Kirjat näkyvät hyllyssä kirjan nimen mukaan aakkosjärjestyksessä.
+  Ensimmäinen kirja on alussa valmiiksi lainassa.
+
+Näytekirja paikallista kirjastoa varten: ZIP-tiedoston voi laittaa
+suoraan books-kansioon, ei alikansioon. Esimerkiksi tiedosto
+books/sample-book.zip ei näy DAISY Online -hyllyssä, mutta sen voi ladata
+osoitteesta:
+
+  https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/books/sample-book.zip
+
+Kirjojen vieminen palvelimelle:
+
+1. Kopioi kirjojen kansiot demo-server/books-kansioon omalla koneellasi.
+2. Tee commit ja push main-haaraan (esim. GitHub Desktopilla).
+3. GitHub Actions vie muutoksen Azureen automaattisesti muutamassa
+   minuutissa. Palvelin käynnistyy samalla uudelleen ja lukee kirjat.
+4. Tarkista tarkistussivulta, että kirjojen määrä on oikea.
+
+Huomioita:
+
+- Käytä vain kirjoja, joihin on jako-oikeus (itse tehty tai
+  tekijänoikeudeltaan vapaa). Kirjatiedostot voi ladata ilman
+  kirjautumista, jos tietää niiden osoitteen. Jos GitHub-repo on julkinen,
+  kirjat näkyvät myös siellä.
+- GitHub ei hyväksy yli 100 megatavun tiedostoja. Kaksi tai kolme lyhyttä
+  kirjaa riittää tarkastukseen.
+- Palvelin lukee kirjat vain käynnistyessään. Jos kirjoja muutetaan
+  suoraan Azuressa, palvelin on käynnistettävä uudelleen (Overview >
+  Restart).
+
+
+4. KOKEILU OMALLA KONEELLA
+--------------------------
+
+PowerShellissä Bridge-kansiossa:
+
+  $env:DEMO_PASSWORD = "oma-salasana"
+  npm start
+
+Avaa selaimella http://localhost:3000/daisy-demo/ (tai se portti, jonka
+Bridge-palvelin ilmoittaa). Konsoliin tulostuu luettelo löydetyistä
+kirjoista.
+
+Puhelin ei pääse koneen localhostiin, joten Lammio Readerilla testataan
+vasta Azuressa.
+
+
+5. TESTAUS LAMMIO READERILLA
+----------------------------
+
+1. Kirjasto > DAISY Online > Lisää palvelu.
+2. Palvelu: Uusi palvelu…
+3. Nimi: esimerkiksi Demo.
+4. Osoite:
+   https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/daisyonline/service/
+5. Käyttäjätunnus ja salasana kuten Azuren asetuksissa. Valitse Testaa
+   yhteys ja sitten Tallenna.
+6. Avaa palvelu. Hyllyssä on kaksi osiota: Lainatut ja Saatavilla.
+
+Kokeile ainakin: kirjan avaaminen (striimaus), lataus laitteelle, palautus
+ja uudelleenlainaus.
+
+
+6. MITEN LAINAUS JA PALAUTUS TOIMIVAT
+-------------------------------------
+
+- Alkutila: ensimmäinen kirja on valmiiksi Lainatut-osiossa, muut ovat
+  Saatavilla-osiossa.
+- Lainaus: kun saatavilla oleva kirja avataan tai ladataan, se siirtyy
+  Lainatut-osioon.
+- Palautus: palautettu kirja palaa Saatavilla-osioon, ja sen voi lainata
+  uudelleen.
+- Nollaus: lainat palautuvat alkutilaan, kun palvelinta ei ole käytetty
+  12 tuntiin tai kun palvelin käynnistyy uudelleen. Accessible Bridge
+  käynnistyy uudelleen aina, kun siihen viedään uusi versio.
+
+Kaikki demotunnuksen käyttäjät jakavat saman hyllyn.
+
+
+7. OHJE APPLEN TARKASTAJALLE
+----------------------------
+
+Laita tämä App Store Connectiin kohtaan App Review Information > Notes.
+Tunnus ja salasana laitetaan kohtaan Sign-in information.
+
+  DAISY Online demo service
+
+  The app connects to DAISY Online library services, which are only
+  available to registered print-disabled users. For review, we provide a
+  demo service with sample books.
+
+  1. On the library screen, tap "DAISY Online" in the bottom bar.
+  2. Tap "Add service".
+  3. In the Service picker choose "New service…".
+  4. Service name: Demo
+     Service address: https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/daisyonline/service/
+     Username: <username>
+     Password: <password>
+  5. Tap "Save", then open "Demo" in the list.
+
+  The bookshelf has two sections: "On loan" and "Available". One book is
+  already on loan. Opening an available book borrows it and starts
+  playback (streaming). A borrowed book can also be downloaded to the
+  device, and returned with the "Return loan" action (with VoiceOver:
+  swipe up or down on the book and double-tap). A returned book moves back
+  to "Available" and can be borrowed again. The demo shelf resets
+  automatically after 12 hours of inactivity.
