@@ -173,7 +173,11 @@ inactivity.
 ## 7. Tietoturva
 
 - Palvelin ei tallenna mitään levylle eikä kerää käyttäjätietoja. Lokiin
-  menee vain operaation nimi ja aikaleima, ei tunnuksia.
+  menevät aikaleima, operaation nimi, kirjan tunniste ja tulos. Salasanoja
+  ei kirjata, ja käyttäjätunnus kirjataan vain onnistuneesta
+  kirjautumisesta.
+- Loki näkyy kenelle tahansa osoitteessa `/loki` (Bridgen alla
+  `/daisy-demo/loki`), ks. `kayttoohje.txt` kohta 8.
 - Tunnukset eivät ole koodissa eivätkä repossa selväkielisinä, vain
   tiivisteenä.
 - Kirjatiedostot ovat ladattavissa ilman kirjautumista, jos tietää niiden

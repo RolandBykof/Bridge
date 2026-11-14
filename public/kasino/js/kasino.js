@@ -10,7 +10,22 @@
         SUITS, SUIT_SYMBOLS, SUIT_NAMES, SUIT_PARTITIVES, SUIT_NONE,
         cardId, cardName, rankName, formatCardList, plural, capitalize
     } = window.Kortit;
-    const { GAME_END_SCORE } = window.Saannot;
+    const {
+        GAME_END_SCORE, CABIN_POINTS, CARD_WIN_POINTS, SPADE_WIN_POINTS, SURE_CARD_WIN, SURE_SPADE_WIN,
+        pilePoints
+    } = window.Saannot;
+
+    // Kokonaispisteet kesken jaon: aiemmat pisteet, kerätyt pistekortit, mökit sekä
+    // kortti- ja patavoitto, jos ne ovat jo varmoja. Jaon päätyttyä pisteet ovat jo
+    // mukana player.scoressa.
+    function liveScore(player) {
+        const g = ui.state && ui.state.game;
+        if (!g || g.phase !== 'play' || !player.pile) return player.score;
+        let points = player.score + pilePoints(player.pile) + player.cabins * CABIN_POINTS;
+        if (player.pile.cards >= SURE_CARD_WIN) points += CARD_WIN_POINTS + g.carry.cards;
+        if (player.pile.spades >= SURE_SPADE_WIN) points += SPADE_WIN_POINTS + g.carry.spades;
+        return points;
+    }
 
     // Samat näppäimet kuin Accessible Bridgessä ja muissa korttipeleissä.
     const SUIT_KEYS = { s: 'spades', h: 'hearts', d: 'diamonds', c: 'clubs' };
@@ -844,7 +859,7 @@
             if (player.id === g.dealerId) details.push('jakaja');
             if (g.phase === 'play') details.push(`kädessä ${player.cardCount}`);
             details.push(`kerätty ${pileText(player)}`);
-            details.push(pistetta(player.score));
+            details.push(pistetta(liveScore(player)));
             if (member && !member.connected) details.push('yhteys katkennut');
             meta.textContent = details.join(' · ');
 
@@ -1190,7 +1205,7 @@
     function readScores() {
         const g = requireGame();
         if (!g) return;
-        const scores = g.players.map(p => `${p.id === myId() ? 'sinä' : p.name} ${p.score}`).join(', ');
+        const scores = g.players.map(p => `${p.id === myId() ? 'sinä' : p.name} ${liveScore(p)}`).join(', ');
         const parts = [];
         if (g.phase === 'play') {
             parts.push(g.lastHand ? 'Pakka on tyhjä, viimeinen käsi.' : `Pakassa ${korttia(g.deckCount)}.`);

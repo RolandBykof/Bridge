@@ -214,10 +214,30 @@ function loadCatalog() {
   return books;
 }
 
+// ─── Tapahtumaloki ─────────────────────────────────────────────────────────
+//
+// Viimeisimmät tapahtumat pidetään muistissa, ja ne näkyvät sivulla /loki
+// (Bridgen alla /daisy-demo/loki). Sivu on julkinen ilman kirjautumista, joten
+// lokiin EI kirjata salasanoja eikä istuntotunnisteita. Loki tyhjenee, kun
+// palvelin käynnistyy uudelleen.
+
+const LOG_MAX = 500;
+const LOG_PATH = '/loki';
+const eventLog = [];
+let eventCounter = 0;
+
+// type: 'palvelin' | 'kutsu' | 'virhe' | 'tiedosto' | 'laina'
+function logEvent(type, message) {
+  const ev = { n: ++eventCounter, time: new Date().toISOString(), type, message };
+  eventLog.push(ev);
+  if (eventLog.length > LOG_MAX) eventLog.shift();
+  console.log(`${ev.time} [${type}] ${message}`);
+}
+
 const catalog = loadCatalog();
-console.log(`Kirjoja luettelossa: ${catalog.size}`);
+logEvent('palvelin', `Palvelin käynnistyi. Kirjoja luettelossa: ${catalog.size}`);
 for (const b of catalog.values()) {
-  console.log(`  ${b.id}: ${b.meta.title} (${b.resources.length} tiedostoa)`);
+  logEvent('palvelin', `Kirja ${b.id}: ${b.meta.title} (${b.resources.length} tiedostoa)`);
 }
 
 // ─── Tila: lainat ja istunnot ──────────────────────────────────────────────
@@ -240,7 +260,7 @@ function resetState() {
   for (const id of sortedBookIds().slice(0, INITIAL_LOANS)) {
     loans.set(id, { returnBy: new Date(Date.now() + LOAN_DAYS * 86400000) });
   }
-  console.log(`Lainatila alkutilaan. Lainassa: ${[...loans.keys()].join(', ') || '-'}`);
+  logEvent('laina', `Lainatila alkutilaan. Lainassa: ${[...loans.keys()].join(', ') || '-'}`);
 }
 
 resetState();
@@ -343,7 +363,12 @@ function requireBook(body) {
 
 const operations = {
   logOn(body, ctx) {
-    const ok = credentialsOk(param(body, 'username'), param(body, 'password'));
+    const username = param(body, 'username');
+    const ok = credentialsOk(username, param(body, 'password'));
+    // Tunnus kirjataan vain onnistuneesta kirjautumisesta (se on demotunnus).
+    // Epäonnistuneesta ei, koska käyttäjä on voinut kirjoittaa tunnuskenttään
+    // vahingossa salasanansa.
+    ctx.detail = ok ? `tunnus ${username}, onnistui` : 'väärä tunnus tai salasana';
     if (ok) {
       const token = crypto.randomBytes(16).toString('hex');
       sessions.set(token, Date.now());
@@ -377,8 +402,9 @@ const operations = {
       '</setReadingSystemAttributesResponse>';
   },
 
-  getContentList(body) {
+  getContentList(body, ctx) {
     const id = param(body, 'id');
+    ctx.detail = `lista ${id}`;
     let ids;
     if (id === 'issued') {
       ids = sortedBookIds().filter((b) => loans.has(b));
@@ -401,6 +427,7 @@ const operations = {
     const range = page.length > 0
       ? ` firstItem="${first}" lastItem="${first + page.length - 1}"`
       : '';
+    ctx.detail += `, ${total} kirjaa${page.length ? `: ${page.join(', ')}` : ''}`;
     const items = page.map((bookId) => {
       const b = catalog.get(bookId);
       return `<contentItem id="${esc(b.id)}" lastModifiedDate="${isoDate(b.lastModified)}">` +
@@ -411,8 +438,9 @@ const operations = {
       '</getContentListResponse>';
   },
 
-  getContentMetadata(body) {
+  getContentMetadata(body, ctx) {
     const b = requireBook(body);
+    ctx.detail = b.id;
     const m = b.meta;
     const opt = (tag, value) => (value ? `<dc:${tag}>${esc(value)}</dc:${tag}>` : '');
     return `<getContentMetadataResponse xmlns="${NS}">` +
@@ -429,11 +457,14 @@ const operations = {
       '</metadata></contentMetadata></getContentMetadataResponse>';
   },
 
-  issueContent(body) {
+  issueContent(body, ctx) {
     const b = requireBook(body);
+    ctx.detail = b.id;
     if (!loans.has(b.id)) {
       loans.set(b.id, { returnBy: new Date(Date.now() + LOAN_DAYS * 86400000) });
-      console.log(`Lainattu: ${b.id}`);
+      logEvent('laina', `Lainattu: ${b.id}`);
+    } else {
+      ctx.detail += ' (oli jo lainassa)';
     }
     return `<issueContentResponse xmlns="${NS}"><issueContentResult>true</issueContentResult>` +
       '</issueContentResponse>';
@@ -441,6 +472,7 @@ const operations = {
 
   getContentResources(body, ctx) {
     const b = requireBook(body);
+    ctx.detail = b.id;
     const loan = loans.get(b.id);
     if (!loan) {
       throw new SoapFault('invalidOperationFault', 'Content is not issued');
@@ -455,10 +487,11 @@ const operations = {
       `${resources}</resources></getContentResourcesResponse>`;
   },
 
-  returnContent(body) {
+  returnContent(body, ctx) {
     const b = requireBook(body);
     const ok = loans.delete(b.id);
-    if (ok) console.log(`Palautettu: ${b.id}`);
+    ctx.detail = ok ? b.id : `${b.id} (ei ollut lainassa)`;
+    if (ok) logEvent('laina', `Palautettu: ${b.id}`);
     return `<returnContentResponse xmlns="${NS}"><returnContentResult>${ok}</returnContentResult>` +
       '</returnContentResponse>';
   },
@@ -492,7 +525,7 @@ async function handleSoap(req, res) {
   const action = (req.headers.soapaction || '').replace(/["\s]/g, '').split('/').pop();
   const opName = bodyMatch ? bodyMatch[1] : action;
 
-  const ctx = { req, headers: {}, session: null };
+  const ctx = { req, headers: {}, session: null, detail: '' };
   let xml;
   let status = 200;
   try {
@@ -511,8 +544,10 @@ async function handleSoap(req, res) {
     }
     status = 500;
     xml = faultXml(e);
+    ctx.detail = [ctx.detail, `${e.faultName}: ${e.message}`].filter(Boolean).join(', ');
   }
-  console.log(`${new Date().toISOString()} ${opName} → ${status}`);
+  logEvent(status === 200 ? 'kutsu' : 'virhe',
+    `${opName || '(tuntematon)'} → ${status}${ctx.detail ? ` – ${ctx.detail}` : ''}`);
   res.writeHead(status, { 'Content-Type': 'text/xml; charset=utf-8', ...ctx.headers });
   res.end(xml);
 }
@@ -520,6 +555,13 @@ async function handleSoap(req, res) {
 // Tarjoilee kirjan tiedoston. Range-tuki on välttämätön: iOS:n äänisoitin
 // pyytää striimattavan äänen paloina.
 function handleBookFile(req, res, urlPath) {
+  // Kirjataan, kun vastaus on lähetetty (tila ja tavualue tiedetään silloin).
+  res.on('finish', () => {
+    const range = res.getHeader('Content-Range');
+    logEvent(res.statusCode < 400 ? 'tiedosto' : 'virhe',
+      `${req.method} ${decodeURIComponentSafe(urlPath.slice(BOOKS_PATH.length))} → ${res.statusCode}` +
+      (range ? ` (${range})` : ''));
+  });
   let rel;
   try {
     rel = decodeURIComponent(urlPath.slice(BOOKS_PATH.length));
@@ -570,6 +612,118 @@ function handleBookFile(req, res, urlPath) {
   });
 }
 
+function decodeURIComponentSafe(s) {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
+const LOG_TYPE_LABELS = {
+  palvelin: 'Palvelin',
+  kutsu: 'Kutsu',
+  virhe: 'Virhe',
+  tiedosto: 'Tiedosto',
+  laina: 'Laina',
+};
+
+// Lokisivu. Uusimmat tapahtumat ensin. Sivu hakee päivitykset osoitteesta
+// loki.json. Automaattinen päivitys on oletuksena pois, jotta ruudunlukija ei
+// keskeydy kesken lukemisen; tilarivi ilmoitetaan vain painikkeella päivitettäessä.
+function logPageHtml(req) {
+  const rows = eventLog.slice().reverse().map(logRowHtml).join('\n');
+  return `<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DAISY Online -demon loki</title>
+<style>
+  body { font-family: system-ui, sans-serif; font-size: 1.05rem; line-height: 1.5; margin: 1rem; color: #111; background: #fff; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; vertical-align: top; padding: 0.35rem 0.6rem; border-bottom: 1px solid #bbb; }
+  th { background: #eee; }
+  td.aika { white-space: nowrap; }
+  tr.virhe td { background: #fde8e8; }
+  button { font-size: 1rem; padding: 0.4rem 0.9rem; }
+  .ohjaimet { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #eee; background: #121212; }
+    th { background: #2a2a2a; }
+    th, td { border-color: #444; }
+    tr.virhe td { background: #4a1f1f; }
+  }
+</style>
+</head>
+<body>
+<h1>DAISY Online -demon loki</h1>
+<p>Palvelun osoite: ${esc(baseUrl(req))}${SERVICE_PATH}/<br>
+Kirjoja: ${catalog.size}. Lainassa nyt: ${esc([...loans.keys()].join(', ') || 'ei mitään')}.<br>
+Loki näyttää enintään ${LOG_MAX} viimeisintä tapahtumaa, uusin ensin. Loki tyhjenee, kun palvelin käynnistyy uudelleen.</p>
+<div class="ohjaimet">
+  <button type="button" id="paivita">Päivitä</button>
+  <label><input type="checkbox" id="automaattinen"> Päivitä automaattisesti 5 sekunnin välein</label>
+</div>
+<p id="tila" role="status"></p>
+<table>
+<caption style="text-align:left;font-weight:bold;margin-bottom:0.4rem">Tapahtumat (${eventLog.length})</caption>
+<thead><tr><th scope="col">Aika</th><th scope="col">Tyyppi</th><th scope="col">Tapahtuma</th></tr></thead>
+<tbody id="rivit">
+${rows}
+</tbody>
+</table>
+<script>
+(function () {
+  var labels = ${JSON.stringify(LOG_TYPE_LABELS)};
+  var tbody = document.getElementById('rivit');
+  var caption = document.querySelector('caption');
+  var tila = document.getElementById('tila');
+  var auto = document.getElementById('automaattinen');
+  var timer = null;
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function aika(iso) {
+    return new Date(iso).toLocaleString('fi-FI');
+  }
+  function rivi(ev) {
+    return '<tr class="' + esc(ev.type) + '"><td class="aika">' + esc(aika(ev.time)) + '</td><td>' +
+      esc(labels[ev.type] || ev.type) + '</td><td>' + esc(ev.message) + '</td></tr>';
+  }
+  function hae(ilmoita) {
+    fetch(${JSON.stringify(`${req.baseUrl || ''}${LOG_PATH}.json`)}, { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        tbody.innerHTML = data.events.slice().reverse().map(rivi).join('');
+        caption.textContent = 'Tapahtumat (' + data.events.length + ')';
+        if (ilmoita) tila.textContent = 'Päivitetty klo ' + new Date().toLocaleTimeString('fi-FI') +
+          '. Tapahtumia ' + data.events.length + '.';
+      })
+      .catch(function () { tila.textContent = 'Päivitys epäonnistui.'; });
+  }
+  // Palvelimen kirjoittamat ajat paikalliseen aikaan.
+  Array.prototype.forEach.call(document.querySelectorAll('td.aika[data-iso]'), function (td) {
+    td.textContent = aika(td.getAttribute('data-iso'));
+  });
+  document.getElementById('paivita').addEventListener('click', function () { hae(true); });
+  auto.addEventListener('change', function () {
+    if (timer) { clearInterval(timer); timer = null; }
+    if (auto.checked) timer = setInterval(function () { hae(false); }, 5000);
+  });
+})();
+</script>
+</body>
+</html>
+`;
+}
+
+function logRowHtml(ev) {
+  return `<tr class="${esc(ev.type)}"><td class="aika" data-iso="${esc(ev.time)}">${esc(ev.time)}</td>` +
+    `<td>${esc(LOG_TYPE_LABELS[ev.type] || ev.type)}</td><td>${esc(ev.message)}</td></tr>`;
+}
+
 // Pyyntöjen käsittelijä. Toimii sekä omana palvelimenaan että liitettynä
 // Express-sovellukseen: app.use('/daisy-demo', require('./demo-server/server')).
 // Express poistaa liitospolun req.url:sta, joten polut ovat samat molemmissa.
@@ -585,6 +739,12 @@ function handler(req, res) {
     });
   } else if ((req.method === 'GET' || req.method === 'HEAD') && urlPath.startsWith(BOOKS_PATH)) {
     handleBookFile(req, res, urlPath);
+  } else if (req.method === 'GET' && urlPath.replace(/\/+$/, '') === LOG_PATH) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(logPageHtml(req));
+  } else if (req.method === 'GET' && urlPath === `${LOG_PATH}.json`) {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ events: eventLog }));
   } else if (req.method === 'GET' && urlPath === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end(`Lammio Reader DAISY Online demo server\nBooks: ${catalog.size}\n` +
@@ -598,6 +758,6 @@ module.exports = handler;
 
 if (require.main === module) {
   http.createServer(handler).listen(PORT, () => {
-    console.log(`Demopalvelin kuuntelee porttia ${PORT}. Palvelun polku: ${SERVICE_PATH}/`);
+    logEvent('palvelin', `Demopalvelin kuuntelee porttia ${PORT}. Palvelun polku: ${SERVICE_PATH}/`);
   });
 }

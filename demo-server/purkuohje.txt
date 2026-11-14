@@ -65,6 +65,10 @@ main-haaraan. GitHub Actions vie muutoksen Azureen automaattisesti.
   https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/
   pitää antaa virhe "Cannot GET /daisy-demo/" eikä enää demon
   tarkistussivua.
+- Myös lokisivun
+  https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/loki
+  pitää antaa virhe "Cannot GET /daisy-demo/loki". Lokisivu on osa
+  demopalvelinta, joten se poistuu samalla eikä vaadi omia toimenpiteitä.
 - Accessible Bridgen pääsivu
   https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/
   toimii kuten ennenkin.

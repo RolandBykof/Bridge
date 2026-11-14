@@ -28,6 +28,13 @@ Tarkistussivu, jonka voi avata selaimella:
 Tarkistussivu kertoo, montako kirjaa palvelimella on ja mikä on palvelun
 osoite. Jos kirjoja on 0, kirjat puuttuvat tai ne ovat väärässä kansiossa.
 
+Lokisivu, jonka voi avata selaimella:
+
+  https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/loki
+
+Lokisivulta näkee, mitä palvelimella on tapahtunut, esimerkiksi kun
+Applen tarkastaja käyttää demoa. Lisätietoja kohdassa 8.
+
 
 2. TUNNUS JA SALASANA
 ---------------------
@@ -148,7 +155,7 @@ vasta Azuressa.
 3. Nimi: esimerkiksi Demo.
 4. Osoite:
    https://accessiblebridge-gmdbe3f0daedfgdq.northeurope-01.azurewebsites.net/daisy-demo/daisyonline/service/
-5. Käyttäjätunnus ja salasana kuten Azuren asetuksissa. Valitse Testaa
+5. Käyttäjätunnus ja salasana: demon tunnukset (ks. kohta 2). Valitse Testaa
    yhteys ja sitten Tallenna.
 6. Avaa palvelu. Hyllyssä on kaksi osiota: Lainatut ja Saatavilla.
 
@@ -200,3 +207,42 @@ Tunnus ja salasana laitetaan kohtaan Sign-in information.
   swipe up or down on the book and double-tap). A returned book moves back
   to "Available" and can be borrowed again. The demo shelf resets
   automatically after 12 hours of inactivity.
+
+
+8. LOKISIVU
+-----------
+
+Lokisivu näyttää enintään 500 viimeisintä tapahtumaa taulukkona, uusin
+ensin. Sarakkeet ovat Aika, Tyyppi ja Tapahtuma. Taulukon yläpuolella
+kerrotaan palvelun osoite, kirjojen määrä ja mitkä kirjat ovat nyt
+lainassa.
+
+Tapahtumatyypit:
+- Palvelin: käynnistys ja löydetyt kirjat
+- Kutsu: sovelluksen kutsu, esimerkiksi kirjautuminen (logOn), hyllyn
+  haku (getContentList), lainaus (issueContent) tai palautus
+  (returnContent), sekä kutsun tulos
+- Laina: kirja lainattiin tai palautettiin, tai lainat palautuivat
+  alkutilaan
+- Tiedosto: sovellus latasi kirjan tiedoston tai sen osan
+- Virhe: epäonnistunut kutsu tai tiedostoa ei löytynyt. Virherivit
+  näkyvät punertavalla taustalla.
+
+Sivu ei päivity itsestään. Uudet tapahtumat saa näkyviin Päivitä-
+painikkeella, jolloin sivu kertoo myös päivityksen kellonajan ja
+tapahtumien määrän. Valintaruudulla "Päivitä automaattisesti 5 sekunnin
+välein" taulukko päivittyy itsestään. Automaattinen päivitys on
+oletuksena pois, jotta ruudunlukija ei keskeydy kesken lukemisen.
+
+Samat tiedot saa koneluettavassa muodossa osoitteesta .../daisy-demo/loki.json.
+
+Huomioita:
+- Lokisivu on julkinen eikä vaadi kirjautumista. Lokiin ei siksi
+  tallenneta salasanoja. Käyttäjätunnus kirjataan vain onnistuneesta
+  kirjautumisesta, koska epäonnistuneessa tunnuskentässä voi olla
+  vahingossa salasana.
+- Loki on vain palvelimen muistissa. Se tyhjenee, kun palvelin
+  käynnistyy uudelleen, esimerkiksi aina kun Accessible Bridgeen viedään
+  uusi versio.
+- Samat tapahtumat näkyvät myös Azuren lokissa (Monitoring > Log
+  stream).
