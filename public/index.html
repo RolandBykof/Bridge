@@ -1524,7 +1524,19 @@
         function getAuxiliaryHandPosition() {
             if (!gameState) return null;
             if (isOverrideDeclarerController()) return gameState.declarer;
+            // A human dummy reads the declarer's hand, not its own again.
+            if (isDummyViewingDeclarer()) return gameState.declarer;
             return gameState.dummy;
+        }
+
+        /**
+         * True when we're the dummy and a human partner declares: once the
+         * opening lead is made the server sends us declarer's hand privately
+         * (view only), so the deal stays interesting while we can't play.
+         */
+        function isDummyViewingDeclarer() {
+            return !!gameState && !!gameState.declarer && !!gameState.dummy &&
+                myPosition === gameState.dummy && !isOverrideDeclarerController();
         }
 
         /**
@@ -1552,6 +1564,14 @@
                 (gameState.gamePhase === 'play' || gameState.gamePhase === 'contract') &&
                 position === gameState.declarer &&
                 isOverrideDeclarerController()) {
+                return true;
+            }
+
+            // Dummy sees (but can't play) the declarer's hand once the
+            // server has sent it after the opening lead.
+            if (gameState && gameState.gamePhase === 'play' &&
+                position === gameState.declarer && isDummyViewingDeclarer() &&
+                gameState.hands && gameState.hands[position]) {
                 return true;
             }
 
@@ -1703,6 +1723,9 @@ function attemptToPlayCard(suit, card, fromPosition) {
             }
             if (position === gameState?.declarer && isOverrideDeclarerController()) {
                 return ['declarer', 'robot', 'you control'];
+            }
+            if (position === gameState?.declarer && isDummyViewingDeclarer()) {
+                return ['declarer', 'view only'];
             }
             return [isRobot ? 'robot' : 'human'];
         }
@@ -3070,6 +3093,7 @@ function formatContract(contract, asHtml = false) {
                 { key: 'Alt + E', desc: 'Announce dummy diamonds' },
                 { key: 'Alt + R', desc: 'Announce dummy clubs' },
                 { key: 'Alt + T', desc: 'Announce dummy entire hand (all suits)' },
+                { key: '', desc: 'When you are dummy, Alt + Q to Alt + T read the declarer\'s hand instead. It is visible to you (but not playable) from the opening lead on.' },
                 
                 { key: '', desc: '--- Game: Information Commands ---' },
                 { key: 'Alt + C', desc: 'Announce each team\'s trick count' },
@@ -3308,6 +3332,9 @@ function getSuitNameWithCount(suit, count) {
         function handOwnerLabel(position) {
             if (position === myPosition) return 'Your hand';
             if (isKibitzer()) return positionName(position);
+            if (!ddReviewState && position === gameState?.declarer && isDummyViewingDeclarer()) {
+                return `${positionName(position)}, declarer`;
+            }
             const layout = getPositionLayout();
             if (position === layout.left) return `${positionName(position)}, left opponent`;
             if (position === layout.right) return `${positionName(position)}, right opponent`;
@@ -3728,7 +3755,7 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                         e.preventDefault();
                         const aux = getAuxiliaryHandPosition();
                         if (aux && canViewHandCards(aux)) {
-                            announceHandSuitWithFocus(aux, 'spades');
+                            announceHandSuitWithFocus(aux, 'spades', isDummyViewingDeclarer());
                         } else {
                             announceToScreenReader('Cannot view dummy spades at this time.');
                         }
@@ -3738,7 +3765,7 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                         e.preventDefault();
                         const aux = getAuxiliaryHandPosition();
                         if (aux && canViewHandCards(aux)) {
-                            announceHandSuitWithFocus(aux, 'hearts');
+                            announceHandSuitWithFocus(aux, 'hearts', isDummyViewingDeclarer());
                         } else {
                             announceToScreenReader('Cannot view dummy hearts at this time.');
                         }
@@ -3748,7 +3775,7 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                         e.preventDefault();
                         const aux = getAuxiliaryHandPosition();
                         if (aux && canViewHandCards(aux)) {
-                            announceHandSuitWithFocus(aux, 'diamonds');
+                            announceHandSuitWithFocus(aux, 'diamonds', isDummyViewingDeclarer());
                         } else {
                             announceToScreenReader('Cannot view dummy diamonds at this time.');
                         }
@@ -3758,7 +3785,7 @@ if (gameState.currentTrick && gameState.currentTrick.length > 0 && gameState.cur
                         e.preventDefault();
                         const aux = getAuxiliaryHandPosition();
                         if (aux && canViewHandCards(aux)) {
-                            announceHandSuitWithFocus(aux, 'clubs');
+                            announceHandSuitWithFocus(aux, 'clubs', isDummyViewingDeclarer());
                         } else {
                             announceToScreenReader('Cannot view dummy clubs at this time.');
                         }
@@ -4389,6 +4416,10 @@ updateWaitingRoomPositions(data.table);
                     if (!gameState.hands) gameState.hands = {};
                     gameState.hands[data.declarerPosition] = data.declarerCards;
                     renderAllHands();
+                    if (data.forDummy) {
+                        announceToScreenReader(`You are dummy. ${positionName(data.declarerPosition)}'s cards, the declarer's hand, are now visible to you. Alt+Q to Alt+T read them.`);
+                        return;
+                    }
                     announceToScreenReader(`Your robot partner is declaring this hand. You control both hands. ${positionName(data.declarerPosition)}'s cards are now visible to you.`);
                 }
             });

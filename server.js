@@ -986,6 +986,11 @@ function getTableInfo(socket, playerId, data) {
             revealRobotDeclarerHandIfNeeded(table);
         }
 
+        // Ihmislepääjä näkee ihmispelinviejän käden avauslähdön jälkeen.
+        if (existingPosition === gs.dummy) {
+            revealDeclarerHandToDummyIfNeeded(table);
+        }
+
         // Jos double dummy -katselu on auki, palaava pelaaja jatkaa samasta tikistä
         if (table.ddReview) {
             socket.emit('ddReviewStarted', ddReviewPayload(table, { rejoined: true }));
@@ -1856,6 +1861,35 @@ function processCardPlay(table, position, suit, card) {
       });
     }
   }
+  if (table.gameState.playedCards.length === 1) {
+    revealDeclarerHandToDummyIfNeeded(table);
+  }
+}
+
+/**
+ * Privately sends a human declarer's hand to a human dummy once the opening
+ * lead is on the table. Dummy has no say in the play any more, so seeing
+ * partner's hand only keeps the deal interesting for them; it gives the
+ * partnership nothing the declarer doesn't already know. Never broadcast --
+ * the defenders must not see it. (A robot declarer's hand already reaches
+ * the dummy through revealRobotDeclarerHandIfNeeded().)
+ */
+function revealDeclarerHandToDummyIfNeeded(table) {
+  const gs = table.gameState;
+  if (!gs || gs.gamePhase !== 'play' || !gs.declarer || !gs.dummy) return;
+  if (!gs.playedCards || gs.playedCards.length === 0) return;
+  if (getEffectiveController(table)) return;
+
+  const dummyPlayerData = table.players[gs.dummy];
+  if (!dummyPlayerData || dummyPlayerData.type !== 'human' || !dummyPlayerData.id) return;
+  const player = players.get(dummyPlayerData.id);
+  if (!player || !player.socket) return;
+
+  player.socket.emit('declarerHandRevealed', {
+    declarerPosition: gs.declarer,
+    declarerCards: gs.hands[gs.declarer],
+    forDummy: true
+  });
 }
 
 /**
