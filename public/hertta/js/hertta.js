@@ -331,7 +331,7 @@
                 return `Round ${e.round} started. Dealer: ${who(e.dealerId, e.dealerName)}. ${passInstruction(e.passDirection)}`;
             case 'aborted':
                 return e.discarded
-                    ? `${e.name} discarded the saved game. The table is now an ordinary lobby.`
+                    ? `${e.name} moved the table to the lobby. The saved game is kept until you start a new game or saving is turned off.`
                     : `${e.name} aborted the game.`;
             case 'passed':
                 return isMe(e.playerId, e.name)
@@ -1396,7 +1396,8 @@
     socket.on('connect', () => {
         const saved = session.get();
         if (saved && saved.code && saved.token) {
-            socket.emit('join-table', { code: saved.code, token: saved.token, name: saved.name });
+            // rejoinOnly: palataan vain omaan paikkaan, ei liitytä vanhaan pöytään uutena pelaajana.
+            socket.emit('join-table', { code: saved.code, token: saved.token, name: saved.name, rejoinOnly: true });
         }
     });
 
@@ -1417,6 +1418,16 @@
 
     socket.on('join-error', (data) => {
         const saved = session.get();
+        // Selaimen muistamaa pöytää ei enää ole. Jos sivu avattiin juuri (esim.
+        // etusivulta), se unohdetaan hiljaa eikä virhettä näytetä. Kesken pelin
+        // katkenneelle yhteydelle virhe kerrotaan kuten ennenkin.
+        if (data.rejoin && saved && saved.code === data.code) {
+            session.clear();
+            if (!ui.state) {
+                render();
+                return;
+            }
+        }
         if (saved && data.missing && saved.code === data.code) session.clear();
         ui.state = null;
         ui.claim = null;
@@ -1535,7 +1546,7 @@
 
     $('resume-button').addEventListener('click', () => socket.emit('resume-game'));
     $('discard-button').addEventListener('click', async () => {
-        if (await confirmDialog('Discard the saved game? The scores are deleted and the table becomes an ordinary lobby.')) {
+        if (await confirmDialog('Go to the lobby? The save is kept until you start a new game or turn saving off.')) {
             socket.emit('abort-game');
         }
     });

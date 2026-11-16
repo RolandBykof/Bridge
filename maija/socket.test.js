@@ -87,6 +87,44 @@ test('pöydän luonti, liittyminen koodilla ja erilliset pöydät', async () => 
     }
 });
 
+test('selaimen muistama vanha pöytä ei liitä uutena pelaajana eikä löydy', async () => {
+    const srv = await startServer();
+    try {
+        const kalle = await createTable(srv.url, 'Kalle');
+        const code = kalle.state.table.code;
+
+        // Pöytä on olemassa, mutta tunnus on vanha: ei liitetä uutena pelaajana.
+        const vanha = client(srv.url);
+        let error = null;
+        vanha.socket.on('join-error', e => { error = e; });
+        vanha.socket.emit('join-table', { code, token: 'vanha-tunnus', name: 'Liisa', rejoinOnly: true });
+        await until(() => error, 'vanhan tunnuksen virhe');
+        assert.strictEqual(error.rejoin, true);
+        assert.strictEqual(error.missing, true);
+        assert.strictEqual(vanha.state, null, 'vanha selain liitettiin pöytään');
+        await new Promise(r => setTimeout(r, 50));
+        assert.strictEqual(kalle.state.members.length, 1, 'pöytään tuli uusi pelaaja');
+
+        // Pöytää ei ole enää: virheessä on rejoin-merkintä, jotta selain unohtaa sen hiljaa.
+        const poistunut = client(srv.url);
+        let missing = null;
+        poistunut.socket.on('join-error', e => { missing = e; });
+        poistunut.socket.emit('join-table', { code: '0000', token: 'x', name: 'Matti', rejoinOnly: true });
+        await until(() => missing, 'puuttuvan pöydän virhe');
+        assert.strictEqual(missing.rejoin, true);
+
+        // Oma paikka löytyy tunnuksella edelleen.
+        const takaisin = client(srv.url);
+        takaisin.socket.emit('join-table', { code, token: kalle.joined.token, name: 'Kalle', rejoinOnly: true });
+        await until(() => takaisin.state, 'paluu omaan paikkaan');
+        assert.strictEqual(takaisin.state.members.length, 1);
+
+        [kalle, vanha, poistunut, takaisin].forEach(c => c.socket.close());
+    } finally {
+        await srv.close();
+    }
+});
+
 test('vain pöydän luoja voi lisätä robotteja ja aloittaa pelin', async () => {
     const srv = await startServer();
     try {

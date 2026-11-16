@@ -283,6 +283,10 @@ test('tallennetun pelin pelaajan voi valita listasta, ja luoja voi luopua tallen
         alice2.socket.emit('abort-game');
         await until(() => !alice2.state.table.resuming, 'tallennuksesta luovuttu');
         assert.ok(alice2.events.some(e => e.type === 'aborted' && e.discarded));
+        // Keskeytys ei poista tallennusta, vain tallennusrastin poisto poistaa.
+        assert.notStrictEqual(srv.handle.store.load(code), null, 'keskeytys poisti tallennuksen');
+        alice2.socket.emit('set-save', { enabled: false });
+        await until(() => !alice2.state.table.save.enabled, 'tallennus pois päältä');
         assert.strictEqual(srv.handle.store.load(code), null);
     } finally {
         clients.forEach(c => c.socket.close());

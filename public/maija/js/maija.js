@@ -1230,7 +1230,8 @@
     socket.on('connect', () => {
         const saved = session.get();
         if (saved && saved.code && saved.token) {
-            socket.emit('join-table', { code: saved.code, token: saved.token, name: saved.name });
+            // rejoinOnly: palataan vain omaan paikkaan, ei liitytä vanhaan pöytään uutena pelaajana.
+            socket.emit('join-table', { code: saved.code, token: saved.token, name: saved.name, rejoinOnly: true });
         }
     });
 
@@ -1251,6 +1252,16 @@
 
     socket.on('join-error', (data) => {
         const saved = session.get();
+        // Selaimen muistamaa pöytää ei enää ole. Jos sivu avattiin juuri (esim.
+        // etusivulta), se unohdetaan hiljaa eikä virhettä näytetä. Kesken pelin
+        // katkenneelle yhteydelle virhe kerrotaan kuten ennenkin.
+        if (data.rejoin && saved && saved.code === data.code) {
+            session.clear();
+            if (!ui.state) {
+                render();
+                return;
+            }
+        }
         // Tallennettu pöytä on poistunut (esim. palvelin käynnistyi uudelleen).
         if (saved && data.missing && saved.code === data.code) session.clear();
         ui.state = null;

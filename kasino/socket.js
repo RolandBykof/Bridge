@@ -125,7 +125,9 @@ function attach(io, options = {}) {
     }
 
     function persist(table, events) {
-        if (events.some(e => e.type === 'over' || e.type === 'aborted')) {
+        // Keskeytys ('aborted') ei poista tallennusta: sen poistaa vain tallennuksen
+        // ottaminen pois päältä (set-save), pelin päättyminen tai vanheneminen (TTL).
+        if (events.some(e => e.type === 'over')) {
             removeSave(table);
         } else if (events.some(e => e.type === 'start' || e.type === 'round-over' || e.type === 'resumed')) {
             writeSave(table);
@@ -303,7 +305,7 @@ function attach(io, options = {}) {
             const code = String(data.code || '').trim();
             const table = tables.get(code) || restoreSaved(code);
             if (!table) {
-                socket.emit('join-error', { text: code ? `Pöytää ${code} ei löydy.` : 'Kirjoita pöytäkoodi.', code, missing: true });
+                socket.emit('join-error', { text: code ? `Pöytää ${code} ei löydy.` : 'Kirjoita pöytäkoodi.', code, missing: true, rejoin: !!data.rejoinOnly });
                 return;
             }
             const existing = table.memberByToken(data.token);
@@ -314,6 +316,12 @@ function attach(io, options = {}) {
                 table.reconnect(existing, socket.id);
                 enter(table, existing);
                 publish(table, [{ type: 'reconnected', name: existing.name, playerId: existing.id }]);
+                return;
+            }
+            // Selaimen muistama pöytä ei enää tunne tätä pelaajaa: ei liitetä
+            // uutena pelaajana vanhaan pöytään, vaan unohdetaan se.
+            if (data.rejoinOnly) {
+                socket.emit('join-error', { text: `Pöytää ${code} ei löydy.`, code, missing: true, rejoin: true });
                 return;
             }
             if (table.resuming && !data.spectator) {

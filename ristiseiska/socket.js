@@ -219,7 +219,7 @@ function attach(io, options = {}) {
             const code = data && String(data.code || '').trim();
             const table = tables.get(code);
             if (!table) {
-                socket.emit('join-error', { text: code ? `Pöytää ${code} ei löydy.` : 'Kirjoita pöytäkoodi.', code, missing: true });
+                socket.emit('join-error', { text: code ? `Pöytää ${code} ei löydy.` : 'Kirjoita pöytäkoodi.', code, missing: true, rejoin: !!(data && data.rejoinOnly) });
                 return;
             }
             const existing = table.memberByToken(data.token);
@@ -230,6 +230,12 @@ function attach(io, options = {}) {
                 table.reconnect(existing, socket.id);
                 enter(table, existing);
                 publish(table, [{ type: 'reconnected', name: existing.name, playerId: existing.id }]);
+                return;
+            }
+            // Selaimen muistama pöytä ei enää tunne tätä pelaajaa: ei liitetä
+            // uutena pelaajana vanhaan pöytään, vaan unohdetaan se.
+            if (data.rejoinOnly) {
+                socket.emit('join-error', { text: `Pöytää ${code} ei löydy.`, code, missing: true, rejoin: true });
                 return;
             }
             let member;
