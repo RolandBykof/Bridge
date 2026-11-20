@@ -257,11 +257,14 @@
 
     // ===== Pöydän tekstit =====
 
-    // "Pata 3, 9." Vain kortit, jotka maahan voi seuraavaksi lyödä.
-    function suitTableText(suit) {
-        const next = game().nextCards[suit];
-        if (next.length === 0) return `${capitalize(SUIT_NAMES[suit])} valmis.`;
-        return `${capitalize(SUIT_NAMES[suit])} ${next.map(rankName).join(', ')}.`;
+    // Mitä maassa on pöydässä (alin ja ylin kortti), ei sitä mitä voi lyödä.
+    // Pelaaja päättelee lyötävät kortit itse. Sama lause Alt+Q W E R:ssä,
+    // koko pöydän luvussa ja ruudunlukijan pöytäluettelossa.
+    function suitPileText(suit) {
+        const pile = game().table[suit];
+        if (!pile) return `Pöydässä ${SUIT_NONE[suit].toLowerCase()}.`;
+        if (pile.low === pile.high) return `Pöydässä ${SUIT_NAMES[suit]} ${rankName(pile.low)}.`;
+        return `Pöydässä ${SUIT_NAMES[suit]}, alin ${rankName(pile.low)}, ylin ${rankName(pile.high)}.`;
     }
 
     // ===== Tapahtumien tekstit =====
@@ -683,7 +686,7 @@
 
         for (const suit of SUITS) {
             const item = document.createElement('li');
-            item.textContent = suitTableText(suit);
+            item.textContent = suitPileText(suit);
             text.appendChild(item);
 
             const pile = g.table[suit];
@@ -948,7 +951,7 @@
             respond('Peli ei ole käynnissä.');
             return;
         }
-        respond(suitTableText(suit));
+        respond(suitPileText(suit));
     }
 
     function readTable() {
@@ -956,7 +959,7 @@
             respond('Peli ei ole käynnissä.');
             return;
         }
-        respond(SUITS.map(suitTableText).join(' '));
+        respond(SUITS.map(suitPileText).join(' '));
     }
 
     function readTurn() {
